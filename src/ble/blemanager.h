@@ -5,6 +5,7 @@
 #include <QBluetoothDeviceInfo>
 #include <QList>
 #include <QVariant>
+#include <QPermissions>
 
 class BLEManager : public QObject {
     Q_OBJECT
@@ -20,6 +21,9 @@ public:
     bool isScanning() const;
     QVariantList discoveredDevices() const;
     QVariantList discoveredScales() const;
+
+    Q_INVOKABLE QBluetoothDeviceInfo getScaleDeviceInfo(const QString& address) const;
+    Q_INVOKABLE QString getScaleType(const QString& address) const;
 
 public slots:
     void startScan();
@@ -42,9 +46,12 @@ private slots:
 private:
     bool isDE1Device(const QBluetoothDeviceInfo& device) const;
     QString getScaleType(const QBluetoothDeviceInfo& device) const;
+    void requestBluetoothPermission();
+    void doStartScan();
 
     QBluetoothDeviceDiscoveryAgent* m_discoveryAgent = nullptr;
     QList<QBluetoothDeviceInfo> m_de1Devices;
     QList<QPair<QBluetoothDeviceInfo, QString>> m_scales;  // device, type
     bool m_scanning = false;
+    bool m_permissionRequested = false;
 };

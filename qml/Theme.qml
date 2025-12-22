@@ -8,22 +8,26 @@ QtObject {
     readonly property color primaryColor: "#4e85f4"
     readonly property color secondaryColor: "#c0c5e3"
     readonly property color textColor: "#ffffff"
-    readonly property color textSecondaryColor: "#7f879a"
+    readonly property color textSecondaryColor: "#a0a8b8"
     readonly property color accentColor: "#e94560"
     readonly property color successColor: "#00ff88"
     readonly property color warningColor: "#ffaa00"
     readonly property color errorColor: "#ff4444"
 
-    // Gauge colors
-    readonly property color pressureColor: "#4eb4f4"
-    readonly property color flowColor: "#88dd88"
-    readonly property color temperatureColor: "#f4a04e"
-    readonly property color weightColor: "#dd88dd"
+    // Chart line colors (from DE1app dark theme)
+    readonly property color pressureColor: "#18c37e"       // Green - actual pressure
+    readonly property color pressureGoalColor: "#69fdb3"   // Light green - pressure goal
+    readonly property color flowColor: "#4e85f4"           // Blue - actual flow
+    readonly property color flowGoalColor: "#7aaaff"       // Light blue - flow goal
+    readonly property color temperatureColor: "#e73249"    // Red - actual temperature
+    readonly property color temperatureGoalColor: "#ffa5a6" // Light red - temp goal
+    readonly property color weightColor: "#a2693d"         // Brown - weight
 
     // Fonts
     readonly property font headingFont: Qt.font({ pixelSize: 32, bold: true })
     readonly property font bodyFont: Qt.font({ pixelSize: 18 })
     readonly property font labelFont: Qt.font({ pixelSize: 14 })
+    readonly property font captionFont: Qt.font({ pixelSize: 12 })
     readonly property font valueFont: Qt.font({ pixelSize: 48, bold: true })
     readonly property font timerFont: Qt.font({ pixelSize: 72, bold: true })
 

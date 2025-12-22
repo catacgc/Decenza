@@ -102,7 +102,7 @@ void MachineState::updatePhase() {
             if (subState == DE1::SubState::Heating ||
                 subState == DE1::SubState::FinalHeating ||
                 subState == DE1::SubState::Stabilising) {
-                m_phase = Phase::Heating;
+                m_phase = Phase::EspressoPreheating;  // Use specific phase for espresso preheating
             } else if (subState == DE1::SubState::Preinfusion) {
                 m_phase = Phase::Preinfusion;
             } else if (subState == DE1::SubState::Pouring) {
@@ -138,6 +138,20 @@ void MachineState::updatePhase() {
 
     if (m_phase != oldPhase) {
         emit phaseChanged();
+
+        // Detect espresso cycle start (entering preheating from non-espresso state)
+        bool wasInEspresso = (oldPhase == Phase::EspressoPreheating ||
+                              oldPhase == Phase::Preinfusion ||
+                              oldPhase == Phase::Pouring ||
+                              oldPhase == Phase::Ending);
+        bool isInEspresso = (m_phase == Phase::EspressoPreheating ||
+                             m_phase == Phase::Preinfusion ||
+                             m_phase == Phase::Pouring ||
+                             m_phase == Phase::Ending);
+
+        if (isInEspresso && !wasInEspresso) {
+            emit espressoCycleStarted();
+        }
 
         // Start/stop shot timer
         bool wasFlowing = (oldPhase == Phase::Preinfusion ||

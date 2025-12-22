@@ -42,7 +42,7 @@ public slots:
     void setSteamFlowImmediate(int flow);
     void setSteamTimeoutImmediate(int timeout);
 
-    void onShotStarted();
+    void onEspressoCycleStarted();
     void onShotEnded();
 
 signals:
@@ -66,4 +66,6 @@ private:
     Profile m_currentProfile;
     QStringList m_availableProfiles;
     double m_shotStartTime = 0;
+    bool m_extractionStarted = false;
+    int m_lastFrameNumber = -1;
 };

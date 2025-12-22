@@ -1,21 +1,25 @@
-#include <QGuiApplication>
+#include <QApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QIcon>
 #include <QTimer>
+#include <memory>
 
 #include "core/settings.h"
 #include "ble/blemanager.h"
 #include "ble/de1device.h"
 #include "ble/scaledevice.h"
+#include "ble/scales/scalefactory.h"
 #include "machine/machinestate.h"
 #include "models/shotdatamodel.h"
 #include "controllers/maincontroller.h"
 
+using namespace Qt::StringLiterals;
+
 int main(int argc, char *argv[])
 {
-    QGuiApplication app(argc, argv);
+    QApplication app(argc, argv);
 
     // Set application metadata
     app.setOrganizationName("DecentEspresso");
@@ -30,6 +34,7 @@ int main(int argc, char *argv[])
     Settings settings;
     BLEManager bleManager;
     DE1Device de1Device;
+    std::unique_ptr<ScaleDevice> scale;
     ShotDataModel shotDataModel;
     MachineState machineState(&de1Device);
     MainController mainController(&settings, &de1Device, &machineState, &shotDataModel);
@@ -46,6 +51,44 @@ int main(int argc, char *argv[])
         }
     });
 
+    // Connect to any supported scale when discovered
+    QObject::connect(&bleManager, &BLEManager::scaleDiscovered,
+                     [&scale, &machineState, &engine](const QBluetoothDeviceInfo& device, const QString& type) {
+        // Don't connect if we already have a connected scale
+        if (scale && scale->isConnected()) {
+            return;
+        }
+
+        // Create the appropriate scale type using ScaleFactory
+        scale = ScaleFactory::createScale(device);
+        if (!scale) {
+            qWarning() << "Failed to create scale for type:" << type;
+            return;
+        }
+
+        qDebug() << "Auto-connecting to" << type << "scale:" << device.name();
+
+        // Connect scale to MachineState for stop-on-weight functionality
+        machineState.setScale(scale.get());
+
+        // Log scale weight during shots
+        QObject::connect(scale.get(), &ScaleDevice::weightChanged,
+                         [&scale, &machineState]() {
+            if (scale && machineState.isFlowing()) {
+                qDebug().nospace()
+                    << "SCALE weight:" << QString::number(scale->weight(), 'f', 1) << "g "
+                    << "flow:" << QString::number(scale->flowRate(), 'f', 2) << "g/s";
+            }
+        });
+
+        // Update QML context when scale is created
+        QQmlContext* context = engine.rootContext();
+        context->setContextProperty("ScaleDevice", scale.get());
+
+        // Connect to the scale
+        scale->connectToDevice(device);
+    });
+
     // Auto-start scanning on launch
     QTimer::singleShot(500, &bleManager, &BLEManager::startScan);
 
@@ -54,6 +97,7 @@ int main(int argc, char *argv[])
     context->setContextProperty("Settings", &settings);
     context->setContextProperty("BLEManager", &bleManager);
     context->setContextProperty("DE1Device", &de1Device);
+    context->setContextProperty("ScaleDevice", scale.get());  // nullptr initially, updated when scale connects
     context->setContextProperty("MachineState", &machineState);
     context->setContextProperty("ShotDataModel", &shotDataModel);
     context->setContextProperty("MainController", &mainController);
@@ -65,7 +109,7 @@ int main(int argc, char *argv[])
         "MachineState is created in C++");
 
     // Load main QML file (QTP0001 NEW policy uses /qt/qml/ prefix)
-    const QUrl url(u"qrc:/qt/qml/DE1App/qml/main.qml"_qs);
+    const QUrl url(u"qrc:/qt/qml/DE1App/qml/main.qml"_s);
 
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreated,
         &app, [url](QObject *obj, const QUrl &objUrl) {

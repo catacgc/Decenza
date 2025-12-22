@@ -7,6 +7,10 @@ DecentScale::DecentScale(QObject* parent)
 {
 }
 
+DecentScale::~DecentScale() {
+    disconnect();
+}
+
 void DecentScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
         disconnect();

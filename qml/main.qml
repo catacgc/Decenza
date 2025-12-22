@@ -41,6 +41,11 @@ ApplicationWindow {
             id: settingsPage
             SettingsPage {}
         }
+
+        Component {
+            id: profileEditorPage
+            ProfileEditorPage {}
+        }
     }
 
     // Status bar overlay
@@ -58,22 +63,27 @@ ApplicationWindow {
         target: MachineState
 
         function onPhaseChanged() {
+            // Don't navigate while a transition is in progress
+            if (pageStack.busy) return
+
             let phase = MachineState.phase
+            let currentPage = pageStack.currentItem ? pageStack.currentItem.objectName : ""
 
             // Only auto-navigate during active operations
-            if (phase === MachineStateType.Phase.Preinfusion ||
+            if (phase === MachineStateType.Phase.EspressoPreheating ||
+                phase === MachineStateType.Phase.Preinfusion ||
                 phase === MachineStateType.Phase.Pouring ||
                 phase === MachineStateType.Phase.Ending) {
-                if (pageStack.currentItem.objectName !== "espressoPage") {
+                if (currentPage !== "espressoPage") {
                     pageStack.replace(espressoPage)
                 }
             } else if (phase === MachineStateType.Phase.Steaming) {
-                if (pageStack.currentItem.objectName !== "steamPage") {
+                if (currentPage !== "steamPage") {
                     pageStack.replace(steamPage)
                 }
             } else if (phase === MachineStateType.Phase.HotWater ||
                        phase === MachineStateType.Phase.Flushing) {
-                if (pageStack.currentItem.objectName !== "hotWaterPage") {
+                if (currentPage !== "hotWaterPage") {
                     pageStack.replace(hotWaterPage)
                 }
             }
@@ -105,5 +115,9 @@ ApplicationWindow {
         if (pageStack.depth > 1) {
             pageStack.pop()
         }
+    }
+
+    function goToProfileEditor(profile) {
+        pageStack.push(profileEditorPage, { profile: profile })
     }
 }

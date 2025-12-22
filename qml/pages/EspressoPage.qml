@@ -8,123 +8,190 @@ Page {
     objectName: "espressoPage"
     background: Rectangle { color: Theme.backgroundColor }
 
-    RowLayout {
+    // Full-screen shot graph
+    ShotGraph {
+        id: shotGraph
         anchors.fill: parent
-        anchors.margins: Theme.standardMargin
         anchors.topMargin: 60
-        spacing: 20
+        anchors.bottomMargin: 100
+    }
 
-        // Left side - Shot graph
-        Item {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+    // Status indicator for preheating
+    Rectangle {
+        id: statusBanner
+        anchors.top: parent.top
+        anchors.topMargin: 60
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: statusText.width + 40
+        height: 36
+        radius: 18
+        color: MachineState.phase === MachineStateType.Phase.EspressoPreheating ?
+               Theme.accentColor : "transparent"
+        visible: MachineState.phase === MachineStateType.Phase.EspressoPreheating
 
-            ShotGraph {
-                id: shotGraph
-                anchors.fill: parent
-            }
+        Text {
+            id: statusText
+            anchors.centerIn: parent
+            text: "PREHEATING..."
+            color: Theme.textColor
+            font: Theme.bodyFont
         }
+    }
 
-        // Right side - Live values and controls
-        ColumnLayout {
-            Layout.preferredWidth: 280
-            Layout.fillHeight: true
+    // Bottom info bar with live values
+    Rectangle {
+        id: infoBar
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 100
+        color: Qt.rgba(0, 0, 0, 0.7)
+
+        RowLayout {
+            anchors.fill: parent
+            anchors.margins: 15
             spacing: 20
 
             // Timer
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.preferredHeight: 100
-                color: Theme.surfaceColor
-                radius: Theme.cardRadius
+            ColumnLayout {
+                Layout.preferredWidth: 120
+                spacing: 2
 
                 Text {
-                    anchors.centerIn: parent
                     text: MachineState.shotTime.toFixed(1) + "s"
                     color: Theme.textColor
-                    font: Theme.timerFont
+                    font.pixelSize: 36
+                    font.weight: Font.Bold
+                }
+                Text {
+                    text: "Time"
+                    color: Theme.textSecondaryColor
+                    font: Theme.captionFont
                 }
             }
 
-            // Current values
-            GridLayout {
-                Layout.fillWidth: true
-                columns: 2
-                rowSpacing: 15
-                columnSpacing: 15
-
-                CircularGauge {
-                    Layout.fillWidth: true
-                    value: DE1Device.pressure
-                    maxValue: 12
-                    unit: "bar"
-                    color: Theme.pressureColor
-                    label: "Pressure"
-                }
-
-                CircularGauge {
-                    Layout.fillWidth: true
-                    value: DE1Device.flow
-                    maxValue: 8
-                    unit: "mL/s"
-                    color: Theme.flowColor
-                    label: "Flow"
-                }
-
-                CircularGauge {
-                    Layout.fillWidth: true
-                    value: DE1Device.temperature
-                    minValue: 80
-                    maxValue: 100
-                    unit: "°C"
-                    color: Theme.temperatureColor
-                    label: "Temp"
-                }
-
-                CircularGauge {
-                    Layout.fillWidth: true
-                    value: 0  // Would come from scale
-                    maxValue: MainController.targetWeight * 1.5
-                    unit: "g"
-                    color: Theme.weightColor
-                    label: "Weight"
-                }
-            }
-
-            // Weight progress
-            ProgressBar {
-                Layout.fillWidth: true
-                from: 0
-                to: MainController.targetWeight
-                value: 0  // Would come from scale
-
-                background: Rectangle {
-                    color: Theme.surfaceColor
-                    radius: 4
-                }
-
-                contentItem: Rectangle {
-                    width: parent.visualPosition * parent.width
-                    height: parent.height
-                    radius: 4
-                    color: Theme.weightColor
-                }
-            }
-
-            Text {
-                Layout.alignment: Qt.AlignHCenter
-                text: "0 / " + MainController.targetWeight.toFixed(0) + " g"
+            // Divider
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                Layout.topMargin: 10
+                Layout.bottomMargin: 10
                 color: Theme.textSecondaryColor
-                font: Theme.bodyFont
+                opacity: 0.3
             }
 
-            Item { Layout.fillHeight: true }
+            // Pressure
+            ColumnLayout {
+                Layout.preferredWidth: 100
+                spacing: 2
+
+                Text {
+                    text: DE1Device.pressure.toFixed(1)
+                    color: Theme.pressureColor
+                    font.pixelSize: 28
+                    font.weight: Font.Medium
+                }
+                Text {
+                    text: "bar"
+                    color: Theme.textSecondaryColor
+                    font: Theme.captionFont
+                }
+            }
+
+            // Flow
+            ColumnLayout {
+                Layout.preferredWidth: 100
+                spacing: 2
+
+                Text {
+                    text: DE1Device.flow.toFixed(1)
+                    color: Theme.flowColor
+                    font.pixelSize: 28
+                    font.weight: Font.Medium
+                }
+                Text {
+                    text: "mL/s"
+                    color: Theme.textSecondaryColor
+                    font: Theme.captionFont
+                }
+            }
+
+            // Temperature
+            ColumnLayout {
+                Layout.preferredWidth: 100
+                spacing: 2
+
+                Text {
+                    text: DE1Device.temperature.toFixed(1)
+                    color: Theme.temperatureColor
+                    font.pixelSize: 28
+                    font.weight: Font.Medium
+                }
+                Text {
+                    text: "°C"
+                    color: Theme.textSecondaryColor
+                    font: Theme.captionFont
+                }
+            }
+
+            // Divider
+            Rectangle {
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                Layout.topMargin: 10
+                Layout.bottomMargin: 10
+                color: Theme.textSecondaryColor
+                opacity: 0.3
+            }
+
+            // Weight with progress
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 4
+
+                RowLayout {
+                    spacing: 8
+
+                    Text {
+                        text: ScaleDevice.weight.toFixed(1)
+                        color: Theme.weightColor
+                        font.pixelSize: 28
+                        font.weight: Font.Medium
+                        Layout.alignment: Qt.AlignBaseline
+                    }
+                    Text {
+                        text: "/ " + MainController.targetWeight.toFixed(0) + " g"
+                        color: Theme.textSecondaryColor
+                        font.pixelSize: 18
+                        Layout.alignment: Qt.AlignBaseline
+                    }
+                }
+
+                ProgressBar {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 8
+                    from: 0
+                    to: MainController.targetWeight
+                    value: ScaleDevice.weight
+
+                    background: Rectangle {
+                        color: Theme.surfaceColor
+                        radius: 4
+                    }
+
+                    contentItem: Rectangle {
+                        width: parent.visualPosition * parent.width
+                        height: parent.height
+                        radius: 4
+                        color: Theme.weightColor
+                    }
+                }
+            }
 
             // Stop button
             ActionButton {
-                Layout.alignment: Qt.AlignHCenter
-                Layout.preferredWidth: 200
-                Layout.preferredHeight: 80
+                Layout.preferredWidth: 120
+                Layout.preferredHeight: 60
                 text: "STOP"
                 backgroundColor: Theme.accentColor
                 onClicked: {
@@ -135,10 +202,9 @@ Page {
         }
     }
 
-    // Tap anywhere to stop (full screen touch area)
+    // Tap anywhere on chart to stop
     MouseArea {
-        anchors.fill: parent
-        z: -1
+        anchors.fill: shotGraph
         onClicked: {
             DE1Device.stopOperation()
             root.goToIdle()

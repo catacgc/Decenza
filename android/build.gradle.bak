@@ -4,7 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath 'com.android.tools.build:gradle:8.5.0'
     }
 }
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId "com.decentespresso.de1qt"
-        minSdk 26
+        minSdk 28
         targetSdk 34
         versionCode 1
         versionName "1.0.0"

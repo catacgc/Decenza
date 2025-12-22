@@ -8,6 +8,7 @@ class DecentScale : public ScaleDevice {
 
 public:
     explicit DecentScale(QObject* parent = nullptr);
+    ~DecentScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
     QString name() const override { return m_name; }

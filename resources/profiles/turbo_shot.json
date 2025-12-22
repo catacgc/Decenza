@@ -1,0 +1,47 @@
+{
+    "title": "Turbo Shot",
+    "author": "DE1 Qt App",
+    "notes": "High-flow turbo extraction - fast, punchy espresso",
+    "beverage_type": "espresso",
+    "profile_type": "settings_2c",
+    "target_weight": 45.0,
+    "target_volume": 45.0,
+    "espresso_temperature": 90.0,
+    "temperature_presets": [86.0, 88.0, 90.0, 92.0],
+    "maximum_pressure": 6.0,
+    "maximum_flow": 8.0,
+    "minimum_pressure": 0.0,
+    "preinfuse_frame_count": 1,
+    "mode": "frame_based",
+    "steps": [
+        {
+            "name": "Preinfusion",
+            "temperature": 90.0,
+            "sensor": "coffee",
+            "pump": "flow",
+            "transition": "fast",
+            "pressure": 6.0,
+            "flow": 8.0,
+            "seconds": 5.0,
+            "volume": 0,
+            "max_flow_or_pressure": 4.0,
+            "exit_if": true,
+            "exit_type": "pressure_over",
+            "exit_pressure_over": 2.0
+        },
+        {
+            "name": "Turbo",
+            "temperature": 90.0,
+            "sensor": "coffee",
+            "pump": "flow",
+            "transition": "fast",
+            "pressure": 6.0,
+            "flow": 4.5,
+            "seconds": 25.0,
+            "volume": 0,
+            "max_flow_or_pressure": 6.0,
+            "exit_if": false,
+            "exit_weight": 45.0
+        }
+    ]
+}

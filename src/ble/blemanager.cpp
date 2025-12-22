@@ -1,6 +1,9 @@
 #include "blemanager.h"
 #include "protocol/de1characteristics.h"
+#include "scales/scalefactory.h"
 #include <QBluetoothUuid>
+#include <QCoreApplication>
+#include <QDebug>
 
 BLEManager::BLEManager(QObject* parent)
     : QObject(parent)
@@ -49,9 +52,64 @@ QVariantList BLEManager::discoveredScales() const {
     return result;
 }
 
+QBluetoothDeviceInfo BLEManager::getScaleDeviceInfo(const QString& address) const {
+    QBluetoothAddress addr(address);
+    for (const auto& pair : m_scales) {
+        if (pair.first.address() == addr) {
+            return pair.first;
+        }
+    }
+    return QBluetoothDeviceInfo();
+}
+
+QString BLEManager::getScaleType(const QString& address) const {
+    QBluetoothAddress addr(address);
+    for (const auto& pair : m_scales) {
+        if (pair.first.address() == addr) {
+            return pair.second;
+        }
+    }
+    return QString();
+}
+
 void BLEManager::startScan() {
     if (m_scanning) return;
 
+    // Check and request Bluetooth permission on Android
+    requestBluetoothPermission();
+}
+
+void BLEManager::requestBluetoothPermission() {
+#ifdef Q_OS_ANDROID
+    QBluetoothPermission bluetoothPermission;
+    bluetoothPermission.setCommunicationModes(QBluetoothPermission::Access);
+
+    switch (qApp->checkPermission(bluetoothPermission)) {
+    case Qt::PermissionStatus::Undetermined:
+        qDebug() << "Bluetooth permission undetermined, requesting...";
+        qApp->requestPermission(bluetoothPermission, this, [this](const QPermission& permission) {
+            if (permission.status() == Qt::PermissionStatus::Granted) {
+                qDebug() << "Bluetooth permission granted";
+                doStartScan();
+            } else {
+                qDebug() << "Bluetooth permission denied";
+                emit errorOccurred("Bluetooth permission denied");
+            }
+        });
+        return;
+    case Qt::PermissionStatus::Denied:
+        qDebug() << "Bluetooth permission denied";
+        emit errorOccurred("Bluetooth permission required. Please enable in Settings.");
+        return;
+    case Qt::PermissionStatus::Granted:
+        qDebug() << "Bluetooth permission already granted";
+        break;
+    }
+#endif
+    doStartScan();
+}
+
+void BLEManager::doStartScan() {
     clearDevices();
     m_scanning = true;
     emit scanningChanged();
@@ -159,55 +217,9 @@ bool BLEManager::isDE1Device(const QBluetoothDeviceInfo& device) const {
 }
 
 QString BLEManager::getScaleType(const QBluetoothDeviceInfo& device) const {
-    QString name = device.name();
-    QList<QBluetoothUuid> uuids = device.serviceUuids();
-
-    // Check by name patterns
-    if (name.startsWith("Decent Scale", Qt::CaseInsensitive) ||
-        name.startsWith("DE-", Qt::CaseInsensitive)) {
-        return "decent";
+    ScaleType type = ScaleFactory::detectScaleType(device);
+    if (type == ScaleType::Unknown) {
+        return "";
     }
-
-    if (name.startsWith("ACAIA", Qt::CaseInsensitive) ||
-        name.startsWith("PYXIS", Qt::CaseInsensitive) ||
-        name.startsWith("PEARL", Qt::CaseInsensitive)) {
-        return "acaia";
-    }
-
-    if (name.contains("FELICITA", Qt::CaseInsensitive)) {
-        return "felicita";
-    }
-
-    if (name.contains("BOOKOO", Qt::CaseInsensitive)) {
-        return "bookoo";
-    }
-
-    if (name.contains("EUREKA", Qt::CaseInsensitive) ||
-        name.contains("PRECISA", Qt::CaseInsensitive)) {
-        return "eureka";
-    }
-
-    if (name.contains("JIMMY", Qt::CaseInsensitive) ||
-        name.contains("HIROIA", Qt::CaseInsensitive)) {
-        return "hiroia";
-    }
-
-    if (name.contains("DIFLUID", Qt::CaseInsensitive)) {
-        return "difluid";
-    }
-
-    // Check by service UUIDs
-    for (const auto& uuid : uuids) {
-        if (uuid == Scale::Decent::SERVICE) {
-            return "decent";
-        }
-        if (uuid == Scale::Acaia::SERVICE) {
-            return "acaia";
-        }
-        if (uuid == Scale::Felicita::SERVICE) {
-            return "felicita";
-        }
-    }
-
-    return "";  // Not a recognized scale
+    return ScaleFactory::scaleTypeName(type);
 }

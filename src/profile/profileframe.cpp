@@ -1,5 +1,6 @@
 #include "profileframe.h"
 #include "../ble/protocol/de1characteristics.h"
+#include <QRegularExpression>
 
 QJsonObject ProfileFrame::toJson() const {
     QJsonObject obj;
@@ -27,6 +28,10 @@ QJsonObject ProfileFrame::toJson() const {
         obj["max_flow_or_pressure_range"] = maxFlowOrPressureRange;
     }
 
+    if (exitWeight > 0) {
+        obj["exit_weight"] = exitWeight;
+    }
+
     return obj;
 }
 
@@ -52,7 +57,87 @@ ProfileFrame ProfileFrame::fromJson(const QJsonObject& json) {
     frame.maxFlowOrPressure = json["max_flow_or_pressure"].toDouble(0.0);
     frame.maxFlowOrPressureRange = json["max_flow_or_pressure_range"].toDouble(0.6);
 
+    frame.exitWeight = json["exit_weight"].toDouble(0.0);
+
     return frame;
+}
+
+ProfileFrame ProfileFrame::fromTclList(const QString& tclList) {
+    // Parse de1app Tcl list format: {key value key value ...}
+    // Example: {exit_if 1 flow 2.0 volume 100 transition fast exit_flow_under 0.0
+    //           temperature 93.0 name "preinfusion" pressure 1.0 sensor coffee
+    //           pump pressure exit_type pressure_over exit_pressure_over 1.5 seconds 10}
+
+    ProfileFrame frame;
+    QString cleaned = tclList.trimmed();
+
+    // Remove outer braces if present
+    if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+        cleaned = cleaned.mid(1, cleaned.length() - 2);
+    }
+
+    // Parse key-value pairs
+    // Handle quoted strings and regular values
+    // Pattern: word + whitespace + (quoted string OR non-whitespace)
+    QRegularExpression re("(\\w+)\\s+(?:\"([^\"]*)\"|([^\\s]+))");
+    QRegularExpressionMatchIterator it = re.globalMatch(cleaned);
+
+    while (it.hasNext()) {
+        QRegularExpressionMatch match = it.next();
+        QString key = match.captured(1);
+        QString value = match.captured(2).isEmpty() ? match.captured(3) : match.captured(2);
+
+        if (key == "name") {
+            frame.name = value;
+        } else if (key == "temperature") {
+            frame.temperature = value.toDouble();
+        } else if (key == "sensor") {
+            frame.sensor = value;
+        } else if (key == "pump") {
+            frame.pump = value;
+        } else if (key == "transition") {
+            frame.transition = (value == "smooth" || value == "slow") ? "smooth" : "fast";
+        } else if (key == "pressure") {
+            frame.pressure = value.toDouble();
+        } else if (key == "flow") {
+            frame.flow = value.toDouble();
+        } else if (key == "seconds") {
+            frame.seconds = value.toDouble();
+        } else if (key == "volume") {
+            frame.volume = value.toDouble();
+        } else if (key == "exit_if") {
+            frame.exitIf = (value == "1" || value == "true");
+        } else if (key == "exit_type") {
+            frame.exitType = value;
+        } else if (key == "exit_pressure_over") {
+            frame.exitPressureOver = value.toDouble();
+        } else if (key == "exit_pressure_under") {
+            frame.exitPressureUnder = value.toDouble();
+        } else if (key == "exit_flow_over") {
+            frame.exitFlowOver = value.toDouble();
+        } else if (key == "exit_flow_under") {
+            frame.exitFlowUnder = value.toDouble();
+        } else if (key == "max_flow_or_pressure") {
+            frame.maxFlowOrPressure = value.toDouble();
+        } else if (key == "max_flow_or_pressure_range") {
+            frame.maxFlowOrPressureRange = value.toDouble();
+        } else if (key == "weight") {
+            frame.exitWeight = value.toDouble();
+        }
+    }
+
+    return frame;
+}
+
+ProfileFrame ProfileFrame::withSetpoint(double pressureOrFlow, double temp) const {
+    ProfileFrame copy = *this;
+    if (copy.pump == "flow") {
+        copy.flow = pressureOrFlow;
+    } else {
+        copy.pressure = pressureOrFlow;
+    }
+    copy.temperature = temp;
+    return copy;
 }
 
 uint8_t ProfileFrame::computeFlags() const {

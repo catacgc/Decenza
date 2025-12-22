@@ -1,0 +1,158 @@
+#include "scalefactory.h"
+#include "decentscale.h"
+#include "acaiascale.h"
+#include "felicitascale.h"
+#include "skalescale.h"
+#include "hiroiascale.h"
+#include "bookooscale.h"
+#include "smartchefscale.h"
+#include "difluidscale.h"
+#include "eurekaprecisascale.h"
+#include "solobaristascale.h"
+#include "atomhearteclairscale.h"
+#include "variaakuscale.h"
+
+ScaleType ScaleFactory::detectScaleType(const QBluetoothDeviceInfo& device) {
+    QString name = device.name().toLower();
+
+    // Check each scale type by name pattern
+    if (isDecentScale(name)) return ScaleType::DecentScale;
+    if (isAcaiaPyxis(name)) return ScaleType::AcaiaPyxis;
+    if (isAcaiaScale(name)) return ScaleType::Acaia;
+    if (isFelicitaScale(name)) return ScaleType::Felicita;
+    if (isSkaleScale(name)) return ScaleType::Skale;
+    if (isHiroiaJimmy(name)) return ScaleType::HiroiaJimmy;
+    if (isBookooScale(name)) return ScaleType::Bookoo;
+    if (isSmartChefScale(name)) return ScaleType::SmartChef;
+    if (isDifluidScale(name)) return ScaleType::Difluid;
+    if (isEurekaPrecisa(name)) return ScaleType::EurekaPrecisa;
+    if (isSoloBarista(name)) return ScaleType::SoloBarista;
+    if (isAtomheartEclair(name)) return ScaleType::AtomheartEclair;
+    if (isVariaAku(name)) return ScaleType::VariaAku;
+
+    return ScaleType::Unknown;
+}
+
+std::unique_ptr<ScaleDevice> ScaleFactory::createScale(const QBluetoothDeviceInfo& device, QObject* parent) {
+    ScaleType type = detectScaleType(device);
+
+    switch (type) {
+        case ScaleType::DecentScale:
+            return std::make_unique<DecentScale>(parent);
+        case ScaleType::Acaia:
+            return std::make_unique<AcaiaScale>(false, parent);  // IPS mode
+        case ScaleType::AcaiaPyxis:
+            return std::make_unique<AcaiaScale>(true, parent);   // Pyxis mode
+        case ScaleType::Felicita:
+            return std::make_unique<FelicitaScale>(parent);
+        case ScaleType::Skale:
+            return std::make_unique<SkaleScale>(parent);
+        case ScaleType::HiroiaJimmy:
+            return std::make_unique<HiroiaScale>(parent);
+        case ScaleType::Bookoo:
+            return std::make_unique<BookooScale>(parent);
+        case ScaleType::SmartChef:
+            return std::make_unique<SmartChefScale>(parent);
+        case ScaleType::Difluid:
+            return std::make_unique<DifluidScale>(parent);
+        case ScaleType::EurekaPrecisa:
+            return std::make_unique<EurekaPrecisaScale>(parent);
+        case ScaleType::SoloBarista:
+            return std::make_unique<SoloBarristaScale>(parent);
+        case ScaleType::AtomheartEclair:
+            return std::make_unique<AtomheartEclairScale>(parent);
+        case ScaleType::VariaAku:
+            return std::make_unique<VariaAkuScale>(parent);
+        default:
+            return nullptr;
+    }
+}
+
+bool ScaleFactory::isKnownScale(const QBluetoothDeviceInfo& device) {
+    return detectScaleType(device) != ScaleType::Unknown;
+}
+
+QString ScaleFactory::scaleTypeName(ScaleType type) {
+    switch (type) {
+        case ScaleType::DecentScale: return "Decent Scale";
+        case ScaleType::Acaia: return "Acaia";
+        case ScaleType::AcaiaPyxis: return "Acaia Pyxis";
+        case ScaleType::Felicita: return "Felicita";
+        case ScaleType::Skale: return "Skale";
+        case ScaleType::HiroiaJimmy: return "Hiroia Jimmy";
+        case ScaleType::Bookoo: return "Bookoo";
+        case ScaleType::SmartChef: return "SmartChef";
+        case ScaleType::Difluid: return "Difluid";
+        case ScaleType::EurekaPrecisa: return "Eureka Precisa";
+        case ScaleType::SoloBarista: return "Solo Barista";
+        case ScaleType::AtomheartEclair: return "Atomheart Eclair";
+        case ScaleType::VariaAku: return "Varia Aku";
+        default: return "Unknown";
+    }
+}
+
+// Detection functions based on device name patterns from de1app
+bool ScaleFactory::isDecentScale(const QString& name) {
+    return name.contains("decent scale");
+}
+
+bool ScaleFactory::isAcaiaScale(const QString& name) {
+    // Acaia scales: ACAIA, LUNAR, PEARL, PROCH
+    return name.contains("acaia") ||
+           name.contains("lunar") ||
+           name.contains("pearl") ||
+           name.contains("proch");
+}
+
+bool ScaleFactory::isAcaiaPyxis(const QString& name) {
+    return name.contains("pyxis");
+}
+
+bool ScaleFactory::isFelicitaScale(const QString& name) {
+    return name.contains("felicita") ||
+           name.contains("ecompass");
+}
+
+bool ScaleFactory::isSkaleScale(const QString& name) {
+    return name.contains("skale");
+}
+
+bool ScaleFactory::isHiroiaJimmy(const QString& name) {
+    return name.contains("hiroia") ||
+           name.contains("jimmy");
+}
+
+bool ScaleFactory::isBookooScale(const QString& name) {
+    return name.contains("bookoo") ||
+           name.contains("bkscale");
+}
+
+bool ScaleFactory::isSmartChefScale(const QString& name) {
+    return name.contains("smartchef");
+}
+
+bool ScaleFactory::isDifluidScale(const QString& name) {
+    return name.contains("difluid") ||
+           name.contains("microbalance");
+}
+
+bool ScaleFactory::isEurekaPrecisa(const QString& name) {
+    return name.contains("eureka") ||
+           name.contains("precisa") ||
+           name.contains("cfs-9002");
+}
+
+bool ScaleFactory::isSoloBarista(const QString& name) {
+    return name.contains("solo barista") ||
+           name.contains("lsj-001");
+}
+
+bool ScaleFactory::isAtomheartEclair(const QString& name) {
+    return name.contains("eclair") ||
+           name.contains("atomheart");
+}
+
+bool ScaleFactory::isVariaAku(const QString& name) {
+    return name.contains("aku") ||
+           name.contains("varia");
+}

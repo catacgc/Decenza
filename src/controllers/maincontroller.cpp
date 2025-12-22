@@ -19,12 +19,20 @@ MainController::MainController(Settings* settings, DE1Device* device,
     if (m_device) {
         connect(m_device, &DE1Device::shotSampleReceived,
                 this, &MainController::onShotSampleReceived);
+
+        // Upload profile when device connects
+        connect(m_device, &DE1Device::connectedChanged, this, [this]() {
+            if (m_device->isConnected() && m_currentProfile.mode() == Profile::Mode::FrameBased) {
+                qDebug() << "MainController: Device connected, uploading profile:" << m_currentProfile.title();
+                uploadCurrentProfile();
+            }
+        });
     }
 
     // Connect to machine state events
     if (m_machineState) {
-        connect(m_machineState, &MachineState::shotStarted,
-                this, &MainController::onShotStarted);
+        connect(m_machineState, &MachineState::espressoCycleStarted,
+                this, &MainController::onEspressoCycleStarted);
         connect(m_machineState, &MachineState::shotEnded,
                 this, &MainController::onShotEnded);
     }
@@ -85,6 +93,11 @@ void MainController::loadProfile(const QString& profileName) {
 
     if (m_machineState) {
         m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+    }
+
+    // Upload to machine if connected (for frame-based mode)
+    if (m_currentProfile.mode() == Profile::Mode::FrameBased) {
+        uploadCurrentProfile();
     }
 
     emit currentProfileChanged();
@@ -204,27 +217,98 @@ void MainController::setSteamTimeoutImmediate(int timeout) {
     qDebug() << "Steam timeout set to:" << timeout;
 }
 
-void MainController::onShotStarted() {
+void MainController::onEspressoCycleStarted() {
+    // Clear the graph when entering espresso preheating (new cycle from idle)
+    // This preserves preheating data since we only clear at cycle start
     m_shotStartTime = 0;
+    m_extractionStarted = false;
+    m_lastFrameNumber = -1;
     if (m_shotDataModel) {
         m_shotDataModel->clear();
     }
+    qDebug() << "=== ESPRESSO CYCLE STARTED (graph cleared) ===";
 }
 
 void MainController::onShotEnded() {
     // Could save shot history here
+    // Note: Don't reset m_extractionStarted here - it's reset in onEspressoCycleStarted
+    // Resetting here causes duplicate "extraction started" markers when entering Ending phase
 }
 
 void MainController::onShotSampleReceived(const ShotSample& sample) {
-    if (!m_shotDataModel) return;
+    if (!m_shotDataModel || !m_machineState) return;
 
+    // Record during preheating and actual shot phases
+    MachineState::Phase phase = m_machineState->phase();
+    bool isEspressoPhase = (phase == MachineState::Phase::EspressoPreheating ||
+                           phase == MachineState::Phase::Preinfusion ||
+                           phase == MachineState::Phase::Pouring ||
+                           phase == MachineState::Phase::Ending);
+
+    if (!isEspressoPhase) {
+        m_shotStartTime = 0;  // Reset for next shot
+        m_extractionStarted = false;
+        return;
+    }
+
+    // First sample of this espresso cycle - set the base time
     if (m_shotStartTime == 0) {
         m_shotStartTime = sample.timer;
+        qDebug() << "=== ESPRESSO PREHEATING STARTED ===";
     }
 
     double time = sample.timer - m_shotStartTime;
+
+    // Mark when extraction actually starts (transition from preheating to preinfusion/pouring)
+    bool isExtracting = (phase == MachineState::Phase::Preinfusion ||
+                        phase == MachineState::Phase::Pouring ||
+                        phase == MachineState::Phase::Ending);
+
+    if (isExtracting && !m_extractionStarted) {
+        m_extractionStarted = true;
+        m_shotDataModel->markExtractionStart(time);
+        qDebug() << "=== EXTRACTION STARTED at" << time << "s ===";
+    }
+
+    // Detect frame changes and add markers with frame names from profile
+    // Only track during actual extraction phases (not preheating - frame numbers are unreliable then)
+    if (isExtracting && sample.frameNumber >= 0 && sample.frameNumber != m_lastFrameNumber) {
+        QString frameName;
+        int frameIndex = sample.frameNumber;
+
+        // Look up frame name from current profile
+        const auto& steps = m_currentProfile.steps();
+        if (frameIndex >= 0 && frameIndex < steps.size()) {
+            frameName = steps[frameIndex].name;
+        }
+
+        // Fall back to frame number if no name
+        if (frameName.isEmpty()) {
+            frameName = QString("F%1").arg(frameIndex);
+        }
+
+        m_shotDataModel->addPhaseMarker(time, frameName, frameIndex);
+        m_lastFrameNumber = sample.frameNumber;
+
+        qDebug() << "Frame change:" << frameIndex << "->" << frameName << "at" << time << "s";
+    }
+
+    // Add sample data
     m_shotDataModel->addSample(time, sample.groupPressure,
-                               sample.groupFlow, sample.headTemp);
+                               sample.groupFlow, sample.headTemp,
+                               sample.setPressureGoal, sample.setFlowGoal, sample.setTempGoal,
+                               sample.frameNumber);
+
+    // Detailed logging for development (reduce frequency)
+    static int logCounter = 0;
+    if (++logCounter % 10 == 0) {
+        qDebug().nospace()
+            << "SHOT [" << QString::number(time, 'f', 1) << "s] "
+            << "F#" << sample.frameNumber << " "
+            << "P:" << QString::number(sample.groupPressure, 'f', 2) << " "
+            << "F:" << QString::number(sample.groupFlow, 'f', 2) << " "
+            << "T:" << QString::number(sample.headTemp, 'f', 1);
+    }
 }
 
 void MainController::onWeightChanged(double weight) {

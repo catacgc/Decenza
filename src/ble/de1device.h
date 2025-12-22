@@ -80,6 +80,10 @@ public slots:
     // Profile upload
     void uploadProfile(const Profile& profile);
 
+    // Direct frame writing (for direct control mode)
+    void writeHeader(const QByteArray& headerData);
+    void writeFrame(const QByteArray& frameData);
+
     // Settings
     void setShotSettings(double steamTemp, int steamDuration,
                         double hotWaterTemp, int hotWaterVolume,

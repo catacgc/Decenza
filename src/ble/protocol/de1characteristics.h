@@ -195,7 +195,13 @@ namespace Decent {
     const QBluetoothUuid WRITEBACK(QString("83CDC3D4-3BA2-13FC-CC5E-106C351A9352"));
 }
 
-// Acaia Pyxis/Pearl
+// Acaia (IPS - older firmware, Lunar/Pearl)
+namespace AcaiaIPS {
+    const QBluetoothUuid SERVICE(QString("00001820-0000-1000-8000-00805F9B34FB"));
+    const QBluetoothUuid CHARACTERISTIC(QString("00002A80-0000-1000-8000-00805F9B34FB"));
+}
+
+// Acaia Pyxis (newer firmware)
 namespace Acaia {
     const QBluetoothUuid SERVICE(QString("49535343-FE7D-4AE5-8FA9-9FAFD205E455"));
     const QBluetoothUuid STATUS(QString("49535343-1E4D-4BD9-BA61-23C647249616"));
@@ -208,6 +214,14 @@ namespace Felicita {
     const QBluetoothUuid CHARACTERISTIC(QString("0000FFE1-0000-1000-8000-00805F9B34FB"));
 }
 
+// Skale (Atomax)
+namespace Skale {
+    const QBluetoothUuid SERVICE(QString("0000FF08-0000-1000-8000-00805F9B34FB"));
+    const QBluetoothUuid CMD(QString("0000EF80-0000-1000-8000-00805F9B34FB"));
+    const QBluetoothUuid WEIGHT(QString("0000EF81-0000-1000-8000-00805F9B34FB"));
+    const QBluetoothUuid BUTTON(QString("0000EF82-0000-1000-8000-00805F9B34FB"));
+}
+
 // Bookoo
 namespace Bookoo {
     const QBluetoothUuid SERVICE(QString("0000FF00-0000-1000-8000-00805F9B34FB"));
@@ -217,19 +231,36 @@ namespace Bookoo {
 
 // Eureka Precisa / Solo Barista / SmartChef (same UUIDs)
 namespace Generic {
+    const QBluetoothUuid SERVICE(QString("0000FFF0-0000-1000-8000-00805F9B34FB"));
     const QBluetoothUuid STATUS(QString("0000FFF1-0000-1000-8000-00805F9B34FB"));
     const QBluetoothUuid CMD(QString("0000FFF2-0000-1000-8000-00805F9B34FB"));
 }
 
 // DiFluid
 namespace DiFluid {
+    const QBluetoothUuid SERVICE(QString("000000EE-0000-1000-8000-00805F9B34FB"));
     const QBluetoothUuid CHARACTERISTIC(QString("0000AA01-0000-1000-8000-00805F9B34FB"));
 }
 
 // Hiroia Jimmy
 namespace HiroiaJimmy {
+    const QBluetoothUuid SERVICE(QString("06C31822-8682-4744-9211-FEBC93E3BECE"));
     const QBluetoothUuid CMD(QString("06C31823-8682-4744-9211-FEBC93E3BECE"));
     const QBluetoothUuid STATUS(QString("06C31824-8682-4744-9211-FEBC93E3BECE"));
+}
+
+// Atomheart Eclair
+namespace AtomheartEclair {
+    const QBluetoothUuid SERVICE(QString("B905EAEA-6C7E-4F73-B43D-2CDFCAB29570"));
+    const QBluetoothUuid STATUS(QString("B905EAEB-6C7E-4F73-B43D-2CDFCAB29570"));
+    const QBluetoothUuid CMD(QString("B905EAEC-6C7E-4F73-B43D-2CDFCAB29570"));
+}
+
+// Varia Aku
+namespace VariaAku {
+    const QBluetoothUuid SERVICE(QString("0000FFF0-0000-1000-8000-00805F9B34FB"));
+    const QBluetoothUuid STATUS(QString("0000FFF1-0000-1000-8000-00805F9B34FB"));
+    const QBluetoothUuid CMD(QString("0000FFF2-0000-1000-8000-00805F9B34FB"));
 }
 
 } // namespace Scale

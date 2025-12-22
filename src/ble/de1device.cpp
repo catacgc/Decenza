@@ -372,35 +372,75 @@ void DE1Device::parseStateInfo(const QByteArray& data) {
 }
 
 void DE1Device::parseShotSample(const QByteArray& data) {
-    if (data.size() < 12) {
-        qDebug() << "DE1Device: ShotSample too short:" << data.size();
-        return;
+    // DE1 has two BLE specs with different packet formats:
+    // Old spec (< 1.0): 17 bytes, pressure/flow are 1 byte each (U8P4)
+    // New spec (>= 1.0): 19 bytes, pressure/flow are 2 bytes each (U16P12), temp is 3 bytes
+
+    static int logCount = 0;
+    if (logCount++ % 25 == 0) {
+        qDebug() << "ShotSample:" << data.size() << "bytes, hex:" << data.toHex(' ');
     }
 
     const uint8_t* d = reinterpret_cast<const uint8_t*>(data.constData());
-
     ShotSample sample;
     sample.timestamp = QDateTime::currentMSecsSinceEpoch();
 
-    // Timer: 2 bytes big-endian
-    sample.timer = BinaryCodec::decodeShortBE(data, 0) / 100.0;
+    // Detect BLE spec based on packet size
+    bool newSpec = (data.size() >= 19);
 
-    // Group pressure and flow
-    sample.groupPressure = BinaryCodec::decodeU8P4(d[2]);
-    sample.groupFlow = BinaryCodec::decodeU8P4(d[3]);
+    if (newSpec) {
+        // NEW BLE SPEC (>= 1.0): 19 bytes
+        // Bytes 0-1: SampleTime (Short, big-endian, /100 for seconds - actually half-cycles)
+        // Bytes 2-3: GroupPressure (Short, /4096.0)
+        // Bytes 4-5: GroupFlow (Short, /4096.0)
+        // Bytes 6-7: MixTemp (Short, /256.0)
+        // Bytes 8-10: HeadTemp (3 bytes, U24P16)
+        // Bytes 11-12: SetMixTemp (Short, /256.0)
+        // Bytes 13-14: SetHeadTemp (Short, /256.0)
+        // Byte 15: SetGroupPressure (char, /16.0)
+        // Byte 16: SetGroupFlow (char, /16.0)
+        // Byte 17: FrameNumber (char)
+        // Byte 18: SteamTemp (char)
 
-    // Temperatures - both are U16P8 (2 bytes each)
-    sample.mixTemp = BinaryCodec::decodeU16P8(BinaryCodec::decodeShortBE(data, 4));
-    sample.headTemp = BinaryCodec::decodeU16P8(BinaryCodec::decodeShortBE(data, 6));
+        sample.timer = BinaryCodec::decodeShortBE(data, 0) / 100.0;
+        sample.groupPressure = BinaryCodec::decodeShortBE(data, 2) / 4096.0;
+        sample.groupFlow = BinaryCodec::decodeShortBE(data, 4) / 4096.0;
+        sample.mixTemp = BinaryCodec::decodeShortBE(data, 6) / 256.0;
+        // HeadTemp is 24-bit: U24P16 format
+        sample.headTemp = BinaryCodec::decode3CharToU24P16(d[8], d[9], d[10]);
+        sample.setTempGoal = BinaryCodec::decodeShortBE(data, 13) / 256.0;  // SetHeadTemp
+        sample.setPressureGoal = d[15] / 16.0;
+        sample.setFlowGoal = d[16] / 16.0;
+        sample.frameNumber = d[17];
+        sample.steamTemp = d[18];
+    } else if (data.size() >= 17) {
+        // OLD BLE SPEC (< 1.0): 17 bytes
+        // Bytes 0-1: SampleTime
+        // Byte 2: GroupPressure (U8P4)
+        // Byte 3: GroupFlow (U8P4)
+        // Bytes 4-5: MixTemp (U16P8)
+        // Bytes 6-7: HeadTemp (U16P8)
+        // Bytes 8-9: SetMixTemp (U16P8)
+        // Bytes 10-11: SetHeadTemp (U16P8)
+        // Byte 12: SetGroupPressure (U8P4)
+        // Byte 13: SetGroupFlow (U8P4)
+        // Byte 14: FrameNumber
+        // Bytes 15-16: SteamTemp (U16P8)
 
-    // Goals (SetMixTemp, SetHeadTemp as U8P1, then pressure/flow as U8P4)
-    sample.setTempGoal = BinaryCodec::decodeU8P1(d[8]);
-    sample.setFlowGoal = BinaryCodec::decodeU8P4(d[10]);
-    sample.setPressureGoal = BinaryCodec::decodeU8P4(d[11]);
-
-    // Frame and steam temp
-    sample.frameNumber = d[12];
-    sample.steamTemp = d[13];
+        sample.timer = BinaryCodec::decodeShortBE(data, 0) / 100.0;
+        sample.groupPressure = d[2] / 16.0;
+        sample.groupFlow = d[3] / 16.0;
+        sample.mixTemp = BinaryCodec::decodeShortBE(data, 4) / 256.0;
+        sample.headTemp = BinaryCodec::decodeShortBE(data, 6) / 256.0;
+        sample.setTempGoal = BinaryCodec::decodeShortBE(data, 10) / 256.0;  // SetHeadTemp
+        sample.setPressureGoal = d[12] / 16.0;
+        sample.setFlowGoal = d[13] / 16.0;
+        sample.frameNumber = d[14];
+        sample.steamTemp = BinaryCodec::decodeShortBE(data, 15) / 256.0;
+    } else {
+        qDebug() << "DE1Device: ShotSample too short:" << data.size() << "bytes";
+        return;
+    }
 
     // Uncomment for debugging:
     // qDebug() << "DE1Device: ShotSample - headTemp:" << sample.headTemp << "pressure:" << sample.groupPressure;
@@ -546,6 +586,21 @@ void DE1Device::uploadProfile(const Profile& profile) {
     // Signal completion after queue processes
     queueCommand([this]() {
         emit profileUploaded(true);
+    });
+}
+
+void DE1Device::writeHeader(const QByteArray& headerData) {
+    // Direct header write for direct control mode
+    queueCommand([this, headerData]() {
+        writeCharacteristic(DE1::Characteristic::HEADER_WRITE, headerData);
+    });
+}
+
+void DE1Device::writeFrame(const QByteArray& frameData) {
+    // Direct frame write for direct control mode
+    // This writes a single frame immediately, used for live setpoint updates
+    queueCommand([this, frameData]() {
+        writeCharacteristic(DE1::Characteristic::FRAME_WRITE, frameData);
     });
 }
 

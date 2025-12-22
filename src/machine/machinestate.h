@@ -25,6 +25,7 @@ public:
         Idle,
         Heating,
         Ready,
+        EspressoPreheating,  // Machine is in Espresso state but warming up
         Preinfusion,
         Pouring,
         Ending,
@@ -50,7 +51,8 @@ signals:
     void phaseChanged();
     void shotTimeChanged();
     void targetWeightChanged();
-    void shotStarted();
+    void espressoCycleStarted();  // When entering espresso preheating (clear graph here)
+    void shotStarted();           // When extraction actually begins (flow starts)
     void shotEnded();
     void targetWeightReached();
 
