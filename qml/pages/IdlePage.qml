@@ -169,12 +169,17 @@ Page {
                 Layout.preferredHeight: 50
                 enabled: DE1Device.connected
                 onClicked: {
+                    // Stop scanning for scales while sleeping
+                    BLEManager.setAutoScanForScale(false)
+
                     // Put scale to sleep first (if connected)
                     if (ScaleDevice && ScaleDevice.connected) {
                         ScaleDevice.sleep()
                     }
-                    // Then put DE1 to sleep
+                    // Put DE1 to sleep
                     DE1Device.goToSleep()
+                    // Show screensaver
+                    root.goToScreensaver()
                 }
                 background: Rectangle {
                     implicitWidth: Theme.scaled(120)

@@ -140,6 +140,7 @@ qt_add_qml_module(de1-qt
         qml/pages/HotWaterPage.qml
         qml/pages/SettingsPage.qml
         qml/pages/ProfileEditorPage.qml
+        qml/pages/ScreensaverPage.qml
         qml/components/ActionButton.qml
         qml/components/CircularGauge.qml
         qml/components/ConnectionIndicator.qml

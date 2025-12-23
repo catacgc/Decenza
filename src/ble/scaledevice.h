@@ -20,7 +20,6 @@ public:
     virtual ~ScaleDevice();
 
     virtual void connectToDevice(const QBluetoothDeviceInfo& device) = 0;
-    virtual void disconnect();
 
     bool isConnected() const;
     double weight() const { return m_weight; }
@@ -35,6 +34,7 @@ public slots:
     virtual void stopTimer() {}
     virtual void resetTimer() {}
     virtual void sleep() {}  // Put scale to sleep (battery power saving)
+    virtual void disconnect();  // Disconnect from scale
 
 signals:
     void connectedChanged();

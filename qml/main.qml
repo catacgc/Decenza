@@ -11,6 +11,20 @@ ApplicationWindow {
     title: "DE1 Controller"
     color: Theme.backgroundColor
 
+    // Put machine and scale to sleep when closing the app
+    onClosing: function(close) {
+        // Stop scanning
+        BLEManager.setAutoScanForScale(false)
+
+        if (ScaleDevice && ScaleDevice.connected) {
+            ScaleDevice.sleep()
+        }
+        if (DE1Device && DE1Device.connected) {
+            DE1Device.goToSleep()
+        }
+        close.accepted = true
+    }
+
     // Current page title - set by each page
     property string currentPageTitle: ""
 
@@ -61,9 +75,14 @@ ApplicationWindow {
             id: profileEditorPage
             ProfileEditorPage {}
         }
+
+        Component {
+            id: screensaverPage
+            ScreensaverPage {}
+        }
     }
 
-    // Status bar overlay
+    // Status bar overlay (hidden during screensaver)
     StatusBar {
         id: statusBar
         anchors.top: parent.top
@@ -71,6 +90,7 @@ ApplicationWindow {
         anchors.right: parent.right
         height: 50
         z: 100
+        visible: !pageStack.currentItem || pageStack.currentItem.objectName !== "screensaverPage"
     }
 
     // Connection state handler - auto navigate based on machine state
@@ -134,5 +154,9 @@ ApplicationWindow {
 
     function goToProfileEditor() {
         pageStack.push(profileEditorPage)
+    }
+
+    function goToScreensaver() {
+        pageStack.replace(screensaverPage)
     }
 }

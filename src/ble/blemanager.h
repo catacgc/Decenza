@@ -35,9 +35,9 @@ public:
 
     // Direct connect to wake sleeping scales
     void setSavedScaleAddress(const QString& address, const QString& type);
-    void tryDirectConnectToScale();
 
 public slots:
+    Q_INVOKABLE void tryDirectConnectToScale();
     void startScan();
     void stopScan();
     void clearDevices();

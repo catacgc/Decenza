@@ -17,8 +17,26 @@
 
 using namespace Qt::StringLiterals;
 
+// Custom message handler to filter noisy Windows BLE driver messages
+static QtMessageHandler originalHandler = nullptr;
+void messageFilter(QtMsgType type, const QMessageLogContext &context, const QString &msg)
+{
+    // Filter out Windows Bluetooth driver noise
+    if (msg.contains("Windows.Devices.Bluetooth") ||
+        msg.contains("ReturnHr") ||
+        msg.contains("LogHr")) {
+        return;  // Suppress these messages
+    }
+    if (originalHandler) {
+        originalHandler(type, context, msg);
+    }
+}
+
 int main(int argc, char *argv[])
 {
+    // Install message filter to suppress Windows BLE driver noise
+    originalHandler = qInstallMessageHandler(messageFilter);
+
     QApplication app(argc, argv);
 
     // Set application metadata
@@ -59,7 +77,14 @@ int main(int argc, char *argv[])
             return;
         }
 
-        // Create the appropriate scale type using ScaleFactory
+        // If we already have a scale object, just reconnect to it
+        if (scale) {
+            qDebug() << "Reconnecting to" << type << "scale:" << device.name();
+            scale->connectToDevice(device);
+            return;
+        }
+
+        // Create new scale object
         scale = ScaleFactory::createScale(device, type);
         if (!scale) {
             qWarning() << "Failed to create scale for type:" << type;
