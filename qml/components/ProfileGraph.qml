@@ -22,6 +22,15 @@ ChartView {
     signal frameSelected(int index)
     signal frameDoubleClicked(int index)
 
+    // Force refresh the graph (call when frame properties change in place)
+    function refresh() {
+        updateCurves()
+        // Force totalDuration recalculation by triggering frames change
+        var temp = frames
+        frames = []
+        frames = temp
+    }
+
     // Calculate total duration from frames
     property double totalDuration: {
         var total = 0
@@ -165,17 +174,17 @@ ChartView {
                     }
                 }
 
-                // Frame label - rotated 90 degrees, centered horizontally, end of text at top
+                // Frame label - rotated 90 degrees, centered horizontally, top-aligned
                 Text {
                     id: labelText
-                    x: (parent.width - height) / 2  // Center based on rotated dimensions
-                    y: Theme.scaled(4)  // Small margin from top edge
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: Theme.scaled(4) + width / 2  // Offset by half text width since rotated
                     text: frame ? (frame.name || ("Frame " + (frameIndex + 1))) : ""
                     color: Theme.textColor
                     font.pixelSize: Theme.scaled(14)
                     font.bold: frameIndex === selectedFrameIndex
                     rotation: -90
-                    transformOrigin: Item.TopRight  // End of text stays at top
+                    transformOrigin: Item.Center
                     opacity: 0.9
                 }
 
@@ -220,16 +229,20 @@ ChartView {
                 if (isSmooth && i > 0) {
                     // Interpolate from previous
                     pressureGoalSeries.append(startTime, prevPressure)
+                } else {
+                    // Fast transition - step to target immediately
+                    pressureGoalSeries.append(startTime, frame.pressure)
                 }
                 pressureGoalSeries.append(endTime, frame.pressure)
-            } else if (i === 0 || frames[i-1].pump !== "pressure") {
-                // No pressure goal in flow mode - clear the line
             }
 
             // Flow curve (only for flow-control frames)
             if (frame.pump === "flow") {
                 if (isSmooth && i > 0) {
                     flowGoalSeries.append(startTime, prevFlow)
+                } else {
+                    // Fast transition - step to target immediately
+                    flowGoalSeries.append(startTime, frame.flow)
                 }
                 flowGoalSeries.append(endTime, frame.flow)
             }
@@ -259,14 +272,14 @@ ChartView {
     Row {
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: Theme.scaled(8)
-        spacing: Theme.scaled(24)
+        anchors.bottomMargin: Theme.scaled(12)
+        spacing: Theme.scaled(30)
 
         // Pressure
         Row {
-            spacing: Theme.scaled(6)
+            spacing: Theme.scaled(8)
             Rectangle {
-                width: Theme.scaled(20)
+                width: Theme.scaled(24)
                 height: Theme.scaled(3)
                 radius: Theme.scaled(1)
                 color: Theme.pressureGoalColor
@@ -275,15 +288,15 @@ ChartView {
             Text {
                 text: "Pressure"
                 color: Theme.textSecondaryColor
-                font.pixelSize: Theme.scaled(12)
+                font: Theme.bodyFont
             }
         }
 
         // Flow
         Row {
-            spacing: Theme.scaled(6)
+            spacing: Theme.scaled(8)
             Rectangle {
-                width: Theme.scaled(20)
+                width: Theme.scaled(24)
                 height: Theme.scaled(3)
                 radius: Theme.scaled(1)
                 color: Theme.flowGoalColor
@@ -292,15 +305,15 @@ ChartView {
             Text {
                 text: "Flow"
                 color: Theme.textSecondaryColor
-                font.pixelSize: Theme.scaled(12)
+                font: Theme.bodyFont
             }
         }
 
         // Temperature
         Row {
-            spacing: Theme.scaled(6)
+            spacing: Theme.scaled(8)
             Rectangle {
-                width: Theme.scaled(20)
+                width: Theme.scaled(24)
                 height: Theme.scaled(3)
                 radius: Theme.scaled(1)
                 color: Theme.temperatureGoalColor
@@ -309,7 +322,7 @@ ChartView {
             Text {
                 text: "Temp"
                 color: Theme.textSecondaryColor
-                font.pixelSize: Theme.scaled(12)
+                font: Theme.bodyFont
             }
         }
     }

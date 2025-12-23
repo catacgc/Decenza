@@ -1,4 +1,5 @@
 #include "blemanager.h"
+#include "scaledevice.h"
 #include "protocol/de1characteristics.h"
 #include "scales/scalefactory.h"
 #include <QBluetoothUuid>
@@ -9,7 +10,7 @@ BLEManager::BLEManager(QObject* parent)
     : QObject(parent)
 {
     m_discoveryAgent = new QBluetoothDeviceDiscoveryAgent(this);
-    m_discoveryAgent->setLowEnergyDiscoveryTimeout(30000);  // 30 seconds
+    m_discoveryAgent->setLowEnergyDiscoveryTimeout(15000);  // 15 seconds per scan cycle
 
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::deviceDiscovered,
             this, &BLEManager::onDeviceDiscovered);
@@ -17,6 +18,12 @@ BLEManager::BLEManager(QObject* parent)
             this, &BLEManager::onScanFinished);
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::errorOccurred,
             this, &BLEManager::onScanError);
+
+    // Timer for restarting scan when looking for scale
+    m_rescanTimer = new QTimer(this);
+    m_rescanTimer->setSingleShot(true);
+    m_rescanTimer->setInterval(5000);  // 5 second delay between scans
+    connect(m_rescanTimer, &QTimer::timeout, this, &BLEManager::restartScanForScale);
 }
 
 BLEManager::~BLEManager() {
@@ -166,6 +173,12 @@ void BLEManager::onDeviceDiscovered(const QBluetoothDeviceInfo& device) {
 void BLEManager::onScanFinished() {
     m_scanning = false;
     emit scanningChanged();
+
+    // Auto-restart scan if looking for scale and none connected
+    if (shouldContinueScanning()) {
+        qDebug() << "Scale not connected, will restart scan in 5 seconds...";
+        m_rescanTimer->start();
+    }
 }
 
 void BLEManager::onScanError(QBluetoothDeviceDiscoveryAgent::Error error) {
@@ -222,4 +235,83 @@ QString BLEManager::getScaleType(const QBluetoothDeviceInfo& device) const {
         return "";
     }
     return ScaleFactory::scaleTypeName(type);
+}
+
+void BLEManager::setScaleDevice(ScaleDevice* scale) {
+    if (m_scaleDevice) {
+        disconnect(m_scaleDevice, nullptr, this, nullptr);
+    }
+
+    m_scaleDevice = scale;
+
+    if (m_scaleDevice) {
+        connect(m_scaleDevice, &ScaleDevice::connectedChanged,
+                this, &BLEManager::onScaleConnectedChanged);
+    }
+}
+
+void BLEManager::setAutoScanForScale(bool enabled) {
+    if (m_autoScanForScale != enabled) {
+        m_autoScanForScale = enabled;
+        emit autoScanForScaleChanged();
+
+        if (enabled && shouldContinueScanning() && !m_scanning) {
+            startScan();
+        } else if (!enabled) {
+            m_rescanTimer->stop();
+        }
+    }
+}
+
+void BLEManager::onScaleConnectedChanged() {
+    if (m_scaleDevice && m_scaleDevice->isConnected()) {
+        // Scale connected - stop auto-scanning
+        qDebug() << "Scale connected, stopping auto-scan";
+        m_rescanTimer->stop();
+    } else if (shouldContinueScanning() && !m_scanning) {
+        // Scale disconnected - restart scanning
+        qDebug() << "Scale disconnected, restarting scan";
+        startScan();
+    }
+}
+
+void BLEManager::restartScanForScale() {
+    if (shouldContinueScanning()) {
+        qDebug() << "Restarting scan for scale...";
+        startScan();
+    }
+}
+
+bool BLEManager::shouldContinueScanning() const {
+    if (!m_autoScanForScale) return false;
+    if (m_scaleDevice && m_scaleDevice->isConnected()) return false;
+    return true;
+}
+
+void BLEManager::setSavedScaleAddress(const QString& address, const QString& type) {
+    m_savedScaleAddress = address;
+    m_savedScaleType = type;
+    qDebug() << "Saved scale address:" << address << "type:" << type;
+}
+
+void BLEManager::tryDirectConnectToScale() {
+    if (m_savedScaleAddress.isEmpty() || m_savedScaleType.isEmpty()) {
+        qDebug() << "No saved scale address, cannot try direct connect";
+        return;
+    }
+
+    if (m_scaleDevice && m_scaleDevice->isConnected()) {
+        qDebug() << "Scale already connected";
+        return;
+    }
+
+    qDebug() << "Trying direct connect to wake scale:" << m_savedScaleAddress;
+
+    // Create a QBluetoothDeviceInfo from the saved address
+    // This will attempt to connect even if the scale isn't advertising (wakes it)
+    QBluetoothAddress addr(m_savedScaleAddress);
+    QBluetoothDeviceInfo deviceInfo(addr, "Saved Scale", 0);
+
+    // Emit as if we discovered it - the handler in main.cpp will create and connect
+    emit scaleDiscovered(deviceInfo, m_savedScaleType);
 }

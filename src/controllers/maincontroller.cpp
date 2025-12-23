@@ -192,6 +192,52 @@ void MainController::uploadCurrentProfile() {
     }
 }
 
+void MainController::uploadProfile(const QVariantMap& profileData) {
+    // Update current profile from QML data
+    if (profileData.contains("title")) {
+        m_currentProfile.setTitle(profileData["title"].toString());
+    }
+    if (profileData.contains("target_weight")) {
+        m_currentProfile.setTargetWeight(profileData["target_weight"].toDouble());
+        if (m_machineState) {
+            m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+        }
+    }
+
+    // Update steps/frames
+    if (profileData.contains("steps")) {
+        m_currentProfile.steps().clear();
+        QVariantList steps = profileData["steps"].toList();
+        for (const QVariant& stepVar : steps) {
+            QVariantMap step = stepVar.toMap();
+            ProfileFrame frame;
+            frame.name = step["name"].toString();
+            frame.temperature = step["temperature"].toDouble();
+            frame.sensor = step["sensor"].toString();
+            frame.pump = step["pump"].toString();
+            frame.transition = step["transition"].toString();
+            frame.pressure = step["pressure"].toDouble();
+            frame.flow = step["flow"].toDouble();
+            frame.seconds = step["seconds"].toDouble();
+            frame.volume = step["volume"].toDouble();
+            frame.exitIf = step["exit_if"].toBool();
+            frame.exitType = step["exit_type"].toString();
+            frame.exitPressureOver = step["exit_pressure_over"].toDouble();
+            frame.exitPressureUnder = step["exit_pressure_under"].toDouble();
+            frame.exitFlowOver = step["exit_flow_over"].toDouble();
+            frame.exitFlowUnder = step["exit_flow_under"].toDouble();
+            frame.maxFlowOrPressure = step["max_flow_or_pressure"].toDouble();
+            frame.maxFlowOrPressureRange = step["max_flow_or_pressure_range"].toDouble();
+            m_currentProfile.addStep(frame);
+        }
+    }
+
+    // Upload to machine
+    uploadCurrentProfile();
+
+    emit currentProfileChanged();
+}
+
 void MainController::applySteamSettings() {
     if (!m_device || !m_device->isConnected() || !m_settings) return;
 
@@ -304,16 +350,25 @@ void MainController::onShotSampleReceived(const ShotSample& sample) {
     if (!isEspressoPhase) {
         m_shotStartTime = 0;  // Reset for next shot
         m_extractionStarted = false;
+        m_lastSampleTime = 0;
         return;
     }
 
     // First sample of this espresso cycle - set the base time
     if (m_shotStartTime == 0) {
         m_shotStartTime = sample.timer;
+        m_lastSampleTime = sample.timer;
         qDebug() << "=== ESPRESSO PREHEATING STARTED ===";
     }
 
     double time = sample.timer - m_shotStartTime;
+
+    // Calculate delta time and send flow sample to MachineState for volume accumulation
+    double deltaTime = sample.timer - m_lastSampleTime;
+    m_lastSampleTime = sample.timer;
+    if (deltaTime > 0 && deltaTime < 1.0) {  // Sanity check: ignore gaps > 1s
+        m_machineState->onFlowSample(sample.groupFlow, deltaTime);
+    }
 
     // Mark when extraction actually starts (transition from preheating to preinfusion/pouring)
     bool isExtracting = (phase == MachineState::Phase::Preinfusion ||

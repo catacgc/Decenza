@@ -200,11 +200,51 @@ void MachineState::checkStopAtWeight(double weight) {
     }
 }
 
+void MachineState::onFlowSample(double flowRate, double deltaTime) {
+    // Only accumulate during espresso extraction
+    if (m_device->state() != DE1::State::Espresso) return;
+    if (!isFlowing()) return;
+
+    // Integrate flow: volume += flow_rate * time
+    // flowRate is in mL/s, deltaTime is in seconds
+    m_accumulatedVolume += flowRate * deltaTime;
+    emit accumulatedVolumeChanged();
+
+    // If no scale connected, use volume as proxy for weight
+    // (assumes ~1g/mL density for espresso)
+    bool hasScale = m_scale && m_scale->isConnected();
+    if (!hasScale) {
+        checkStopAtVolume();
+    }
+}
+
+void MachineState::checkStopAtVolume() {
+    if (m_stopAtWeightTriggered) return;
+    if (m_targetWeight <= 0) return;
+
+    // Use accumulated volume as weight estimate (1mL ≈ 1g)
+    // Apply a small buffer for reaction time
+    double volumeTarget = m_targetWeight - 2.0;  // Stop 2g early for flow lag
+
+    if (m_accumulatedVolume >= volumeTarget) {
+        m_stopAtWeightTriggered = true;
+        emit targetWeightReached();
+
+        qDebug() << "Volume-based stop triggered at" << m_accumulatedVolume << "mL (target:" << m_targetWeight << "g)";
+
+        if (m_device) {
+            m_device->stopOperation();
+        }
+    }
+}
+
 void MachineState::startShotTimer() {
     m_shotTime = 0.0;
+    m_accumulatedVolume = 0.0;
     m_shotStartTime = QDateTime::currentMSecsSinceEpoch();
     m_shotTimer->start();
     emit shotTimeChanged();
+    emit accumulatedVolumeChanged();
 }
 
 void MachineState::stopShotTimer() {

@@ -10,23 +10,64 @@ Page {
 
     Component.onCompleted: root.currentPageTitle = ""
 
+    // Main action buttons - centered on screen
+    RowLayout {
+        anchors.centerIn: parent
+        spacing: 30
+
+        ActionButton {
+            text: "Espresso"
+            iconSource: "qrc:/icons/espresso.svg"
+            enabled: DE1Device.connected
+            onClicked: {
+                // Open profile editor - shot is started physically on group head
+                root.goToProfileEditor()
+            }
+        }
+
+        ActionButton {
+            text: "Steam"
+            iconSource: "qrc:/icons/steam.svg"
+            enabled: DE1Device.connected
+            onClicked: root.goToSteam()
+        }
+
+        ActionButton {
+            text: "Hot Water"
+            iconSource: "qrc:/icons/water.svg"
+            enabled: DE1Device.connected
+            onClicked: root.goToHotWater()
+        }
+
+        ActionButton {
+            text: "Flush"
+            iconSource: "qrc:/icons/flush.svg"
+            enabled: MachineState.isReady && DE1Device.connected
+            onClicked: DE1Device.startFlush()
+        }
+    }
+
+    // Top info section
     ColumnLayout {
-        anchors.fill: parent
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
         anchors.margins: Theme.standardMargin
         anchors.topMargin: Theme.scaled(60)  // Leave room for status bar
-        spacing: Theme.scaled(30)
+        spacing: Theme.scaled(20)
 
         // Profile selector
         Rectangle {
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 400
-            Layout.preferredHeight: 60
+            Layout.preferredWidth: Theme.scaled(600)
+            Layout.preferredHeight: Theme.scaled(60)
             color: Theme.surfaceColor
             radius: Theme.cardRadius
 
             RowLayout {
                 anchors.fill: parent
                 anchors.margins: Theme.smallMargin
+                spacing: Theme.scaled(12)
 
                 Text {
                     text: "Profile:"
@@ -45,6 +86,19 @@ Page {
                 Button {
                     text: "Change"
                     onClicked: profileDialog.open()
+                    background: Rectangle {
+                        implicitWidth: Theme.scaled(100)
+                        implicitHeight: Theme.scaled(40)
+                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+                        radius: Theme.scaled(8)
+                    }
+                    contentItem: Text {
+                        text: parent.text
+                        font: Theme.bodyFont
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
             }
         }
@@ -91,62 +145,75 @@ Page {
             // Connection status
             ConnectionIndicator {
                 machineConnected: DE1Device.connected
+                scaleConnected: ScaleDevice && ScaleDevice.connected
             }
         }
+    }
 
-        Item { Layout.fillHeight: true }
+    // Bottom bar with Sleep and Settings
+    Rectangle {
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 70
+        color: Theme.surfaceColor
 
-        // Main action buttons
         RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: 30
+            anchors.fill: parent
+            anchors.leftMargin: 15
+            anchors.rightMargin: 15
+            spacing: 15
 
-            ActionButton {
-                text: "Espresso"
-                iconSource: "qrc:/icons/espresso.svg"
+            // Sleep button
+            Button {
+                Layout.preferredHeight: 50
                 enabled: DE1Device.connected
                 onClicked: {
-                    // Open profile editor - shot is started physically on group head
-                    root.goToProfileEditor()
+                    // Put scale to sleep first (if connected)
+                    if (ScaleDevice && ScaleDevice.connected) {
+                        ScaleDevice.sleep()
+                    }
+                    // Then put DE1 to sleep
+                    DE1Device.goToSleep()
+                }
+                background: Rectangle {
+                    implicitWidth: Theme.scaled(120)
+                    implicitHeight: 50
+                    color: parent.down ? Qt.darker("#555555", 1.2) : "#555555"
+                    radius: Theme.scaled(8)
+                    opacity: parent.enabled ? 1.0 : 0.5
+                }
+                contentItem: RowLayout {
+                    spacing: 8
+                    Image {
+                        source: "qrc:/icons/sleep.svg"
+                        sourceSize.width: 24
+                        sourceSize.height: 24
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+                    Text {
+                        text: "Sleep"
+                        font: Theme.bodyFont
+                        color: "white"
+                        verticalAlignment: Text.AlignVCenter
+                    }
                 }
             }
 
-            ActionButton {
-                text: "Steam"
-                iconSource: "qrc:/icons/steam.svg"
-                enabled: DE1Device.connected
-                onClicked: root.goToSteam()
-            }
+            Item { Layout.fillWidth: true }
 
-            ActionButton {
-                text: "Hot Water"
-                iconSource: "qrc:/icons/water.svg"
-                enabled: DE1Device.connected
-                onClicked: root.goToHotWater()
-            }
-
-            ActionButton {
-                text: "Flush"
-                iconSource: "qrc:/icons/flush.svg"
-                enabled: MachineState.isReady && DE1Device.connected
-                onClicked: DE1Device.startFlush()
+            // Settings button
+            RoundButton {
+                Layout.preferredWidth: 50
+                Layout.preferredHeight: 50
+                icon.source: "qrc:/icons/settings.svg"
+                icon.width: 28
+                icon.height: 28
+                flat: true
+                icon.color: Theme.textColor
+                onClicked: root.goToSettings()
             }
         }
-
-        Item { Layout.fillHeight: true }
-    }
-
-    // Settings button
-    RoundButton {
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: 20
-        width: 60
-        height: 60
-        icon.source: "qrc:/icons/settings.svg"
-        icon.width: 32
-        icon.height: 32
-        onClicked: root.goToSettings()
     }
 
     // Profile selection dialog
@@ -154,17 +221,20 @@ Page {
         id: profileDialog
         title: "Select Profile"
         anchors.centerIn: parent
-        width: 400
-        height: 500
+        width: Theme.scaled(500)
+        height: Theme.scaled(500)
         modal: true
         standardButtons: Dialog.Cancel
 
         ListView {
             anchors.fill: parent
+            clip: true
             model: MainController.availableProfiles
             delegate: ItemDelegate {
-                width: parent.width
+                width: parent ? parent.width : 0
+                height: Theme.scaled(36)
                 text: modelData.title
+                font: Theme.bodyFont
                 highlighted: modelData.title === MainController.currentProfileName
                 onClicked: {
                     MainController.loadProfile(modelData.name)

@@ -4,6 +4,7 @@ import DE1App
 
 ColumnLayout {
     property bool machineConnected: false
+    property bool scaleConnected: false
 
     spacing: 5
 
@@ -27,7 +28,7 @@ ColumnLayout {
 
     Text {
         Layout.alignment: Qt.AlignHCenter
-        text: "Machine"
+        text: "Machine" + (scaleConnected ? " + Scale" : "")
         color: Theme.textSecondaryColor
         font: Theme.labelFont
     }

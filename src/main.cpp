@@ -53,23 +53,30 @@ int main(int argc, char *argv[])
 
     // Connect to any supported scale when discovered
     QObject::connect(&bleManager, &BLEManager::scaleDiscovered,
-                     [&scale, &machineState, &engine](const QBluetoothDeviceInfo& device, const QString& type) {
+                     [&scale, &machineState, &engine, &bleManager, &settings](const QBluetoothDeviceInfo& device, const QString& type) {
         // Don't connect if we already have a connected scale
         if (scale && scale->isConnected()) {
             return;
         }
 
         // Create the appropriate scale type using ScaleFactory
-        scale = ScaleFactory::createScale(device);
+        scale = ScaleFactory::createScale(device, type);
         if (!scale) {
             qWarning() << "Failed to create scale for type:" << type;
             return;
         }
 
-        qDebug() << "Auto-connecting to" << type << "scale:" << device.name();
+        qDebug() << "Auto-connecting to" << type << "scale:" << device.name() << "at" << device.address().toString();
+
+        // Save scale address for future direct wake connections
+        settings.setScaleAddress(device.address().toString());
+        settings.setScaleType(type);
 
         // Connect scale to MachineState for stop-on-weight functionality
         machineState.setScale(scale.get());
+
+        // Connect scale to BLEManager for auto-scan control
+        bleManager.setScaleDevice(scale.get());
 
         // Log scale weight during shots
         QObject::connect(scale.get(), &ScaleDevice::weightChanged,
@@ -89,8 +96,17 @@ int main(int argc, char *argv[])
         scale->connectToDevice(device);
     });
 
-    // Auto-start scanning on launch
-    QTimer::singleShot(500, &bleManager, &BLEManager::startScan);
+    // Load saved scale address for direct wake connection
+    QString savedScaleAddr = settings.scaleAddress();
+    QString savedScaleType = settings.scaleType();
+    if (!savedScaleAddr.isEmpty() && !savedScaleType.isEmpty()) {
+        bleManager.setSavedScaleAddress(savedScaleAddr, savedScaleType);
+        // Try direct connect first to wake sleeping scale
+        QTimer::singleShot(500, &bleManager, &BLEManager::tryDirectConnectToScale);
+    }
+
+    // Start scanning (will also find scales if direct connect fails)
+    QTimer::singleShot(1000, &bleManager, &BLEManager::startScan);
 
     // Expose C++ objects to QML
     QQmlContext* context = engine.rootContext();

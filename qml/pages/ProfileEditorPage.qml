@@ -62,42 +62,85 @@ Page {
 
                         Item { Layout.fillWidth: true }
 
-                        ActionButton {
-                            Layout.preferredWidth: Theme.scaled(100)
-                            Layout.preferredHeight: Theme.scaled(36)
+                        Button {
                             text: "+ Add"
-                            backgroundColor: Theme.accentColor
                             onClicked: addStep()
+                            background: Rectangle {
+                                implicitWidth: Theme.scaled(80)
+                                implicitHeight: Theme.scaled(32)
+                                radius: Theme.scaled(6)
+                                color: parent.down ? Qt.darker(Theme.accentColor, 1.2) : Theme.accentColor
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                font: Theme.bodyFont
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
                         }
 
-                        ActionButton {
-                            Layout.preferredWidth: Theme.scaled(100)
-                            Layout.preferredHeight: Theme.scaled(36)
+                        Button {
                             text: "Delete"
-                            backgroundColor: Theme.errorColor
                             enabled: selectedStepIndex >= 0
-                            opacity: enabled ? 1.0 : 0.5
                             onClicked: deleteStep(selectedStepIndex)
+                            background: Rectangle {
+                                implicitWidth: Theme.scaled(80)
+                                implicitHeight: Theme.scaled(32)
+                                radius: Theme.scaled(6)
+                                color: parent.down ? Qt.darker(Theme.errorColor, 1.2) : Theme.errorColor
+                                opacity: parent.enabled ? 1.0 : 0.4
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                font: Theme.bodyFont
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                opacity: parent.enabled ? 1.0 : 0.5
+                            }
                         }
 
-                        ActionButton {
-                            Layout.preferredWidth: Theme.scaled(36)
-                            Layout.preferredHeight: Theme.scaled(36)
-                            text: "\u2191"
-                            backgroundColor: Theme.primaryColor
+                        Button {
+                            text: "\u2190"
                             enabled: selectedStepIndex > 0
-                            opacity: enabled ? 1.0 : 0.5
                             onClicked: moveStep(selectedStepIndex, selectedStepIndex - 1)
+                            background: Rectangle {
+                                implicitWidth: Theme.scaled(36)
+                                implicitHeight: Theme.scaled(32)
+                                radius: Theme.scaled(6)
+                                color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+                                opacity: parent.enabled ? 1.0 : 0.4
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                font.pixelSize: Theme.scaled(18)
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                opacity: parent.enabled ? 1.0 : 0.5
+                            }
                         }
 
-                        ActionButton {
-                            Layout.preferredWidth: Theme.scaled(36)
-                            Layout.preferredHeight: Theme.scaled(36)
-                            text: "\u2193"
-                            backgroundColor: Theme.primaryColor
+                        Button {
+                            text: "\u2192"
                             enabled: selectedStepIndex >= 0 && selectedStepIndex < (profile ? profile.steps.length - 1 : 0)
-                            opacity: enabled ? 1.0 : 0.5
                             onClicked: moveStep(selectedStepIndex, selectedStepIndex + 1)
+                            background: Rectangle {
+                                implicitWidth: Theme.scaled(36)
+                                implicitHeight: Theme.scaled(32)
+                                radius: Theme.scaled(6)
+                                color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+                                opacity: parent.enabled ? 1.0 : 0.4
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                font.pixelSize: Theme.scaled(18)
+                                color: "white"
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                opacity: parent.enabled ? 1.0 : 0.5
+                            }
                         }
                     }
 
@@ -106,6 +149,7 @@ Page {
                         id: profileGraph
                         Layout.fillWidth: true
                         Layout.fillHeight: true
+                        Layout.bottomMargin: Theme.scaled(30)  // Space for legend
                         frames: profile ? profile.steps : []
                         selectedFrameIndex: selectedStepIndex
 
@@ -164,7 +208,7 @@ Page {
                 spacing: Theme.scaled(10)
 
                 Text {
-                    text: "Target:"
+                    text: "Target weight:"
                     color: Theme.textSecondaryColor
                     font: Theme.bodyFont
                 }
@@ -247,22 +291,33 @@ Page {
                 spacing: Theme.scaled(15)
 
                 // Frame name
-                TextField {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Theme.scaled(45)
-                    text: step ? step.name : ""
-                    placeholderText: "Frame name"
-                    font: Theme.titleFont
-                    color: Theme.textColor
-                    background: Rectangle {
-                        color: Qt.rgba(255, 255, 255, 0.1)
-                        radius: Theme.scaled(4)
+                    spacing: Theme.scaled(4)
+
+                    Text {
+                        text: "Frame Name"
+                        font: Theme.captionFont
+                        color: Theme.textSecondaryColor
                     }
-                    onTextChanged: {
-                        if (step && step.name !== text) {
-                            step.name = text
-                            profileGraph.framesChanged()
-                            uploadProfile()
+
+                    TextField {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Theme.scaled(45)
+                        text: step ? step.name : ""
+                        font: Theme.titleFont
+                        color: Theme.textColor
+                        placeholderTextColor: Theme.textSecondaryColor
+                        background: Rectangle {
+                            color: Qt.rgba(255, 255, 255, 0.1)
+                            radius: Theme.scaled(4)
+                        }
+                        onTextChanged: {
+                            if (step && step.name !== text) {
+                                step.name = text
+                                profileGraph.refresh()
+                                uploadProfile()
+                            }
                         }
                     }
                 }
@@ -291,10 +346,17 @@ Page {
                         RadioButton {
                             text: "Pressure"
                             checked: step && step.pump === "pressure"
+                            contentItem: Text {
+                                text: parent.text
+                                font: Theme.bodyFont
+                                color: Theme.textColor
+                                leftPadding: parent.indicator.width + parent.spacing
+                                verticalAlignment: Text.AlignVCenter
+                            }
                             onCheckedChanged: {
                                 if (checked && step && step.pump !== "pressure") {
                                     step.pump = "pressure"
-                                    profileGraph.framesChanged()
+                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -303,10 +365,17 @@ Page {
                         RadioButton {
                             text: "Flow"
                             checked: step && step.pump === "flow"
+                            contentItem: Text {
+                                text: parent.text
+                                font: Theme.bodyFont
+                                color: Theme.textColor
+                                leftPadding: parent.indicator.width + parent.spacing
+                                verticalAlignment: Text.AlignVCenter
+                            }
                             onCheckedChanged: {
                                 if (checked && step && step.pump !== "flow") {
                                     step.pump = "flow"
-                                    profileGraph.framesChanged()
+                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -336,6 +405,28 @@ Page {
                             to: step && step.pump === "flow" ? 8 : 12
                             value: step ? (step.pump === "flow" ? step.flow : step.pressure) : 0
                             stepSize: 0.1
+                            handle: Rectangle {
+                                x: setpointSlider.leftPadding + setpointSlider.visualPosition * (setpointSlider.availableWidth - width)
+                                y: setpointSlider.topPadding + setpointSlider.availableHeight / 2 - height / 2
+                                width: Theme.scaled(20)
+                                height: Theme.scaled(20)
+                                radius: width / 2
+                                color: step && step.pump === "flow" ? Theme.flowGoalColor : Theme.pressureGoalColor
+                            }
+                            background: Rectangle {
+                                x: setpointSlider.leftPadding
+                                y: setpointSlider.topPadding + setpointSlider.availableHeight / 2 - height / 2
+                                width: setpointSlider.availableWidth
+                                height: Theme.scaled(4)
+                                radius: Theme.scaled(2)
+                                color: Qt.rgba(255, 255, 255, 0.2)
+                                Rectangle {
+                                    width: setpointSlider.visualPosition * parent.width
+                                    height: parent.height
+                                    radius: parent.radius
+                                    color: step && step.pump === "flow" ? Theme.flowGoalColor : Theme.pressureGoalColor
+                                }
+                            }
                             onMoved: {
                                 if (step) {
                                     if (step.pump === "flow") {
@@ -343,7 +434,7 @@ Page {
                                     } else {
                                         step.pressure = value
                                     }
-                                    profileGraph.framesChanged()
+                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -380,10 +471,32 @@ Page {
                             to: 100
                             value: step ? step.temperature : 93
                             stepSize: 0.5
+                            handle: Rectangle {
+                                x: tempSlider.leftPadding + tempSlider.visualPosition * (tempSlider.availableWidth - width)
+                                y: tempSlider.topPadding + tempSlider.availableHeight / 2 - height / 2
+                                width: Theme.scaled(20)
+                                height: Theme.scaled(20)
+                                radius: width / 2
+                                color: Theme.temperatureGoalColor
+                            }
+                            background: Rectangle {
+                                x: tempSlider.leftPadding
+                                y: tempSlider.topPadding + tempSlider.availableHeight / 2 - height / 2
+                                width: tempSlider.availableWidth
+                                height: Theme.scaled(4)
+                                radius: Theme.scaled(2)
+                                color: Qt.rgba(255, 255, 255, 0.2)
+                                Rectangle {
+                                    width: tempSlider.visualPosition * parent.width
+                                    height: parent.height
+                                    radius: parent.radius
+                                    color: Theme.temperatureGoalColor
+                                }
+                            }
                             onMoved: {
                                 if (step) {
                                     step.temperature = value
-                                    profileGraph.framesChanged()
+                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -420,10 +533,32 @@ Page {
                             to: 120
                             value: step ? step.seconds : 30
                             stepSize: 1
+                            handle: Rectangle {
+                                x: durationSlider.leftPadding + durationSlider.visualPosition * (durationSlider.availableWidth - width)
+                                y: durationSlider.topPadding + durationSlider.availableHeight / 2 - height / 2
+                                width: Theme.scaled(20)
+                                height: Theme.scaled(20)
+                                radius: width / 2
+                                color: Theme.accentColor
+                            }
+                            background: Rectangle {
+                                x: durationSlider.leftPadding
+                                y: durationSlider.topPadding + durationSlider.availableHeight / 2 - height / 2
+                                width: durationSlider.availableWidth
+                                height: Theme.scaled(4)
+                                radius: Theme.scaled(2)
+                                color: Qt.rgba(255, 255, 255, 0.2)
+                                Rectangle {
+                                    width: durationSlider.visualPosition * parent.width
+                                    height: parent.height
+                                    radius: parent.radius
+                                    color: Theme.accentColor
+                                }
+                            }
                             onMoved: {
                                 if (step) {
                                     step.seconds = value
-                                    profileGraph.framesChanged()
+                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -462,10 +597,17 @@ Page {
                         RadioButton {
                             text: "Fast"
                             checked: step && step.transition === "fast"
+                            contentItem: Text {
+                                text: parent.text
+                                font: Theme.bodyFont
+                                color: Theme.textColor
+                                leftPadding: parent.indicator.width + parent.spacing
+                                verticalAlignment: Text.AlignVCenter
+                            }
                             onCheckedChanged: {
                                 if (checked && step && step.transition !== "fast") {
                                     step.transition = "fast"
-                                    profileGraph.framesChanged()
+                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -474,10 +616,17 @@ Page {
                         RadioButton {
                             text: "Smooth"
                             checked: step && step.transition === "smooth"
+                            contentItem: Text {
+                                text: parent.text
+                                font: Theme.bodyFont
+                                color: Theme.textColor
+                                leftPadding: parent.indicator.width + parent.spacing
+                                verticalAlignment: Text.AlignVCenter
+                            }
                             onCheckedChanged: {
                                 if (checked && step && step.transition !== "smooth") {
                                     step.transition = "smooth"
-                                    profileGraph.framesChanged()
+                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -510,6 +659,13 @@ Page {
                             id: exitIfCheck
                             text: "Enable early exit"
                             checked: step ? step.exit_if : false
+                            contentItem: Text {
+                                text: parent.text
+                                font: Theme.bodyFont
+                                color: Theme.textColor
+                                leftPadding: parent.indicator.width + parent.spacing
+                                verticalAlignment: Text.AlignVCenter
+                            }
                             onCheckedChanged: {
                                 if (step && step.exit_if !== checked) {
                                     step.exit_if = checked
@@ -519,9 +675,49 @@ Page {
                         }
 
                         ComboBox {
+                            id: exitTypeCombo
                             Layout.fillWidth: true
                             enabled: exitIfCheck.checked
                             model: ["Pressure Over", "Pressure Under", "Flow Over", "Flow Under"]
+                            contentItem: Text {
+                                text: exitTypeCombo.displayText
+                                font: Theme.bodyFont
+                                color: Theme.textColor
+                                leftPadding: Theme.scaled(10)
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            background: Rectangle {
+                                implicitHeight: Theme.scaled(36)
+                                color: Qt.rgba(255, 255, 255, 0.1)
+                                radius: Theme.scaled(6)
+                            }
+                            popup: Popup {
+                                y: exitTypeCombo.height
+                                width: exitTypeCombo.width
+                                padding: 1
+                                contentItem: ListView {
+                                    clip: true
+                                    implicitHeight: contentHeight
+                                    model: exitTypeCombo.popup.visible ? exitTypeCombo.delegateModel : null
+                                    ScrollIndicator.vertical: ScrollIndicator {}
+                                }
+                                background: Rectangle {
+                                    color: Theme.surfaceColor
+                                    radius: Theme.scaled(6)
+                                }
+                            }
+                            delegate: ItemDelegate {
+                                width: exitTypeCombo.width
+                                contentItem: Text {
+                                    text: modelData
+                                    font: Theme.bodyFont
+                                    color: Theme.textColor
+                                }
+                                background: Rectangle {
+                                    color: highlighted ? Theme.primaryColor : "transparent"
+                                }
+                                highlighted: exitTypeCombo.highlightedIndex === index
+                            }
                             currentIndex: {
                                 if (!step) return 0
                                 switch (step.exit_type) {
@@ -697,7 +893,9 @@ Page {
         var insertIndex = selectedStepIndex >= 0 ? selectedStepIndex + 1 : profile.steps.length
         profile.steps.splice(insertIndex, 0, newStep)
         selectedStepIndex = insertIndex
-        profileGraph.framesChanged()
+        // Force graph update by reassigning frames array
+        profileGraph.frames = []
+        profileGraph.frames = profile.steps
         uploadProfile()
     }
 
@@ -710,7 +908,9 @@ Page {
             selectedStepIndex = profile.steps.length - 1
         }
 
-        profileGraph.framesChanged()
+        // Force graph update by reassigning frames array
+        profileGraph.frames = []
+        profileGraph.frames = profile.steps
         uploadProfile()
     }
 
@@ -720,8 +920,12 @@ Page {
 
         var step = profile.steps.splice(fromIndex, 1)[0]
         profile.steps.splice(toIndex, 0, step)
+        // Force graph update by reassigning frames array
+        profileGraph.frames = []
+        profileGraph.frames = profile.steps
+        // Update selection after frames are reassigned
         selectedStepIndex = toIndex
-        profileGraph.framesChanged()
+        profileGraph.selectedFrameIndex = toIndex
         uploadProfile()
     }
 

@@ -34,6 +34,7 @@ public slots:
     virtual void startTimer() {}
     virtual void stopTimer() {}
     virtual void resetTimer() {}
+    virtual void sleep() {}  // Put scale to sleep (battery power saving)
 
 signals:
     void connectedChanged();

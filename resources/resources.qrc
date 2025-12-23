@@ -8,6 +8,7 @@
         <file>icons/settings.svg</file>
         <file>icons/back.svg</file>
         <file>icons/edit.svg</file>
+        <file>icons/sleep.svg</file>
         <!-- Espresso profiles -->
         <file>profiles/default.json</file>
         <file>profiles/best_practice.json</file>

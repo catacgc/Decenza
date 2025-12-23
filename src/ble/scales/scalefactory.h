@@ -29,8 +29,11 @@ public:
     // Detect scale type from BLE device info
     static ScaleType detectScaleType(const QBluetoothDeviceInfo& device);
 
-    // Create appropriate scale instance
+    // Create appropriate scale instance (auto-detect type from device name)
     static std::unique_ptr<ScaleDevice> createScale(const QBluetoothDeviceInfo& device, QObject* parent = nullptr);
+
+    // Create scale with explicit type (for direct connect without device name)
+    static std::unique_ptr<ScaleDevice> createScale(const QBluetoothDeviceInfo& device, const QString& typeName, QObject* parent = nullptr);
 
     // Check if a device is a known scale
     static bool isKnownScale(const QBluetoothDeviceInfo& device);

@@ -144,6 +144,11 @@ void DecentScale::resetTimer() {
     sendCommand(QByteArray::fromHex("0B0200"));
 }
 
+void DecentScale::sleep() {
+    // Command 0A 02 00 disables LCD and puts scale to sleep
+    sendCommand(QByteArray::fromHex("0A0200"));
+}
+
 void DecentScale::setLed(int r, int g, int b) {
     QByteArray cmd(5, 0);
     cmd[0] = 0x0A;

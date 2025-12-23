@@ -72,6 +72,62 @@ bool ScaleFactory::isKnownScale(const QBluetoothDeviceInfo& device) {
     return detectScaleType(device) != ScaleType::Unknown;
 }
 
+std::unique_ptr<ScaleDevice> ScaleFactory::createScale(const QBluetoothDeviceInfo& device, const QString& typeName, QObject* parent) {
+    // Map type name to ScaleType enum
+    ScaleType type = ScaleType::Unknown;
+
+    QString name = typeName.toLower();
+    if (name.contains("decent")) type = ScaleType::DecentScale;
+    else if (name.contains("pyxis")) type = ScaleType::AcaiaPyxis;
+    else if (name.contains("acaia")) type = ScaleType::Acaia;
+    else if (name.contains("felicita")) type = ScaleType::Felicita;
+    else if (name.contains("skale")) type = ScaleType::Skale;
+    else if (name.contains("hiroia") || name.contains("jimmy")) type = ScaleType::HiroiaJimmy;
+    else if (name.contains("bookoo")) type = ScaleType::Bookoo;
+    else if (name.contains("smartchef")) type = ScaleType::SmartChef;
+    else if (name.contains("difluid")) type = ScaleType::Difluid;
+    else if (name.contains("eureka") || name.contains("precisa")) type = ScaleType::EurekaPrecisa;
+    else if (name.contains("solo") || name.contains("barista")) type = ScaleType::SoloBarista;
+    else if (name.contains("eclair") || name.contains("atomheart")) type = ScaleType::AtomheartEclair;
+    else if (name.contains("aku") || name.contains("varia")) type = ScaleType::VariaAku;
+
+    if (type == ScaleType::Unknown) {
+        // Fall back to detection from device name
+        return createScale(device, parent);
+    }
+
+    switch (type) {
+        case ScaleType::DecentScale:
+            return std::make_unique<DecentScale>(parent);
+        case ScaleType::Acaia:
+            return std::make_unique<AcaiaScale>(false, parent);
+        case ScaleType::AcaiaPyxis:
+            return std::make_unique<AcaiaScale>(true, parent);
+        case ScaleType::Felicita:
+            return std::make_unique<FelicitaScale>(parent);
+        case ScaleType::Skale:
+            return std::make_unique<SkaleScale>(parent);
+        case ScaleType::HiroiaJimmy:
+            return std::make_unique<HiroiaScale>(parent);
+        case ScaleType::Bookoo:
+            return std::make_unique<BookooScale>(parent);
+        case ScaleType::SmartChef:
+            return std::make_unique<SmartChefScale>(parent);
+        case ScaleType::Difluid:
+            return std::make_unique<DifluidScale>(parent);
+        case ScaleType::EurekaPrecisa:
+            return std::make_unique<EurekaPrecisaScale>(parent);
+        case ScaleType::SoloBarista:
+            return std::make_unique<SoloBarristaScale>(parent);
+        case ScaleType::AtomheartEclair:
+            return std::make_unique<AtomheartEclairScale>(parent);
+        case ScaleType::VariaAku:
+            return std::make_unique<VariaAkuScale>(parent);
+        default:
+            return nullptr;
+    }
+}
+
 QString ScaleFactory::scaleTypeName(ScaleType type) {
     switch (type) {
         case ScaleType::DecentScale: return "Decent Scale";

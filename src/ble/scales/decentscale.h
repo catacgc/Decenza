@@ -19,6 +19,7 @@ public slots:
     void startTimer() override;
     void stopTimer() override;
     void resetTimer() override;
+    void sleep() override;
     void setLed(int r, int g, int b);
 
 private slots:

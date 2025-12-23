@@ -36,6 +36,7 @@ public slots:
     void loadProfile(const QString& profileName);
     void refreshProfiles();
     void uploadCurrentProfile();
+    Q_INVOKABLE void uploadProfile(const QVariantMap& profileData);
 
     void applySteamSettings();
     void applyHotWaterSettings();
@@ -70,6 +71,7 @@ private:
     QStringList m_availableProfiles;
     QMap<QString, QString> m_profileTitles;  // filename -> display title
     double m_shotStartTime = 0;
+    double m_lastSampleTime = 0;  // For delta time calculation
     bool m_extractionStarted = false;
     int m_lastFrameNumber = -1;
 };

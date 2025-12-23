@@ -19,6 +19,7 @@ public slots:
     void startTimer() override;
     void stopTimer() override;
     void resetTimer() override;
+    void sleep() override { disableLcd(); }
 
     // Skale-specific functions
     void enableLcd();
