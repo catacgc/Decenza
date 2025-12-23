@@ -34,7 +34,7 @@ public slots:
     virtual void stopTimer() {}
     virtual void resetTimer() {}
     virtual void sleep() {}  // Put scale to sleep (battery power saving)
-    virtual void disconnect();  // Disconnect from scale
+    virtual void disconnectFromScale();  // Disconnect BLE from scale
 
 signals:
     void connectedChanged();

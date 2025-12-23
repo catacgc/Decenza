@@ -11,6 +11,9 @@ Page {
 
     property var profile: null
     property int selectedStepIndex: -1
+    property bool profileModified: false
+    property string originalProfileName: ""
+    property int stepVersion: 0  // Increment to force step editor refresh
 
     function updatePageTitle() {
         root.currentPageTitle = profile ? profile.title : "Profile Editor"
@@ -20,6 +23,29 @@ Page {
     function uploadProfile() {
         if (profile) {
             MainController.uploadProfile(profile)
+            profileModified = true
+            // Force step editor bindings to re-evaluate
+            stepVersion++
+            // Force graph to update by creating a new array reference
+            // (assigning same reference doesn't trigger onFramesChanged)
+            profileGraph.frames = profile.steps.slice()
+        }
+    }
+
+    // Save profile to file
+    function saveProfile() {
+        if (profile && originalProfileName) {
+            MainController.saveProfile(originalProfileName)
+            profileModified = false
+        }
+    }
+
+    // Save profile with new name
+    function saveProfileAs(filename, title) {
+        if (profile) {
+            MainController.saveProfileAs(filename, title)
+            originalProfileName = filename
+            profileModified = false
         }
     }
 
@@ -239,12 +265,126 @@ Page {
 
             Item { Layout.fillWidth: true }
 
+            // Modified indicator
+            Text {
+                text: profileModified ? "Modified" : ""
+                color: Theme.warningColor
+                font: Theme.captionFont
+                visible: profileModified
+            }
+
             // Info text
             Text {
                 text: profile ? profile.steps.length + " frames" : ""
                 color: Theme.textSecondaryColor
                 font: Theme.captionFont
             }
+
+            // Save button
+            Button {
+                text: "Save"
+                enabled: profileModified && originalProfileName !== ""
+                onClicked: saveProfile()
+                background: Rectangle {
+                    implicitWidth: Theme.scaled(80)
+                    implicitHeight: Theme.scaled(40)
+                    radius: Theme.scaled(8)
+                    color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+                    opacity: parent.enabled ? 1.0 : 0.4
+                }
+                contentItem: Text {
+                    text: parent.text
+                    font: Theme.bodyFont
+                    color: "white"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
+            // Save As button
+            Button {
+                text: "Save As..."
+                onClicked: saveAsDialog.open()
+                background: Rectangle {
+                    implicitWidth: Theme.scaled(100)
+                    implicitHeight: Theme.scaled(40)
+                    radius: Theme.scaled(8)
+                    color: parent.down ? Qt.darker(Theme.accentColor, 1.2) : Theme.accentColor
+                }
+                contentItem: Text {
+                    text: parent.text
+                    font: Theme.bodyFont
+                    color: "white"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+    }
+
+    // Save As dialog
+    Dialog {
+        id: saveAsDialog
+        title: "Save Profile As"
+        anchors.centerIn: parent
+        width: Theme.scaled(400)
+        modal: true
+        standardButtons: Dialog.Save | Dialog.Cancel
+
+        ColumnLayout {
+            width: parent.width
+            spacing: Theme.scaled(15)
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Theme.scaled(5)
+
+                Text {
+                    text: "Profile Title"
+                    font: Theme.captionFont
+                    color: Theme.textSecondaryColor
+                }
+
+                TextField {
+                    id: saveAsTitleField
+                    Layout.fillWidth: true
+                    text: profile ? profile.title : ""
+                    font: Theme.bodyFont
+                    placeholderText: "Enter profile title"
+                }
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: Theme.scaled(5)
+
+                Text {
+                    text: "Filename"
+                    font: Theme.captionFont
+                    color: Theme.textSecondaryColor
+                }
+
+                TextField {
+                    id: saveAsFilenameField
+                    Layout.fillWidth: true
+                    text: originalProfileName || "my_profile"
+                    font: Theme.bodyFont
+                    placeholderText: "Enter filename (without .json)"
+                    validator: RegularExpressionValidator { regularExpression: /[a-zA-Z0-9_-]+/ }
+                }
+            }
+        }
+
+        onAccepted: {
+            if (saveAsFilenameField.text.length > 0 && saveAsTitleField.text.length > 0) {
+                saveProfileAs(saveAsFilenameField.text, saveAsTitleField.text)
+            }
+        }
+
+        onOpened: {
+            saveAsTitleField.text = profile ? profile.title : ""
+            saveAsFilenameField.text = originalProfileName || "my_profile"
+            saveAsTitleField.forceActiveFocus()
         }
     }
 
@@ -283,8 +423,12 @@ Page {
             id: stepEditorScroll
             clip: true
 
-            property var step: profile && selectedStepIndex >= 0 && selectedStepIndex < profile.steps.length ?
-                              profile.steps[selectedStepIndex] : null
+            // Reference stepVersion to force re-evaluation when it changes
+            property var step: {
+                stepVersion  // Dependency trigger
+                return profile && selectedStepIndex >= 0 && selectedStepIndex < profile.steps.length ?
+                       profile.steps[selectedStepIndex] : null
+            }
 
             ColumnLayout {
                 width: stepEditorScroll.width - Theme.scaled(10)
@@ -313,9 +457,8 @@ Page {
                             radius: Theme.scaled(4)
                         }
                         onTextChanged: {
-                            if (step && step.name !== text) {
-                                step.name = text
-                                profileGraph.refresh()
+                            if (profile && selectedStepIndex >= 0 && profile.steps[selectedStepIndex].name !== text) {
+                                profile.steps[selectedStepIndex].name = text
                                 uploadProfile()
                             }
                         }
@@ -354,9 +497,8 @@ Page {
                                 verticalAlignment: Text.AlignVCenter
                             }
                             onCheckedChanged: {
-                                if (checked && step && step.pump !== "pressure") {
-                                    step.pump = "pressure"
-                                    profileGraph.refresh()
+                                if (checked && profile && selectedStepIndex >= 0 && profile.steps[selectedStepIndex].pump !== "pressure") {
+                                    profile.steps[selectedStepIndex].pump = "pressure"
                                     uploadProfile()
                                 }
                             }
@@ -373,9 +515,8 @@ Page {
                                 verticalAlignment: Text.AlignVCenter
                             }
                             onCheckedChanged: {
-                                if (checked && step && step.pump !== "flow") {
-                                    step.pump = "flow"
-                                    profileGraph.refresh()
+                                if (checked && profile && selectedStepIndex >= 0 && profile.steps[selectedStepIndex].pump !== "flow") {
+                                    profile.steps[selectedStepIndex].pump = "flow"
                                     uploadProfile()
                                 }
                             }
@@ -428,13 +569,12 @@ Page {
                                 }
                             }
                             onMoved: {
-                                if (step) {
-                                    if (step.pump === "flow") {
-                                        step.flow = value
+                                if (profile && selectedStepIndex >= 0) {
+                                    if (profile.steps[selectedStepIndex].pump === "flow") {
+                                        profile.steps[selectedStepIndex].flow = value
                                     } else {
-                                        step.pressure = value
+                                        profile.steps[selectedStepIndex].pressure = value
                                     }
-                                    profileGraph.refresh()
                                     uploadProfile()
                                 }
                             }
@@ -494,9 +634,8 @@ Page {
                                 }
                             }
                             onMoved: {
-                                if (step) {
-                                    step.temperature = value
-                                    profileGraph.refresh()
+                                if (profile && selectedStepIndex >= 0) {
+                                    profile.steps[selectedStepIndex].temperature = value
                                     uploadProfile()
                                 }
                             }
@@ -529,7 +668,7 @@ Page {
                         Slider {
                             id: durationSlider
                             Layout.fillWidth: true
-                            from: 1
+                            from: 0
                             to: 120
                             value: step ? step.seconds : 30
                             stepSize: 1
@@ -556,9 +695,8 @@ Page {
                                 }
                             }
                             onMoved: {
-                                if (step) {
-                                    step.seconds = value
-                                    profileGraph.refresh()
+                                if (profile && selectedStepIndex >= 0) {
+                                    profile.steps[selectedStepIndex].seconds = value
                                     uploadProfile()
                                 }
                             }
@@ -605,9 +743,8 @@ Page {
                                 verticalAlignment: Text.AlignVCenter
                             }
                             onCheckedChanged: {
-                                if (checked && step && step.transition !== "fast") {
-                                    step.transition = "fast"
-                                    profileGraph.refresh()
+                                if (checked && profile && selectedStepIndex >= 0 && profile.steps[selectedStepIndex].transition !== "fast") {
+                                    profile.steps[selectedStepIndex].transition = "fast"
                                     uploadProfile()
                                 }
                             }
@@ -624,9 +761,8 @@ Page {
                                 verticalAlignment: Text.AlignVCenter
                             }
                             onCheckedChanged: {
-                                if (checked && step && step.transition !== "smooth") {
-                                    step.transition = "smooth"
-                                    profileGraph.refresh()
+                                if (checked && profile && selectedStepIndex >= 0 && profile.steps[selectedStepIndex].transition !== "smooth") {
+                                    profile.steps[selectedStepIndex].transition = "smooth"
                                     uploadProfile()
                                 }
                             }
@@ -667,8 +803,8 @@ Page {
                                 verticalAlignment: Text.AlignVCenter
                             }
                             onCheckedChanged: {
-                                if (step && step.exit_if !== checked) {
-                                    step.exit_if = checked
+                                if (profile && selectedStepIndex >= 0 && profile.steps[selectedStepIndex].exit_if !== checked) {
+                                    profile.steps[selectedStepIndex].exit_if = checked
                                     uploadProfile()
                                 }
                             }
@@ -729,10 +865,10 @@ Page {
                                 }
                             }
                             onCurrentIndexChanged: {
-                                if (!step) return
+                                if (!profile || selectedStepIndex < 0) return
                                 var types = ["pressure_over", "pressure_under", "flow_over", "flow_under"]
-                                if (step.exit_type !== types[currentIndex]) {
-                                    step.exit_type = types[currentIndex]
+                                if (profile.steps[selectedStepIndex].exit_type !== types[currentIndex]) {
+                                    profile.steps[selectedStepIndex].exit_type = types[currentIndex]
                                     uploadProfile()
                                 }
                             }
@@ -760,12 +896,13 @@ Page {
                                 }
                                 stepSize: 0.1
                                 onMoved: {
-                                    if (!step) return
-                                    switch (step.exit_type) {
-                                        case "pressure_over": step.exit_pressure_over = value; break
-                                        case "pressure_under": step.exit_pressure_under = value; break
-                                        case "flow_over": step.exit_flow_over = value; break
-                                        case "flow_under": step.exit_flow_under = value; break
+                                    if (!profile || selectedStepIndex < 0) return
+                                    var s = profile.steps[selectedStepIndex]
+                                    switch (s.exit_type) {
+                                        case "pressure_over": profile.steps[selectedStepIndex].exit_pressure_over = value; break
+                                        case "pressure_under": profile.steps[selectedStepIndex].exit_pressure_under = value; break
+                                        case "flow_over": profile.steps[selectedStepIndex].exit_flow_over = value; break
+                                        case "flow_under": profile.steps[selectedStepIndex].exit_flow_under = value; break
                                     }
                                     uploadProfile()
                                 }
@@ -810,8 +947,8 @@ Page {
                             value: step ? step.max_flow_or_pressure : 0
                             stepSize: 0.1
                             onMoved: {
-                                if (step) {
-                                    step.max_flow_or_pressure = value
+                                if (profile && selectedStepIndex >= 0) {
+                                    profile.steps[selectedStepIndex].max_flow_or_pressure = value
                                     uploadProfile()
                                 }
                             }
@@ -945,6 +1082,9 @@ Page {
                 profile = loadedProfile
             }
         }
+        // Track the original profile name for saving
+        originalProfileName = MainController.currentProfileName || ""
+        profileModified = false
         updatePageTitle()
     }
 }

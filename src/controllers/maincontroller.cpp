@@ -43,7 +43,25 @@ MainController::MainController(Settings* settings, DE1Device* device,
 
     // Load initial profile
     refreshProfiles();
-    if (m_settings) {
+
+    // Check for temp file (modified profile from previous session)
+    QString tempPath = profilesPath() + "/_current.json";
+    if (QFile::exists(tempPath)) {
+        qDebug() << "Loading modified profile from temp file:" << tempPath;
+        m_currentProfile = Profile::loadFromFile(tempPath);
+        m_profileModified = true;
+        // Get the base profile name from settings
+        if (m_settings) {
+            m_baseProfileName = m_settings->currentProfile();
+        }
+        if (m_machineState) {
+            m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+        }
+        // Upload to machine if connected
+        if (m_currentProfile.mode() == Profile::Mode::FrameBased) {
+            uploadCurrentProfile();
+        }
+    } else if (m_settings) {
         loadProfile(m_settings->currentProfile());
     } else {
         loadDefaultProfile();
@@ -51,6 +69,9 @@ MainController::MainController(Settings* settings, DE1Device* device,
 }
 
 QString MainController::currentProfileName() const {
+    if (m_profileModified) {
+        return "*" + m_currentProfile.title();
+    }
     return m_currentProfile.title();
 }
 
@@ -128,6 +149,11 @@ void MainController::loadProfile(const QString& profileName) {
         }
     }
 
+    // Track the base profile name (filename without extension)
+    m_baseProfileName = profileName;
+    bool wasModified = m_profileModified;
+    m_profileModified = false;
+
     if (m_settings) {
         m_settings->setCurrentProfile(profileName);
     }
@@ -143,6 +169,9 @@ void MainController::loadProfile(const QString& profileName) {
 
     emit currentProfileChanged();
     emit targetWeightChanged();
+    if (wasModified) {
+        emit profileModifiedChanged();
+    }
 }
 
 void MainController::refreshProfiles() {
@@ -232,10 +261,70 @@ void MainController::uploadProfile(const QVariantMap& profileData) {
         }
     }
 
+    // Mark as modified
+    if (!m_profileModified) {
+        m_profileModified = true;
+        emit profileModifiedChanged();
+    }
+
+    // Save to temp file for persistence across restarts
+    QString tempPath = profilesPath() + "/_current.json";
+    m_currentProfile.saveToFile(tempPath);
+    qDebug() << "Saved modified profile to temp file:" << tempPath;
+
     // Upload to machine
     uploadCurrentProfile();
 
     emit currentProfileChanged();
+}
+
+bool MainController::saveProfile(const QString& filename) {
+    QString path = profilesPath() + "/" + filename + ".json";
+    bool success = m_currentProfile.saveToFile(path);
+    if (success) {
+        qDebug() << "Saved profile to:" << path;
+        m_baseProfileName = filename;
+        markProfileClean();
+        refreshProfiles();
+    } else {
+        qWarning() << "Failed to save profile to:" << path;
+    }
+    return success;
+}
+
+void MainController::markProfileClean() {
+    if (m_profileModified) {
+        m_profileModified = false;
+        emit profileModifiedChanged();
+        emit currentProfileChanged();  // Update the name (remove * prefix)
+
+        // Remove temp file since we're now clean
+        QString tempPath = profilesPath() + "/_current.json";
+        QFile::remove(tempPath);
+        qDebug() << "Profile marked clean, removed temp file";
+    }
+}
+
+bool MainController::saveProfileAs(const QString& filename, const QString& title) {
+    // Update the profile title
+    m_currentProfile.setTitle(title);
+
+    // Save to new file
+    QString path = profilesPath() + "/" + filename + ".json";
+    bool success = m_currentProfile.saveToFile(path);
+    if (success) {
+        qDebug() << "Saved profile as:" << path;
+        m_baseProfileName = filename;
+        if (m_settings) {
+            m_settings->setCurrentProfile(filename);
+        }
+        markProfileClean();
+        refreshProfiles();
+        emit currentProfileChanged();
+    } else {
+        qWarning() << "Failed to save profile to:" << path;
+    }
+    return success;
 }
 
 void MainController::applySteamSettings() {

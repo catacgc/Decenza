@@ -13,12 +13,12 @@ AcaiaScale::AcaiaScale(bool isPyxis, QObject* parent)
 
 AcaiaScale::~AcaiaScale() {
     m_heartbeatTimer->stop();
-    disconnect();
+    disconnectFromScale();
 }
 
 void AcaiaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();

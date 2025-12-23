@@ -8,12 +8,12 @@ EurekaPrecisaScale::EurekaPrecisaScale(QObject* parent)
 }
 
 EurekaPrecisaScale::~EurekaPrecisaScale() {
-    disconnect();
+    disconnectFromScale();
 }
 
 void EurekaPrecisaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();

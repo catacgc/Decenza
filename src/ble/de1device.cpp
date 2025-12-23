@@ -561,7 +561,14 @@ void DE1Device::stopOperation() {
 }
 
 void DE1Device::goToSleep() {
-    requestState(DE1::State::Sleep);
+    // Clear pending commands - sleep takes priority
+    m_commandQueue.clear();
+    m_writePending = false;
+
+    // Send sleep command directly (don't queue it)
+    QByteArray data(1, static_cast<char>(DE1::State::Sleep));
+    qDebug() << "DE1Device::goToSleep - sending immediately";
+    writeCharacteristic(DE1::Characteristic::REQUESTED_STATE, data);
 }
 
 void DE1Device::wakeUp() {

@@ -8,12 +8,12 @@ DifluidScale::DifluidScale(QObject* parent)
 }
 
 DifluidScale::~DifluidScale() {
-    disconnect();
+    disconnectFromScale();
 }
 
 void DifluidScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();

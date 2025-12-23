@@ -16,7 +16,8 @@ class BLEManager : public QObject {
     Q_PROPERTY(bool scanning READ isScanning NOTIFY scanningChanged)
     Q_PROPERTY(QVariantList discoveredDevices READ discoveredDevices NOTIFY devicesChanged)
     Q_PROPERTY(QVariantList discoveredScales READ discoveredScales NOTIFY scalesChanged)
-    Q_PROPERTY(bool autoScanForScale READ autoScanForScale WRITE setAutoScanForScale NOTIFY autoScanForScaleChanged)
+    Q_PROPERTY(bool scaleConnectionFailed READ scaleConnectionFailed NOTIFY scaleConnectionFailedChanged)
+    Q_PROPERTY(bool hasSavedScale READ hasSavedScale CONSTANT)
 
 public:
     explicit BLEManager(QObject* parent = nullptr);
@@ -25,20 +26,22 @@ public:
     bool isScanning() const;
     QVariantList discoveredDevices() const;
     QVariantList discoveredScales() const;
-    bool autoScanForScale() const { return m_autoScanForScale; }
+    bool scaleConnectionFailed() const { return m_scaleConnectionFailed; }
+    bool hasSavedScale() const { return !m_savedScaleAddress.isEmpty(); }
 
     Q_INVOKABLE QBluetoothDeviceInfo getScaleDeviceInfo(const QString& address) const;
     Q_INVOKABLE QString getScaleType(const QString& address) const;
 
     void setScaleDevice(ScaleDevice* scale);
-    Q_INVOKABLE void setAutoScanForScale(bool enabled);
 
-    // Direct connect to wake sleeping scales
+    // Scale address management
     void setSavedScaleAddress(const QString& address, const QString& type);
+    Q_INVOKABLE void clearSavedScale();
 
 public slots:
     Q_INVOKABLE void tryDirectConnectToScale();
-    void startScan();
+    Q_INVOKABLE void scanForScales();  // User-initiated scale scan
+    void startScan();  // Internal: scans for DE1 only
     void stopScan();
     void clearDevices();
 
@@ -46,7 +49,7 @@ signals:
     void scanningChanged();
     void devicesChanged();
     void scalesChanged();
-    void autoScanForScaleChanged();
+    void scaleConnectionFailedChanged();
     void de1Discovered(const QBluetoothDeviceInfo& device);
     void scaleDiscovered(const QBluetoothDeviceInfo& device, const QString& type);
     void errorOccurred(const QString& error);
@@ -56,23 +59,23 @@ private slots:
     void onScanFinished();
     void onScanError(QBluetoothDeviceDiscoveryAgent::Error error);
     void onScaleConnectedChanged();
-    void restartScanForScale();
+    void onScaleConnectionTimeout();
 
 private:
     bool isDE1Device(const QBluetoothDeviceInfo& device) const;
     QString getScaleType(const QBluetoothDeviceInfo& device) const;
     void requestBluetoothPermission();
     void doStartScan();
-    bool shouldContinueScanning() const;
 
     QBluetoothDeviceDiscoveryAgent* m_discoveryAgent = nullptr;
     QList<QBluetoothDeviceInfo> m_de1Devices;
     QList<QPair<QBluetoothDeviceInfo, QString>> m_scales;  // device, type
     bool m_scanning = false;
     bool m_permissionRequested = false;
-    bool m_autoScanForScale = true;  // Auto-scan until scale found
+    bool m_scanningForScales = false;  // True when user requested scale scan
+    bool m_scaleConnectionFailed = false;
     ScaleDevice* m_scaleDevice = nullptr;
-    QTimer* m_rescanTimer = nullptr;
+    QTimer* m_scaleConnectionTimer = nullptr;
 
     // Saved scale for direct wake connection
     QString m_savedScaleAddress;

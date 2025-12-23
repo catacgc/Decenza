@@ -10,12 +10,12 @@ SkaleScale::SkaleScale(QObject* parent)
 SkaleScale::~SkaleScale() {
     // Disconnect BLE before derived class is destroyed to prevent
     // callbacks to destroyed virtual methods
-    disconnect();
+    disconnectFromScale();
 }
 
 void SkaleScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();

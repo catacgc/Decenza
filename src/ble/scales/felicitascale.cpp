@@ -8,12 +8,12 @@ FelicitaScale::FelicitaScale(QObject* parent)
 }
 
 FelicitaScale::~FelicitaScale() {
-    disconnect();
+    disconnectFromScale();
 }
 
 void FelicitaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();

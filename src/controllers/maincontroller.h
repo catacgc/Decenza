@@ -15,6 +15,8 @@ class MainController : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(QString currentProfileName READ currentProfileName NOTIFY currentProfileChanged)
+    Q_PROPERTY(QString baseProfileName READ baseProfileName NOTIFY currentProfileChanged)
+    Q_PROPERTY(bool profileModified READ isProfileModified NOTIFY profileModifiedChanged)
     Q_PROPERTY(double targetWeight READ targetWeight WRITE setTargetWeight NOTIFY targetWeightChanged)
     Q_PROPERTY(QVariantList availableProfiles READ availableProfiles NOTIFY profilesChanged)
 
@@ -24,6 +26,8 @@ public:
                            QObject* parent = nullptr);
 
     QString currentProfileName() const;
+    QString baseProfileName() const { return m_baseProfileName; }
+    bool isProfileModified() const { return m_profileModified; }
     double targetWeight() const;
     void setTargetWeight(double weight);
     QVariantList availableProfiles() const;
@@ -31,12 +35,15 @@ public:
     const Profile& currentProfile() const { return m_currentProfile; }
 
     Q_INVOKABLE QVariantMap getCurrentProfile() const;
+    Q_INVOKABLE void markProfileClean();  // Called after save
 
 public slots:
     void loadProfile(const QString& profileName);
     void refreshProfiles();
     void uploadCurrentProfile();
     Q_INVOKABLE void uploadProfile(const QVariantMap& profileData);
+    Q_INVOKABLE bool saveProfile(const QString& filename);
+    Q_INVOKABLE bool saveProfileAs(const QString& filename, const QString& title);
 
     void applySteamSettings();
     void applyHotWaterSettings();
@@ -51,6 +58,7 @@ public slots:
 
 signals:
     void currentProfileChanged();
+    void profileModifiedChanged();
     void targetWeightChanged();
     void profilesChanged();
 
@@ -74,4 +82,7 @@ private:
     double m_lastSampleTime = 0;  // For delta time calculation
     bool m_extractionStarted = false;
     int m_lastFrameNumber = -1;
+
+    QString m_baseProfileName;
+    bool m_profileModified = false;
 };

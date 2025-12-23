@@ -27,12 +27,49 @@ Page {
     ]
 
     property int currentVideoIndex: Math.floor(Math.random() * videoFiles.length)
+    property int videoFailCount: 0
+    property bool videoDisabled: false
+    property string lastFailedSource: ""
 
     Component.onCompleted: {
         // Start with a random video
         currentVideoIndex = Math.floor(Math.random() * videoFiles.length)
-        mediaPlayer.source = videoBaseUrl + videoFiles[currentVideoIndex]
+        tryPlayVideo()
+    }
+
+    function tryPlayVideo() {
+        if (videoDisabled || videoFailCount >= videoFiles.length) {
+            // All videos failed, give up and use fallback
+            console.log("All videos failed, using fallback animation")
+            videoDisabled = true
+            mediaPlayer.stop()
+            return
+        }
+        var url = videoBaseUrl + videoFiles[currentVideoIndex]
+        mediaPlayer.source = url
         mediaPlayer.play()
+    }
+
+    function handleVideoFailure() {
+        if (videoDisabled) return
+
+        // Prevent handling the same failure twice (both onError and onMediaStatus can fire)
+        var currentSource = mediaPlayer.source.toString()
+        if (currentSource === lastFailedSource) return
+        lastFailedSource = currentSource
+
+        videoFailCount++
+        console.log("Video failed (" + videoFailCount + "/" + videoFiles.length + "):", videoFiles[currentVideoIndex])
+
+        if (videoFailCount >= videoFiles.length) {
+            console.log("All videos failed, using fallback animation")
+            videoDisabled = true
+            mediaPlayer.stop()
+            return
+        }
+
+        currentVideoIndex = (currentVideoIndex + 1) % videoFiles.length
+        tryPlayVideo()
     }
 
     MediaPlayer {
@@ -42,24 +79,27 @@ Page {
 
         onMediaStatusChanged: {
             if (mediaStatus === MediaPlayer.EndOfMedia) {
-                // Play next video
+                // Play next video (reset fail count on success)
+                videoFailCount = 0
+                lastFailedSource = ""
                 currentVideoIndex = (currentVideoIndex + 1) % videoFiles.length
-                source = videoBaseUrl + videoFiles[currentVideoIndex]
-                play()
+                tryPlayVideo()
             } else if (mediaStatus === MediaPlayer.InvalidMedia ||
                        mediaStatus === MediaPlayer.NoMedia) {
-                // Try next video if current fails
-                currentVideoIndex = (currentVideoIndex + 1) % videoFiles.length
-                source = videoBaseUrl + videoFiles[currentVideoIndex]
-                play()
+                handleVideoFailure()
             }
         }
 
         onErrorOccurred: {
-            console.log("Video error, trying next:", error)
-            currentVideoIndex = (currentVideoIndex + 1) % videoFiles.length
-            source = videoBaseUrl + videoFiles[currentVideoIndex]
-            play()
+            handleVideoFailure()
+        }
+
+        onPlaybackStateChanged: {
+            // Reset fail count when video starts playing successfully
+            if (playbackState === MediaPlayer.PlayingState) {
+                videoFailCount = 0
+                lastFailedSource = ""
+            }
         }
     }
 
@@ -67,35 +107,37 @@ Page {
         id: videoOutput
         anchors.fill: parent
         fillMode: VideoOutput.PreserveAspectCrop
+        visible: !videoDisabled
     }
 
     // Fallback: show a subtle animation if video fails
     Rectangle {
         id: fallbackBackground
         anchors.fill: parent
-        visible: mediaPlayer.playbackState !== MediaPlayer.PlayingState
-        color: "black"
+        visible: videoDisabled || mediaPlayer.playbackState !== MediaPlayer.PlayingState
+        z: 1  // Above VideoOutput
 
         // Subtle gradient animation as fallback
         Rectangle {
+            id: gradientRect
             anchors.fill: parent
+            property real gradientHue: 0.6
+
             gradient: Gradient {
                 GradientStop {
                     position: 0.0
-                    color: Qt.hsla(gradientHue, 0.3, 0.1, 1.0)
+                    color: Qt.hsla(gradientRect.gradientHue, 0.4, 0.15, 1.0)
                 }
                 GradientStop {
                     position: 1.0
-                    color: Qt.hsla((gradientHue + 0.5) % 1.0, 0.3, 0.05, 1.0)
+                    color: Qt.hsla((gradientRect.gradientHue + 0.5) % 1.0, 0.4, 0.08, 1.0)
                 }
             }
-
-            property real gradientHue: 0.6
 
             NumberAnimation on gradientHue {
                 from: 0
                 to: 1
-                duration: 60000
+                duration: 30000
                 loops: Animation.Infinite
             }
         }
@@ -103,6 +145,7 @@ Page {
 
     // Clock display
     Text {
+        z: 2
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.margins: 50
@@ -125,6 +168,7 @@ Page {
     // Touch hint (fades out)
     Text {
         id: touchHint
+        z: 2
         anchors.centerIn: parent
         text: "Touch to wake"
         color: "white"
@@ -142,6 +186,7 @@ Page {
 
     // Touch anywhere to wake
     MouseArea {
+        z: 3
         anchors.fill: parent
         onClicked: wake()
         onPressed: wake()
@@ -159,8 +204,7 @@ Page {
             DE1Device.wakeUp()
         }
 
-        // Re-enable auto-scan and try to reconnect to scale
-        BLEManager.setAutoScanForScale(true)
+        // Try to reconnect to saved scale
         BLEManager.tryDirectConnectToScale()
 
         // Navigate back to idle

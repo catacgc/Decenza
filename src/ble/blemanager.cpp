@@ -19,11 +19,11 @@ BLEManager::BLEManager(QObject* parent)
     connect(m_discoveryAgent, &QBluetoothDeviceDiscoveryAgent::errorOccurred,
             this, &BLEManager::onScanError);
 
-    // Timer for restarting scan when looking for scale
-    m_rescanTimer = new QTimer(this);
-    m_rescanTimer->setSingleShot(true);
-    m_rescanTimer->setInterval(5000);  // 5 second delay between scans
-    connect(m_rescanTimer, &QTimer::timeout, this, &BLEManager::restartScanForScale);
+    // Timer for scale connection timeout (20 seconds)
+    m_scaleConnectionTimer = new QTimer(this);
+    m_scaleConnectionTimer->setSingleShot(true);
+    m_scaleConnectionTimer->setInterval(20000);
+    connect(m_scaleConnectionTimer, &QTimer::timeout, this, &BLEManager::onScaleConnectionTimeout);
 }
 
 BLEManager::~BLEManager() {
@@ -130,6 +130,7 @@ void BLEManager::stopScan() {
 
     m_discoveryAgent->stop();
     m_scanning = false;
+    m_scanningForScales = false;
     emit scanningChanged();
 }
 
@@ -155,6 +156,11 @@ void BLEManager::onDeviceDiscovered(const QBluetoothDeviceInfo& device) {
         return;
     }
 
+    // Only look for scales if user requested it or we're looking for saved scale
+    if (!m_scanningForScales) {
+        return;
+    }
+
     // Check if it's a scale
     QString scaleType = getScaleType(device);
     if (!scaleType.isEmpty()) {
@@ -172,13 +178,8 @@ void BLEManager::onDeviceDiscovered(const QBluetoothDeviceInfo& device) {
 
 void BLEManager::onScanFinished() {
     m_scanning = false;
+    m_scanningForScales = false;
     emit scanningChanged();
-
-    // Auto-restart scan if looking for scale and none connected
-    if (shouldContinueScanning()) {
-        qDebug() << "Scale not connected, will restart scan in 5 seconds...";
-        m_rescanTimer->start();
-    }
 }
 
 void BLEManager::onScanError(QBluetoothDeviceDiscoveryAgent::Error error) {
@@ -208,6 +209,7 @@ void BLEManager::onScanError(QBluetoothDeviceDiscoveryAgent::Error error) {
     }
     emit errorOccurred(errorMsg);
     m_scanning = false;
+    m_scanningForScales = false;
     emit scanningChanged();
 }
 
@@ -250,48 +252,53 @@ void BLEManager::setScaleDevice(ScaleDevice* scale) {
     }
 }
 
-void BLEManager::setAutoScanForScale(bool enabled) {
-    if (m_autoScanForScale != enabled) {
-        m_autoScanForScale = enabled;
-        emit autoScanForScaleChanged();
-
-        if (enabled && shouldContinueScanning() && !m_scanning) {
-            startScan();
-        } else if (!enabled) {
-            m_rescanTimer->stop();
+void BLEManager::onScaleConnectedChanged() {
+    if (m_scaleDevice && m_scaleDevice->isConnected()) {
+        // Scale connected - stop timeout timer, clear failure flag
+        qDebug() << "Scale connected";
+        m_scaleConnectionTimer->stop();
+        if (m_scaleConnectionFailed) {
+            m_scaleConnectionFailed = false;
+            emit scaleConnectionFailedChanged();
         }
     }
 }
 
-void BLEManager::onScaleConnectedChanged() {
-    if (m_scaleDevice && m_scaleDevice->isConnected()) {
-        // Scale connected - stop auto-scanning
-        qDebug() << "Scale connected, stopping auto-scan";
-        m_rescanTimer->stop();
-    } else if (shouldContinueScanning() && !m_scanning) {
-        // Scale disconnected - restart scanning
-        qDebug() << "Scale disconnected, restarting scan";
-        startScan();
+void BLEManager::onScaleConnectionTimeout() {
+    if (!m_scaleDevice || !m_scaleDevice->isConnected()) {
+        qDebug() << "Scale connection timeout - scale not responding";
+        m_scaleConnectionFailed = true;
+        emit scaleConnectionFailedChanged();
     }
-}
-
-void BLEManager::restartScanForScale() {
-    if (shouldContinueScanning()) {
-        qDebug() << "Restarting scan for scale...";
-        startScan();
-    }
-}
-
-bool BLEManager::shouldContinueScanning() const {
-    if (!m_autoScanForScale) return false;
-    if (m_scaleDevice && m_scaleDevice->isConnected()) return false;
-    return true;
 }
 
 void BLEManager::setSavedScaleAddress(const QString& address, const QString& type) {
     m_savedScaleAddress = address;
     m_savedScaleType = type;
     qDebug() << "Saved scale address:" << address << "type:" << type;
+}
+
+void BLEManager::clearSavedScale() {
+    m_savedScaleAddress.clear();
+    m_savedScaleType.clear();
+    m_scaleConnectionFailed = false;
+    emit scaleConnectionFailedChanged();
+    qDebug() << "Cleared saved scale";
+}
+
+void BLEManager::scanForScales() {
+    qDebug() << "User requested scale scan";
+    m_scaleConnectionFailed = false;
+    emit scaleConnectionFailedChanged();
+
+    // If already scanning, we need to restart to include scales
+    if (m_scanning) {
+        stopScan();
+    }
+
+    // Set flag AFTER stopScan (which clears it)
+    m_scanningForScales = true;
+    startScan();
 }
 
 void BLEManager::tryDirectConnectToScale() {
@@ -307,10 +314,14 @@ void BLEManager::tryDirectConnectToScale() {
 
     qDebug() << "Trying direct connect to wake scale:" << m_savedScaleAddress;
 
-    // Create a QBluetoothDeviceInfo from the saved address
-    // This will attempt to connect even if the scale isn't advertising (wakes it)
+    // Start timeout timer
+    m_scaleConnectionTimer->start();
+
+    // Create a QBluetoothDeviceInfo with proper BLE configuration
+    // This tells Windows it's a BLE device, avoiding classic Bluetooth lookups
     QBluetoothAddress addr(m_savedScaleAddress);
     QBluetoothDeviceInfo deviceInfo(addr, "Saved Scale", 0);
+    deviceInfo.setCoreConfigurations(QBluetoothDeviceInfo::LowEnergyCoreConfiguration);
 
     // Emit as if we discovered it - the handler in main.cpp will create and connect
     emit scaleDiscovered(deviceInfo, m_savedScaleType);

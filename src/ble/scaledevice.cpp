@@ -7,14 +7,14 @@ ScaleDevice::ScaleDevice(QObject* parent)
 }
 
 ScaleDevice::~ScaleDevice() {
-    disconnect();
+    disconnectFromScale();
 }
 
 bool ScaleDevice::isConnected() const {
     return m_connected;
 }
 
-void ScaleDevice::disconnect() {
+void ScaleDevice::disconnectFromScale() {
     if (m_service) {
         delete m_service;
         m_service = nullptr;

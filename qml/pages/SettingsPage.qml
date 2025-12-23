@@ -61,7 +61,7 @@ Page {
                         Item { Layout.fillWidth: true }
 
                         Button {
-                            text: BLEManager.scanning ? "Stop" : "Scan"
+                            text: BLEManager.scanning ? "Stop Scan" : "Scan for DE1"
                             onClicked: {
                                 if (BLEManager.scanning) {
                                     BLEManager.stopScan()
@@ -135,16 +135,45 @@ Page {
                         }
 
                         Text {
-                            text: (ScaleDevice && ScaleDevice.connected) ? "Connected" : "Disconnected"
-                            color: (ScaleDevice && ScaleDevice.connected) ? Theme.successColor : Theme.textSecondaryColor
+                            text: (ScaleDevice && ScaleDevice.connected) ? "Connected" :
+                                  BLEManager.scaleConnectionFailed ? "Not found" : "Disconnected"
+                            color: (ScaleDevice && ScaleDevice.connected) ? Theme.successColor :
+                                   BLEManager.scaleConnectionFailed ? Theme.errorColor : Theme.textSecondaryColor
                         }
 
                         Item { Layout.fillWidth: true }
 
                         Button {
-                            text: BLEManager.scanning ? "Scanning..." : "Scan"
+                            text: BLEManager.scanning ? "Scanning..." : "Scan for Scales"
                             enabled: !BLEManager.scanning
-                            onClicked: BLEManager.startScan()
+                            onClicked: BLEManager.scanForScales()
+                        }
+                    }
+
+                    // Saved scale info
+                    RowLayout {
+                        Layout.fillWidth: true
+                        visible: BLEManager.hasSavedScale
+
+                        Text {
+                            text: "Saved scale:"
+                            color: Theme.textSecondaryColor
+                        }
+
+                        Text {
+                            text: Settings.scaleType || "Unknown"
+                            color: Theme.textColor
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        Button {
+                            text: "Forget"
+                            onClicked: {
+                                Settings.setScaleAddress("")
+                                Settings.setScaleType("")
+                                BLEManager.clearSavedScale()
+                            }
                         }
                     }
 

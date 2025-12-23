@@ -8,12 +8,12 @@ HiroiaScale::HiroiaScale(QObject* parent)
 }
 
 HiroiaScale::~HiroiaScale() {
-    disconnect();
+    disconnectFromScale();
 }
 
 void HiroiaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();

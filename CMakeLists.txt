@@ -18,6 +18,7 @@ find_package(Qt6 REQUIRED COMPONENTS
     Bluetooth
     Charts
     Svg
+    Multimedia
 )
 
 # Silence Qt policy warnings
@@ -118,6 +119,7 @@ target_link_libraries(de1-qt PRIVATE
     Qt6::Bluetooth
     Qt6::Charts
     Qt6::Svg
+    Qt6::Multimedia
 )
 
 # Include directories

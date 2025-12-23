@@ -25,10 +25,10 @@ ChartView {
     // Force refresh the graph (call when frame properties change in place)
     function refresh() {
         updateCurves()
-        // Force totalDuration recalculation by triggering frames change
-        var temp = frames
-        frames = []
-        frames = temp
+        // Force Repeater to refresh by toggling model
+        var savedFrames = frames
+        frameRepeater.model = []
+        frameRepeater.model = savedFrames
     }
 
     // Calculate total duration from frames
@@ -85,29 +85,11 @@ ChartView {
         titleFont.pixelSize: Theme.scaled(12)
     }
 
-    // Pressure target curve (dashed)
-    LineSeries {
-        id: pressureGoalSeries
-        name: "Pressure"
-        color: Theme.pressureGoalColor
-        width: Theme.graphLineWidth
-        style: Qt.DashLine
-        axisX: timeAxis
-        axisY: pressureAxis
-    }
+    // Dynamic arrays for pressure and flow series (created on demand)
+    property var pressureSeriesList: []
+    property var flowSeriesList: []
 
-    // Flow target curve (dashed)
-    LineSeries {
-        id: flowGoalSeries
-        name: "Flow"
-        color: Theme.flowGoalColor
-        width: Theme.graphLineWidth
-        style: Qt.DashLine
-        axisX: timeAxis
-        axisY: pressureAxis
-    }
-
-    // Temperature target curve (dashed)
+    // Temperature target curve (dashed) - always continuous
     LineSeries {
         id: temperatureGoalSeries
         name: "Temperature"
@@ -118,6 +100,38 @@ ChartView {
         axisYRight: tempAxis
     }
 
+    // Create a new pressure series
+    function createPressureSeries() {
+        var series = chart.createSeries(ChartView.SeriesTypeLine, "Pressure", timeAxis, pressureAxis)
+        series.color = Theme.pressureGoalColor
+        series.width = Theme.graphLineWidth
+        series.style = Qt.DashLine
+        pressureSeriesList.push(series)
+        return series
+    }
+
+    // Create a new flow series
+    function createFlowSeries() {
+        var series = chart.createSeries(ChartView.SeriesTypeLine, "Flow", timeAxis, pressureAxis)
+        series.color = Theme.flowGoalColor
+        series.width = Theme.graphLineWidth
+        series.style = Qt.DashLine
+        flowSeriesList.push(series)
+        return series
+    }
+
+    // Clear all dynamic series
+    function clearDynamicSeries() {
+        for (var i = 0; i < pressureSeriesList.length; i++) {
+            chart.removeSeries(pressureSeriesList[i])
+        }
+        for (var j = 0; j < flowSeriesList.length; j++) {
+            chart.removeSeries(flowSeriesList[j])
+        }
+        pressureSeriesList = []
+        flowSeriesList = []
+    }
+
     // Frame region overlays
     Item {
         id: frameOverlays
@@ -125,13 +139,14 @@ ChartView {
 
         Repeater {
             id: frameRepeater
-            model: frames.length
+            model: frames  // Use frames array directly
 
             delegate: Item {
                 id: frameDelegate
 
-                property int frameIndex: index
-                property var frame: frames[index]
+                required property int index
+                required property var modelData
+                property var frame: modelData
                 property double frameStart: {
                     var start = 0
                     for (var i = 0; i < index; i++) {
@@ -151,16 +166,16 @@ ChartView {
                 Rectangle {
                     anchors.fill: parent
                     color: {
-                        if (frameIndex === selectedFrameIndex) {
+                        if (index === selectedFrameIndex) {
                             return Qt.rgba(Theme.accentColor.r, Theme.accentColor.g, Theme.accentColor.b, 0.3)
                         }
                         // Alternate colors for visibility
-                        return frameIndex % 2 === 0 ?
+                        return index % 2 === 0 ?
                             Qt.rgba(255, 255, 255, 0.05) :
                             Qt.rgba(255, 255, 255, 0.02)
                     }
-                    border.width: frameIndex === selectedFrameIndex ? Theme.scaled(2) : Theme.scaled(1)
-                    border.color: frameIndex === selectedFrameIndex ?
+                    border.width: index === selectedFrameIndex ? Theme.scaled(2) : Theme.scaled(1)
+                    border.color: index === selectedFrameIndex ?
                         Theme.accentColor : Qt.rgba(255, 255, 255, 0.2)
 
                     // Pump mode indicator at bottom
@@ -174,29 +189,56 @@ ChartView {
                     }
                 }
 
-                // Frame label - rotated 90 degrees, centered horizontally, top-aligned
-                Text {
-                    id: labelText
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: Theme.scaled(4) + width / 2  // Offset by half text width since rotated
-                    text: frame ? (frame.name || ("Frame " + (frameIndex + 1))) : ""
-                    color: Theme.textColor
-                    font.pixelSize: Theme.scaled(14)
-                    font.bold: frameIndex === selectedFrameIndex
-                    rotation: -90
-                    transformOrigin: Item.Center
-                    opacity: 0.9
+                // Frame label - rotated 90 degrees, centered at frame position
+                // Clickable to select frame (especially useful for zero-duration frames)
+                Item {
+                    id: labelContainer
+                    // For rotated text: visual width = text height, visual height = text width
+                    property real visualWidth: labelText.implicitHeight + Theme.scaled(8)
+                    property real visualHeight: labelText.implicitWidth + Theme.scaled(8)
+
+                    // Center horizontally at frame midpoint (or left edge for zero-width frames)
+                    x: parent.width / 2 - visualWidth / 2
+                    y: Theme.scaled(4)
+                    width: visualWidth
+                    height: visualHeight
+
+                    Text {
+                        id: labelText
+                        anchors.centerIn: parent
+                        text: frame ? (frame.name || ("Frame " + (index + 1))) : ""
+                        color: Theme.textColor
+                        font.pixelSize: Theme.scaled(14)
+                        font.bold: index === selectedFrameIndex
+                        rotation: -90
+                        transformOrigin: Item.Center
+                        opacity: 0.9
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            selectedFrameIndex = index
+                            frameSelected(index)
+                        }
+                        onDoubleClicked: {
+                            frameDoubleClicked(index)
+                        }
+                    }
                 }
 
-                // Click handler
+                // Click handler for frame area
                 MouseArea {
                     anchors.fill: parent
+                    // Don't block label clicks
+                    z: -1
                     onClicked: {
-                        selectedFrameIndex = frameIndex
-                        frameSelected(frameIndex)
+                        selectedFrameIndex = index
+                        frameSelected(index)
                     }
                     onDoubleClicked: {
-                        frameDoubleClicked(frameIndex)
+                        frameDoubleClicked(index)
                     }
                 }
             }
@@ -205,13 +247,15 @@ ChartView {
 
     // Generate target curves from frames
     function updateCurves() {
-        pressureGoalSeries.clear()
-        flowGoalSeries.clear()
+        // Clear all dynamic series and temperature
+        clearDynamicSeries()
         temperatureGoalSeries.clear()
 
         if (frames.length === 0) return
 
         var time = 0
+        var currentPressureSeries = null
+        var currentFlowSeries = null
 
         for (var i = 0; i < frames.length; i++) {
             var frame = frames[i]
@@ -219,35 +263,50 @@ ChartView {
             var endTime = time + (frame.seconds || 0)
             var isSmooth = frame.transition === "smooth"
 
-            // Get previous values for smooth transitions
-            var prevPressure = i > 0 ? frames[i-1].pressure : frame.pressure
-            var prevFlow = i > 0 ? frames[i-1].flow : frame.flow
+            // Check previous frame for pump mode continuity
+            var prevFrame = i > 0 ? frames[i-1] : null
+            var prevSamePump = prevFrame && prevFrame.pump === frame.pump
+
+            // Get previous values for smooth transitions (only if same pump mode)
+            var prevPressure = prevSamePump ? prevFrame.pressure : frame.pressure
+            var prevFlow = prevSamePump ? prevFrame.flow : frame.flow
             var prevTemp = i > 0 ? frames[i-1].temperature : frame.temperature
 
             // Pressure curve (only for pressure-control frames)
             if (frame.pump === "pressure") {
-                if (isSmooth && i > 0) {
-                    // Interpolate from previous
-                    pressureGoalSeries.append(startTime, prevPressure)
-                } else {
-                    // Fast transition - step to target immediately
-                    pressureGoalSeries.append(startTime, frame.pressure)
+                // Create new series if this is first pressure frame or coming from flow
+                if (!currentPressureSeries || (prevFrame && prevFrame.pump !== "pressure")) {
+                    currentPressureSeries = createPressureSeries()
                 }
-                pressureGoalSeries.append(endTime, frame.pressure)
+
+                if (isSmooth && prevSamePump) {
+                    // Smooth transition from previous pressure frame
+                    currentPressureSeries.append(startTime, prevPressure)
+                } else {
+                    // Fast transition or first in pressure segment
+                    currentPressureSeries.append(startTime, frame.pressure)
+                }
+                currentPressureSeries.append(endTime, frame.pressure)
             }
 
             // Flow curve (only for flow-control frames)
             if (frame.pump === "flow") {
-                if (isSmooth && i > 0) {
-                    flowGoalSeries.append(startTime, prevFlow)
-                } else {
-                    // Fast transition - step to target immediately
-                    flowGoalSeries.append(startTime, frame.flow)
+                // Create new series if this is first flow frame or coming from pressure
+                if (!currentFlowSeries || (prevFrame && prevFrame.pump !== "flow")) {
+                    currentFlowSeries = createFlowSeries()
                 }
-                flowGoalSeries.append(endTime, frame.flow)
+
+                if (isSmooth && prevSamePump) {
+                    // Smooth transition from previous flow frame
+                    currentFlowSeries.append(startTime, prevFlow)
+                } else {
+                    // Fast transition or first in flow segment
+                    currentFlowSeries.append(startTime, frame.flow)
+                }
+                currentFlowSeries.append(endTime, frame.flow)
             }
 
-            // Temperature curve (always shown)
+            // Temperature curve (always shown, continuous across all frames)
             if (isSmooth && i > 0) {
                 temperatureGoalSeries.append(startTime, prevTemp)
             } else {

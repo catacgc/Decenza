@@ -76,6 +76,72 @@ Rectangle {
             opacity: 0.3
         }
 
+        // Scale warning (clickable to scan)
+        Rectangle {
+            visible: BLEManager.scaleConnectionFailed || (BLEManager.hasSavedScale && (!ScaleDevice || !ScaleDevice.connected))
+            color: BLEManager.scaleConnectionFailed ? Theme.errorColor : "transparent"
+            radius: Theme.scaled(4)
+            Layout.preferredHeight: parent.height * 0.7
+            Layout.preferredWidth: scaleWarningRow.implicitWidth + Theme.scaled(16)
+
+            Row {
+                id: scaleWarningRow
+                anchors.centerIn: parent
+                spacing: Theme.scaled(5)
+
+                Text {
+                    text: BLEManager.scaleConnectionFailed ? "Scale not found" :
+                          (ScaleDevice && ScaleDevice.connected ? "" : "Scale...")
+                    color: BLEManager.scaleConnectionFailed ? "white" : Theme.textSecondaryColor
+                    font.pixelSize: Theme.scaled(12)
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+
+                Text {
+                    text: "[Scan]"
+                    color: Theme.accentColor
+                    font.pixelSize: Theme.scaled(12)
+                    font.underline: true
+                    visible: BLEManager.scaleConnectionFailed
+                    anchors.verticalCenter: parent.verticalCenter
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: BLEManager.scanForScales()
+                    }
+                }
+            }
+        }
+
+        // Scale connected indicator
+        Row {
+            spacing: Theme.scaled(5)
+            visible: ScaleDevice && ScaleDevice.connected
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                width: Theme.scaled(8)
+                height: Theme.scaled(8)
+                radius: Theme.scaled(4)
+                color: Theme.weightColor
+            }
+
+            Text {
+                text: ScaleDevice ? ScaleDevice.weight.toFixed(1) + "g" : ""
+                color: Theme.weightColor
+                font.pixelSize: Theme.scaled(14)
+            }
+        }
+
+        // Separator before DE1 status
+        Rectangle {
+            width: Theme.scaled(1)
+            height: parent.height * 0.5
+            color: Theme.textSecondaryColor
+            opacity: 0.3
+        }
+
         // Connection indicator
         Row {
             spacing: Theme.scaled(5)

@@ -13,16 +13,35 @@ ApplicationWindow {
 
     // Put machine and scale to sleep when closing the app
     onClosing: function(close) {
-        // Stop scanning
-        BLEManager.setAutoScanForScale(false)
-
+        // Send scale sleep first (it's faster/simpler)
         if (ScaleDevice && ScaleDevice.connected) {
+            console.log("Sending scale to sleep on app close")
             ScaleDevice.sleep()
         }
-        if (DE1Device && DE1Device.connected) {
-            DE1Device.goToSleep()
+
+        // Small delay before sending DE1 sleep to let scale command go through
+        close.accepted = false
+        scaleSleepTimer.start()
+    }
+
+    Timer {
+        id: scaleSleepTimer
+        interval: 150  // Give scale sleep command time to send
+        onTriggered: {
+            // Now send DE1 to sleep
+            if (DE1Device && DE1Device.connected) {
+                console.log("Sending DE1 to sleep on app close")
+                DE1Device.goToSleep()
+            }
+            // Wait for DE1 command to complete
+            closeTimer.start()
         }
-        close.accepted = true
+    }
+
+    Timer {
+        id: closeTimer
+        interval: 300  // 300ms to allow BLE commands to complete
+        onTriggered: Qt.quit()
     }
 
     // Current page title - set by each page

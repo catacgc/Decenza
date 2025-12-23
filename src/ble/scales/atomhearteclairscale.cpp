@@ -8,12 +8,12 @@ AtomheartEclairScale::AtomheartEclairScale(QObject* parent)
 }
 
 AtomheartEclairScale::~AtomheartEclairScale() {
-    disconnect();
+    disconnectFromScale();
 }
 
 void AtomheartEclairScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();

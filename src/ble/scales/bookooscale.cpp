@@ -8,12 +8,12 @@ BookooScale::BookooScale(QObject* parent)
 }
 
 BookooScale::~BookooScale() {
-    disconnect();
+    disconnectFromScale();
 }
 
 void BookooScale::connectToDevice(const QBluetoothDeviceInfo& device) {
     if (m_controller) {
-        disconnect();
+        disconnectFromScale();
     }
 
     m_name = device.name();
