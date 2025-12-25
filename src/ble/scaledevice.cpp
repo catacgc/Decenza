@@ -83,6 +83,13 @@ void ScaleDevice::setBatteryLevel(int level) {
     }
 }
 
+void ScaleDevice::resetFlowCalculation() {
+    m_flowHistory.clear();
+    m_prevTimestamp = 0;
+    m_prevWeight = 0.0;
+    setFlowRate(0.0);
+}
+
 void ScaleDevice::calculateFlowRate(double newWeight) {
     qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
 

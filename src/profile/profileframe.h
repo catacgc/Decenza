@@ -44,10 +44,6 @@ struct ProfileFrame {
     double maxFlowOrPressure = 0.0;      // Limiter value (0 = IgnoreLimit flag set)
     double maxFlowOrPressureRange = 0.6; // Limiter P/I control range
 
-    // === Weight-Based Exit (App-Side Control) ===
-    // These are NOT sent to the machine; the app handles weight-triggered stops
-    double exitWeight = 0.0;        // Exit when scale weight exceeds this (grams, 0 = disabled)
-
     // === Direct Setpoint Control Fields ===
     // For live control mode, these allow more granular control
     bool moving = false;            // If true, interpolate from previous setpoint

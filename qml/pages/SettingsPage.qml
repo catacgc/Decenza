@@ -361,7 +361,7 @@ Page {
                             }
 
                             Text {
-                                text: ScaleDevice ? ScaleDevice.weight.toFixed(1) + " g" : "0.0 g"
+                                text: MachineState.scaleWeight.toFixed(1) + " g"
                                 color: Theme.textColor
                                 font: Theme.bodyFont
                             }
@@ -559,6 +559,13 @@ Page {
                             text: "Version 1.0.0"
                             color: DE1Device.simulationMode ? Theme.primaryColor : Theme.textSecondaryColor
                             font.pixelSize: 12
+                        }
+
+                        Text {
+                            text: "Build #" + BuildNumber
+                            color: Theme.accentColor
+                            font.pixelSize: 18
+                            font.bold: true
                         }
 
                         Text {

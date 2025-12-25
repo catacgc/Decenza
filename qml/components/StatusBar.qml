@@ -128,10 +128,19 @@ Rectangle {
             }
 
             Text {
-                text: ScaleDevice ? ScaleDevice.weight.toFixed(1) + "g" : ""
+                text: MachineState.scaleWeight.toFixed(1) + "g"
                 color: Theme.weightColor
                 font.pixelSize: Theme.scaled(14)
             }
+        }
+
+        // Build number
+        Text {
+            text: "#" + BuildNumber
+            color: Theme.textSecondaryColor
+            font.pixelSize: Theme.scaled(18)
+            font.bold: true
+            opacity: 0.6
         }
 
         // Separator before DE1 status

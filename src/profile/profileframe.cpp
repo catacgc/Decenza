@@ -28,10 +28,6 @@ QJsonObject ProfileFrame::toJson() const {
         obj["max_flow_or_pressure_range"] = maxFlowOrPressureRange;
     }
 
-    if (exitWeight > 0) {
-        obj["exit_weight"] = exitWeight;
-    }
-
     return obj;
 }
 
@@ -56,8 +52,6 @@ ProfileFrame ProfileFrame::fromJson(const QJsonObject& json) {
 
     frame.maxFlowOrPressure = json["max_flow_or_pressure"].toDouble(0.0);
     frame.maxFlowOrPressureRange = json["max_flow_or_pressure_range"].toDouble(0.6);
-
-    frame.exitWeight = json["exit_weight"].toDouble(0.0);
 
     return frame;
 }
@@ -121,9 +115,8 @@ ProfileFrame ProfileFrame::fromTclList(const QString& tclList) {
             frame.maxFlowOrPressure = value.toDouble();
         } else if (key == "max_flow_or_pressure_range") {
             frame.maxFlowOrPressureRange = value.toDouble();
-        } else if (key == "weight") {
-            frame.exitWeight = value.toDouble();
         }
+        // Note: "weight" key from de1app TCL is ignored - we use global target weight instead
     }
 
     return frame;

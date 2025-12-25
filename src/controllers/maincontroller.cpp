@@ -502,10 +502,25 @@ void MainController::onShotSampleReceived(const ShotSample& sample) {
         qDebug() << "Frame change:" << frameIndex << "->" << frameName << "at" << time << "s";
     }
 
+    // Determine active pump mode for current frame (to show only active goal curve)
+    double pressureGoal = sample.setPressureGoal;
+    double flowGoal = sample.setFlowGoal;
+    {
+        int fi = sample.frameNumber;
+        const auto& steps = m_currentProfile.steps();
+        if (fi >= 0 && fi < steps.size()) {
+            if (steps[fi].isFlowControl()) {
+                pressureGoal = 0;  // Flow mode - hide pressure goal
+            } else {
+                flowGoal = 0;      // Pressure mode - hide flow goal
+            }
+        }
+    }
+
     // Add sample data
     m_shotDataModel->addSample(time, sample.groupPressure,
                                sample.groupFlow, sample.headTemp,
-                               sample.setPressureGoal, sample.setFlowGoal, sample.setTempGoal,
+                               pressureGoal, flowGoal, sample.setTempGoal,
                                sample.frameNumber);
 
     // Detailed logging for development (reduce frequency)
@@ -533,6 +548,7 @@ void MainController::onScaleWeightChanged(double weight) {
     if (!isEspressoPhase) return;
 
     double time = m_machineState->shotTime();
+    qDebug() << "WEIGHT->GRAPH time:" << time << "weight:" << weight << "phase:" << static_cast<int>(phase);
     m_shotDataModel->addWeightSample(time, weight, 0);
 }
 

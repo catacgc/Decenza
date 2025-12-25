@@ -2,6 +2,18 @@ cmake_minimum_required(VERSION 3.21)
 project(de1-qt VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
+
+# Build number - increment on every build
+set(BUILD_NUMBER_FILE "${CMAKE_SOURCE_DIR}/buildnumber.txt")
+set(BUILD_INFO_HEADER "${CMAKE_BINARY_DIR}/buildinfo.h")
+
+# Generate initial header at configure time (without incrementing)
+if(NOT EXISTS "${BUILD_INFO_HEADER}")
+    file(READ "${BUILD_NUMBER_FILE}" CURRENT_BUILD_NUMBER)
+    string(STRIP "${CURRENT_BUILD_NUMBER}" CURRENT_BUILD_NUMBER)
+    file(WRITE "${BUILD_INFO_HEADER}"
+        "#pragma once\n// Auto-generated - do not edit\n#define BUILD_NUMBER ${CURRENT_BUILD_NUMBER}\n#define BUILD_NUMBER_STRING \"${CURRENT_BUILD_NUMBER}\"\n")
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
@@ -140,6 +152,7 @@ target_link_libraries(de1-qt PRIVATE
 # Include directories
 target_include_directories(de1-qt PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_BINARY_DIR}  # For buildinfo.h
 )
 
 # QML module - mark Theme.qml as singleton
@@ -171,6 +184,18 @@ qt_add_qml_module(de1-qt
     VERSION 1.0
     QML_FILES ${QML_FILES}
 )
+
+# Increment build number on every build
+add_custom_target(increment_build_number ALL
+    COMMAND ${CMAKE_COMMAND}
+        -DBUILD_NUMBER_FILE=${BUILD_NUMBER_FILE}
+        -DOUTPUT_HEADER=${BUILD_INFO_HEADER}
+        -P ${CMAKE_SOURCE_DIR}/cmake/IncrementBuildNumber.cmake
+    BYPRODUCTS ${BUILD_INFO_HEADER}
+    COMMENT "Incrementing build number..."
+)
+add_dependencies(de1-qt increment_build_number)
+set_source_files_properties(src/main.cpp PROPERTIES OBJECT_DEPENDS ${BUILD_INFO_HEADER})
 
 # Force QML resource rebuild when source files change
 # Delete the compiled resource file to force rcc regeneration

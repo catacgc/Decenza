@@ -38,7 +38,20 @@ bool MachineState::isReady() const {
            m_phase == Phase::Sleep || m_phase == Phase::Heating;
 }
 
+double MachineState::shotTime() const {
+    // Calculate time on-demand for accuracy (timer updates can be delayed on Android)
+    if (m_shotTimer->isActive() && m_shotStartTime > 0) {
+        qint64 elapsed = QDateTime::currentMSecsSinceEpoch() - m_shotStartTime;
+        return elapsed / 1000.0;
+    }
+    return m_shotTime;
+}
+
 void MachineState::setScale(ScaleDevice* scale) {
+    qDebug() << "MachineState::setScale() switching from"
+             << (m_scale ? m_scale->name() : "null")
+             << "to" << (scale ? scale->name() : "null");
+
     if (m_scale) {
         disconnect(m_scale, nullptr, this, nullptr);
     }
@@ -48,6 +61,13 @@ void MachineState::setScale(ScaleDevice* scale) {
     if (m_scale) {
         connect(m_scale, &ScaleDevice::weightChanged,
                 this, &MachineState::onScaleWeightChanged);
+        // Relay weight changes to QML via scaleWeightChanged signal
+        connect(m_scale, &ScaleDevice::weightChanged, this, [this](double) {
+            emit scaleWeightChanged();
+        });
+        qDebug() << "MachineState: Connected to scale" << m_scale->name();
+        // Emit immediately so QML picks up current weight
+        emit scaleWeightChanged();
     }
 }
 
@@ -137,7 +157,7 @@ void MachineState::updatePhase() {
     }
 
     if (m_phase != oldPhase) {
-        emit phaseChanged();
+        qDebug() << "PHASE:" << static_cast<int>(oldPhase) << "->" << static_cast<int>(m_phase);
 
         // Detect espresso cycle start (entering preheating from non-espresso state)
         bool wasInEspresso = (oldPhase == Phase::EspressoPreheating ||
@@ -149,13 +169,9 @@ void MachineState::updatePhase() {
                              m_phase == Phase::Pouring ||
                              m_phase == Phase::Ending);
 
-        if (isInEspresso && !wasInEspresso) {
-            // Note: Tare is now triggered by MainController when first user frame starts
-            // This allows preinfusion frames to run without affecting scale reading
-            emit espressoCycleStarted();
-        }
+        qDebug() << "  wasInEspresso:" << wasInEspresso << "isInEspresso:" << isInEspresso;
 
-        // Start/stop shot timer
+        // Start/stop shot timer (do this immediately, before deferred signals)
         bool wasFlowing = (oldPhase == Phase::Preinfusion ||
                           oldPhase == Phase::Pouring ||
                           oldPhase == Phase::Steaming ||
@@ -165,11 +181,27 @@ void MachineState::updatePhase() {
         if (isFlowing() && !wasFlowing) {
             startShotTimer();
             m_stopAtWeightTriggered = false;
-            emit shotStarted();
+            m_tareCompleted = false;  // Don't check weight until tare happens
         } else if (!isFlowing() && wasFlowing) {
             stopShotTimer();
-            emit shotEnded();
         }
+
+        // Defer signal emissions to allow pending BLE notifications to process first
+        // This prevents QML binding updates from blocking the event loop
+        QTimer::singleShot(0, this, [this, wasInEspresso, isInEspresso, wasFlowing]() {
+            emit phaseChanged();
+
+            if (isInEspresso && !wasInEspresso) {
+                qDebug() << "  -> EMITTING espressoCycleStarted";
+                emit espressoCycleStarted();
+            }
+
+            if (isFlowing() && !wasFlowing) {
+                emit shotStarted();
+            } else if (!isFlowing() && wasFlowing) {
+                emit shotEnded();
+            }
+        });
     }
 }
 
@@ -181,10 +213,14 @@ void MachineState::onScaleWeightChanged(double weight) {
 
 void MachineState::checkStopAtWeight(double weight) {
     if (m_stopAtWeightTriggered) return;
+    if (!m_tareCompleted) return;  // Don't check until tare has happened
     if (m_targetWeight <= 0) return;
 
     // Account for flow rate and lag (simple implementation)
     double flowRate = m_scale ? m_scale->flowRate() : 0;
+    // Cap flow rate to reasonable espresso range (max ~10 g/s)
+    if (flowRate > 10.0) flowRate = 10.0;
+    if (flowRate < 0) flowRate = 0;
     double lagCompensation = flowRate * 0.5;  // 500ms lag estimate
 
     if (weight >= (m_targetWeight - lagCompensation)) {
@@ -226,9 +262,19 @@ void MachineState::updateShotTimer() {
     emit shotTimeChanged();
 }
 
+double MachineState::scaleWeight() const {
+    return m_scale ? m_scale->weight() : 0.0;
+}
+
+double MachineState::scaleFlowRate() const {
+    return m_scale ? m_scale->flowRate() : 0.0;
+}
+
 void MachineState::tareScale() {
     if (m_scale && m_scale->isConnected()) {
         qDebug() << "MachineState: Taring scale";
         m_scale->tare();
+        m_scale->resetFlowCalculation();  // Avoid flow rate spikes after tare
+        m_tareCompleted = true;  // Now safe to check stop-at-weight
     }
 }

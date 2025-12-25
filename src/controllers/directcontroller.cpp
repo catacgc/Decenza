@@ -217,15 +217,11 @@ void DirectController::onWeightChanged(double weight) {
 
     m_lastWeight = weight;
 
-    // Check weight-based exit
-    if (m_currentFrameIndex >= 0 && m_currentFrameIndex < m_profile.steps().size()) {
-        const ProfileFrame& frame = m_profile.steps()[m_currentFrameIndex];
-
-        if (checkWeightExit(frame, weight)) {
-            // Weight target reached - typically ends the shot
-            qDebug() << "DirectController: Weight target reached:" << weight;
-            stopShot();
-        }
+    // Check global weight target
+    double targetWeight = m_profile.targetWeight();
+    if (targetWeight > 0 && weight >= targetWeight) {
+        qDebug() << "DirectController: Weight target reached:" << weight << "/" << targetWeight;
+        stopShot();
     }
 }
 
@@ -290,11 +286,6 @@ bool DirectController::checkExitCondition(const ProfileFrame& frame, const ShotS
     return false;
 }
 
-bool DirectController::checkWeightExit(const ProfileFrame& frame, double weight) {
-    if (frame.exitWeight <= 0) return false;
-
-    return weight >= frame.exitWeight;
-}
 
 void DirectController::createDirectControlProfile() {
     // Upload a minimal profile header

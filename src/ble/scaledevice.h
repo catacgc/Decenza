@@ -40,6 +40,7 @@ public slots:
     virtual void sleep() {}  // Put scale to sleep (battery power saving)
     virtual void wake() {}   // Wake scale from sleep (enable LCD)
     virtual void disconnectFromScale();  // Disconnect BLE from scale
+    void resetFlowCalculation();  // Call after tare to avoid flow rate spikes
 
     // Flow sample input (used by FlowScale to integrate flow into weight)
     // Physical scales ignore this - they get weight directly from the device

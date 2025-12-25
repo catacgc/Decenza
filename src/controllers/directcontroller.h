@@ -74,7 +74,6 @@ private:
     void sendCurrentFrame();
     void advanceToNextFrame();
     bool checkExitCondition(const ProfileFrame& frame, const ShotSample& sample);
-    bool checkWeightExit(const ProfileFrame& frame, double weight);
     void createDirectControlProfile();
     QByteArray frameToBytes(const ProfileFrame& frame, int frameIndex);
 

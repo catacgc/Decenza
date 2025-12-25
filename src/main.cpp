@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <QGuiApplication>
 #include <memory>
+#include "buildinfo.h"
 
 #ifdef Q_OS_ANDROID
 #include <QJniObject>
@@ -135,7 +136,7 @@ int main(int argc, char *argv[])
                          [&physicalScale, &machineState]() {
             if (physicalScale && machineState.isFlowing()) {
                 qDebug().nospace()
-                    << "SCALE weight:" << QString::number(physicalScale->weight(), 'f', 1) << "g "
+                    << "SCALE [" << physicalScale->name() << "] weight:" << QString::number(physicalScale->weight(), 'f', 1) << "g "
                     << "flow:" << QString::number(physicalScale->flowRate(), 'f', 2) << "g/s";
             }
         });
@@ -183,6 +184,7 @@ int main(int argc, char *argv[])
     context->setContextProperty("ShotDataModel", &shotDataModel);
     context->setContextProperty("MainController", &mainController);
     context->setContextProperty("ScreensaverManager", &screensaverManager);
+    context->setContextProperty("BuildNumber", BUILD_NUMBER_STRING);
 
     // Register types for QML (use different names to avoid conflict with context properties)
     qmlRegisterUncreatableType<DE1Device>("DE1App", 1, 0, "DE1DeviceType",

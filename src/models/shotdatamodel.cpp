@@ -1,118 +1,217 @@
 #include "shotdatamodel.h"
+#include <QDebug>
 
 ShotDataModel::ShotDataModel(QObject* parent)
     : QObject(parent)
 {
+    // Pre-allocate vectors to avoid reallocations during shot
+    m_pressurePoints.reserve(INITIAL_CAPACITY);
+    m_flowPoints.reserve(INITIAL_CAPACITY);
+    m_temperaturePoints.reserve(INITIAL_CAPACITY);
+    m_pressureGoalPoints.reserve(INITIAL_CAPACITY);
+    m_flowGoalPoints.reserve(INITIAL_CAPACITY);
+    m_temperatureGoalPoints.reserve(INITIAL_CAPACITY);
+    m_weightPoints.reserve(INITIAL_CAPACITY);
+
+    // Timer for batched chart updates at 30fps
+    m_flushTimer = new QTimer(this);
+    m_flushTimer->setInterval(FLUSH_INTERVAL_MS);
+    m_flushTimer->setTimerType(Qt::PreciseTimer);
+    connect(m_flushTimer, &QTimer::timeout, this, &ShotDataModel::flushToChart);
+}
+
+ShotDataModel::~ShotDataModel() {
+    if (m_flushTimer) {
+        m_flushTimer->stop();
+    }
+}
+
+void ShotDataModel::registerSeries(QLineSeries* pressure, QLineSeries* flow, QLineSeries* temperature,
+                                    QLineSeries* pressureGoal, QLineSeries* flowGoal, QLineSeries* temperatureGoal,
+                                    QLineSeries* weight, QLineSeries* extractionMarker,
+                                    const QVariantList& frameMarkers) {
+    m_pressureSeries = pressure;
+    m_flowSeries = flow;
+    m_temperatureSeries = temperature;
+    m_pressureGoalSeries = pressureGoal;
+    m_flowGoalSeries = flowGoal;
+    m_temperatureGoalSeries = temperatureGoal;
+    m_weightSeries = weight;
+    m_extractionMarkerSeries = extractionMarker;
+
+    m_frameMarkerSeries.clear();
+    for (const QVariant& v : frameMarkers) {
+        if (auto* series = qobject_cast<QLineSeries*>(v.value<QObject*>())) {
+            m_frameMarkerSeries.append(series);
+        }
+    }
+
+    // Enable OpenGL for hardware acceleration on main data series
+    if (m_pressureSeries) m_pressureSeries->setUseOpenGL(true);
+    if (m_flowSeries) m_flowSeries->setUseOpenGL(true);
+    if (m_temperatureSeries) m_temperatureSeries->setUseOpenGL(true);
+    if (m_weightSeries) m_weightSeries->setUseOpenGL(true);
+
+    qDebug() << "ShotDataModel: Registered series with OpenGL acceleration";
+
+    // Start the flush timer
+    m_flushTimer->start();
 }
 
 void ShotDataModel::clear() {
-    m_pressureData.clear();
-    m_flowData.clear();
-    m_temperatureData.clear();
-    m_weightData.clear();
-    m_flowRateData.clear();
-    m_pressureGoalData.clear();
-    m_flowGoalData.clear();
-    m_temperatureGoalData.clear();
+    // Stop timer during clear
+    m_flushTimer->stop();
+
+    // Clear data vectors (keep capacity)
+    m_pressurePoints.clear();
+    m_flowPoints.clear();
+    m_temperaturePoints.clear();
+    m_pressureGoalPoints.clear();
+    m_flowGoalPoints.clear();
+    m_temperatureGoalPoints.clear();
+    m_weightPoints.clear();
+    m_pendingMarkers.clear();
+
+    // Clear chart series
+    if (m_pressureSeries) m_pressureSeries->clear();
+    if (m_flowSeries) m_flowSeries->clear();
+    if (m_temperatureSeries) m_temperatureSeries->clear();
+    if (m_pressureGoalSeries) m_pressureGoalSeries->clear();
+    if (m_flowGoalSeries) m_flowGoalSeries->clear();
+    if (m_temperatureGoalSeries) m_temperatureGoalSeries->clear();
+    if (m_weightSeries) m_weightSeries->clear();
+    if (m_extractionMarkerSeries) m_extractionMarkerSeries->clear();
+
+    for (auto* series : m_frameMarkerSeries) {
+        if (series) series->clear();
+    }
+
+    m_frameMarkerIndex = 0;
     m_phaseMarkers.clear();
-    m_extractionStartTime = -1;
-    m_lastFrameNumber = -1;
-    m_maxTime = 60.0;
-    emit dataChanged();
+    m_maxTime = 5.0;
+    m_dirty = false;
+
+    emit cleared();
+    emit phaseMarkersChanged();
+    emit maxTimeChanged();
+
+    // Restart timer
+    m_flushTimer->start();
 }
 
 void ShotDataModel::addSample(double time, double pressure, double flow, double temperature,
                               double pressureGoal, double flowGoal, double temperatureGoal,
                               int frameNumber) {
-    // Limit data size
-    if (m_pressureData.size() >= MAX_SAMPLES) {
-        m_pressureData.removeFirst();
-        m_flowData.removeFirst();
-        m_temperatureData.removeFirst();
-        m_pressureGoalData.removeFirst();
-        m_flowGoalData.removeFirst();
-        m_temperatureGoalData.removeFirst();
-    }
-
-    m_pressureData.append(QPointF(time, pressure));
-    m_flowData.append(QPointF(time, flow));
-    m_temperatureData.append(QPointF(time, temperature));
-    m_pressureGoalData.append(QPointF(time, pressureGoal));
-    m_flowGoalData.append(QPointF(time, flowGoal));
-    m_temperatureGoalData.append(QPointF(time, temperatureGoal));
-
-    // Frame tracking is now handled by MainController which has access to frame names
     Q_UNUSED(frameNumber);
 
-    // Update max values
-    if (time > m_maxTime - 10) m_maxTime = time + 10;
-    if (pressure > m_maxPressure) m_maxPressure = pressure + 1;
-    if (flow > m_maxFlow) m_maxFlow = flow + 1;
+    // Pure vector append - no signals, no chart updates
+    m_pressurePoints.append(QPointF(time, pressure));
+    m_flowPoints.append(QPointF(time, flow));
+    m_temperaturePoints.append(QPointF(time, temperature));
 
-    emit dataChanged();
+    if (pressureGoal > 0) {
+        m_pressureGoalPoints.append(QPointF(time, pressureGoal));
+    }
+    if (flowGoal > 0) {
+        m_flowGoalPoints.append(QPointF(time, flowGoal));
+    }
+    m_temperatureGoalPoints.append(QPointF(time, temperatureGoal));
+
+    // Track max time for axis scaling
+    if (time > m_maxTime * 0.80) {
+        m_maxTime = qMax(time * 1.25, m_maxTime + 1);
+        emit maxTimeChanged();
+    }
+
+    m_dirty = true;
 }
 
 void ShotDataModel::addWeightSample(double time, double weight, double flowRate) {
-    // Limit data size
-    if (m_weightData.size() >= MAX_SAMPLES) {
-        m_weightData.removeFirst();
-        m_flowRateData.removeFirst();
+    Q_UNUSED(flowRate);
+
+    // Scale weight to fit pressure axis (divide by 5)
+    m_weightPoints.append(QPointF(time, weight / 5.0));
+    m_dirty = true;
+}
+
+void ShotDataModel::markExtractionStart(double time) {
+    m_pendingMarkers.append({time, "Start"});
+
+    PhaseMarker marker;
+    marker.time = time;
+    marker.label = "Start";
+    marker.frameNumber = 0;
+    m_phaseMarkers.append(marker);
+
+    m_dirty = true;
+    emit phaseMarkersChanged();
+}
+
+void ShotDataModel::addPhaseMarker(double time, const QString& label, int frameNumber) {
+    m_pendingMarkers.append({time, label});
+
+    PhaseMarker marker;
+    marker.time = time;
+    marker.label = label;
+    marker.frameNumber = frameNumber;
+    m_phaseMarkers.append(marker);
+
+    m_dirty = true;
+    emit phaseMarkersChanged();
+}
+
+void ShotDataModel::flushToChart() {
+    if (!m_dirty) return;
+
+    // Batch update all series with replace() - single redraw per series
+    if (m_pressureSeries && !m_pressurePoints.isEmpty()) {
+        m_pressureSeries->replace(m_pressurePoints);
+    }
+    if (m_flowSeries && !m_flowPoints.isEmpty()) {
+        m_flowSeries->replace(m_flowPoints);
+    }
+    if (m_temperatureSeries && !m_temperaturePoints.isEmpty()) {
+        m_temperatureSeries->replace(m_temperaturePoints);
+    }
+    if (m_pressureGoalSeries && !m_pressureGoalPoints.isEmpty()) {
+        m_pressureGoalSeries->replace(m_pressureGoalPoints);
+    }
+    if (m_flowGoalSeries && !m_flowGoalPoints.isEmpty()) {
+        m_flowGoalSeries->replace(m_flowGoalPoints);
+    }
+    if (m_temperatureGoalSeries && !m_temperatureGoalPoints.isEmpty()) {
+        m_temperatureGoalSeries->replace(m_temperatureGoalPoints);
+    }
+    if (m_weightSeries && !m_weightPoints.isEmpty()) {
+        m_weightSeries->replace(m_weightPoints);
     }
 
-    m_weightData.append(QPointF(time, weight));
-    m_flowRateData.append(QPointF(time, flowRate));
-
-    // Update max weight
-    if (weight > m_maxWeight) m_maxWeight = weight + 10;
-
-    emit dataChanged();
-}
-
-QVariantList ShotDataModel::toVariantList(const QList<QPointF>& data) const {
-    QVariantList result;
-    for (const QPointF& point : data) {
-        QVariantMap map;
-        map["x"] = point.x();
-        map["y"] = point.y();
-        result.append(map);
+    // Process pending vertical markers
+    for (const auto& marker : m_pendingMarkers) {
+        if (marker.second == "Start") {
+            if (m_extractionMarkerSeries) {
+                m_extractionMarkerSeries->append(marker.first, 0);
+                m_extractionMarkerSeries->append(marker.first, 12);
+            }
+        } else {
+            if (m_frameMarkerIndex < m_frameMarkerSeries.size()) {
+                auto* series = m_frameMarkerSeries[m_frameMarkerIndex];
+                if (series) {
+                    series->append(marker.first, 0);
+                    series->append(marker.first, 12);
+                }
+                m_frameMarkerIndex++;
+            }
+        }
     }
-    return result;
-}
+    m_pendingMarkers.clear();
 
-QVariantList ShotDataModel::pressureDataVariant() const {
-    return toVariantList(m_pressureData);
-}
-
-QVariantList ShotDataModel::flowDataVariant() const {
-    return toVariantList(m_flowData);
-}
-
-QVariantList ShotDataModel::temperatureDataVariant() const {
-    return toVariantList(m_temperatureData);
-}
-
-QVariantList ShotDataModel::weightDataVariant() const {
-    return toVariantList(m_weightData);
-}
-
-QVariantList ShotDataModel::flowRateDataVariant() const {
-    return toVariantList(m_flowRateData);
-}
-
-QVariantList ShotDataModel::pressureGoalDataVariant() const {
-    return toVariantList(m_pressureGoalData);
-}
-
-QVariantList ShotDataModel::flowGoalDataVariant() const {
-    return toVariantList(m_flowGoalData);
-}
-
-QVariantList ShotDataModel::temperatureGoalDataVariant() const {
-    return toVariantList(m_temperatureGoalData);
+    m_dirty = false;
 }
 
 QVariantList ShotDataModel::phaseMarkersVariant() const {
     QVariantList result;
+    result.reserve(m_phaseMarkers.size());
     for (const PhaseMarker& marker : m_phaseMarkers) {
         QVariantMap map;
         map["time"] = marker.time;
@@ -121,26 +220,4 @@ QVariantList ShotDataModel::phaseMarkersVariant() const {
         result.append(map);
     }
     return result;
-}
-
-void ShotDataModel::markExtractionStart(double time) {
-    m_extractionStartTime = time;
-
-    // Add a marker for extraction start
-    PhaseMarker marker;
-    marker.time = time;
-    marker.label = "Start";
-    marker.frameNumber = 0;
-    m_phaseMarkers.append(marker);
-
-    emit dataChanged();
-}
-
-void ShotDataModel::addPhaseMarker(double time, const QString& label, int frameNumber) {
-    PhaseMarker marker;
-    marker.time = time;
-    marker.label = label;
-    marker.frameNumber = frameNumber;
-    m_phaseMarkers.append(marker);
-    emit dataChanged();
 }

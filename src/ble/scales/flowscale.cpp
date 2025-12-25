@@ -21,13 +21,14 @@ void FlowScale::tare() {
 }
 
 void FlowScale::addFlowSample(double flowRate, double deltaTime) {
-    // Integrate flow: weight += flow_rate * time
+    // Integrate flow: weight += flow_rate * time * calibration
     // flowRate is in mL/s, deltaTime is in seconds
-    // Assumes ~1g/mL density for espresso
+    // Calibration factor accounts for DE1 flow sensor overreading (~0.78 based on testing)
+    constexpr double calibrationFactor = 0.78;
     if (deltaTime > 0 && deltaTime < 1.0) {  // Sanity check
-        m_accumulatedWeight += flowRate * deltaTime;
+        m_accumulatedWeight += flowRate * deltaTime * calibrationFactor;
         setWeight(m_accumulatedWeight);
-        setFlowRate(flowRate);
+        setFlowRate(flowRate * calibrationFactor);
     }
 }
 

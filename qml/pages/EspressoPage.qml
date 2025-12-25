@@ -5,10 +5,22 @@ import DE1App
 import "../components"
 
 Page {
+    id: espressoPage
     objectName: "espressoPage"
     background: Rectangle { color: Theme.backgroundColor }
 
+    // Local weight property - updated directly in signal handler for immediate display
+    property real currentWeight: 0.0
+
     Component.onCompleted: root.currentPageTitle = MainController.currentProfileName
+
+    // Force immediate weight update on signal (bypasses lazy binding evaluation)
+    Connections {
+        target: MachineState
+        function onScaleWeightChanged() {
+            espressoPage.currentWeight = MachineState.scaleWeight
+        }
+    }
 
     // Full-screen shot graph
     ShotGraph {
@@ -170,7 +182,7 @@ Page {
                     spacing: 8
 
                     Text {
-                        text: ScaleDevice ? ScaleDevice.weight.toFixed(1) : "0.0"
+                        text: espressoPage.currentWeight.toFixed(1)
                         color: Theme.weightColor
                         font.pixelSize: 28
                         font.weight: Font.Medium
@@ -189,7 +201,7 @@ Page {
                     Layout.preferredHeight: 8
                     from: 0
                     to: MainController.targetWeight
-                    value: ScaleDevice ? ScaleDevice.weight : 0
+                    value: espressoPage.currentWeight
 
                     background: Rectangle {
                         color: Theme.surfaceColor

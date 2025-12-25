@@ -17,6 +17,8 @@ class MachineState : public QObject {
     Q_PROPERTY(bool isReady READ isReady NOTIFY phaseChanged)
     Q_PROPERTY(double shotTime READ shotTime NOTIFY shotTimeChanged)
     Q_PROPERTY(double targetWeight READ targetWeight WRITE setTargetWeight NOTIFY targetWeightChanged)
+    Q_PROPERTY(double scaleWeight READ scaleWeight NOTIFY scaleWeightChanged)
+    Q_PROPERTY(double scaleFlowRate READ scaleFlowRate NOTIFY scaleWeightChanged)
 
 public:
     enum class Phase {
@@ -41,11 +43,15 @@ public:
     bool isFlowing() const;
     bool isHeating() const;
     bool isReady() const;
-    double shotTime() const { return m_shotTime; }
+    double shotTime() const;
     double targetWeight() const { return m_targetWeight; }
 
     void setScale(ScaleDevice* scale);
     void setTargetWeight(double weight);
+
+    // Scale accessors (forward from current scale)
+    double scaleWeight() const;
+    double scaleFlowRate() const;
 
     // Called by MainController when shot samples arrive
     void onFlowSample(double flowRate, double deltaTime);
@@ -57,6 +63,7 @@ signals:
     void phaseChanged();
     void shotTimeChanged();
     void targetWeightChanged();
+    void scaleWeightChanged();
     void espressoCycleStarted();  // When entering espresso preheating (clear graph here)
     void shotStarted();           // When extraction actually begins (flow starts)
     void shotEnded();
@@ -84,4 +91,5 @@ private:
     QTimer* m_shotTimer = nullptr;
     qint64 m_shotStartTime = 0;
     bool m_stopAtWeightTriggered = false;
+    bool m_tareCompleted = false;
 };
