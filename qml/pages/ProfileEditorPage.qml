@@ -234,32 +234,29 @@ Page {
                 spacing: Theme.scaled(10)
 
                 Text {
-                    text: "Target weight:"
+                    text: "Target:"
                     color: Theme.textSecondaryColor
                     font: Theme.bodyFont
                 }
 
-                TouchSlider {
-                    id: targetWeightSlider
-                    Layout.preferredWidth: Theme.scaled(200)
+                ValueInput {
+                    id: targetWeightInput
+                    Layout.preferredWidth: Theme.scaled(140)
                     from: 20
                     to: 60
                     stepSize: 1
+                    decimals: 0
                     value: profile ? profile.target_weight : 36
-                    onMoved: {
+                    suffix: "g"
+                    valueColor: Theme.weightColor
+                    accentColor: Theme.weightColor
+                    onValueModified: function(newValue) {
                         if (profile) {
-                            profile.target_weight = value
-                            MainController.targetWeight = value
+                            profile.target_weight = newValue
+                            MainController.targetWeight = newValue
                             uploadProfile()
                         }
                     }
-                }
-
-                Text {
-                    text: targetWeightSlider.value.toFixed(0) + "g"
-                    color: Theme.weightColor
-                    font: Theme.bodyFont
-                    Layout.preferredWidth: Theme.scaled(40)
                 }
             }
 
@@ -422,6 +419,7 @@ Page {
         ScrollView {
             id: stepEditorScroll
             clip: true
+            contentWidth: availableWidth  // Disable horizontal scroll
 
             // Reference stepVersion to force re-evaluation when it changes
             property var step: {
@@ -525,128 +523,98 @@ Page {
                 }
 
                 // Setpoint value (pressure or flow)
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: Theme.scaled(8)
+                    spacing: Theme.scaled(12)
 
                     Text {
-                        text: step && step.pump === "flow" ? "Flow (mL/s)" : "Pressure (bar)"
+                        text: step && step.pump === "flow" ? "Flow" : "Pressure"
                         font: Theme.captionFont
                         color: Theme.textSecondaryColor
+                        Layout.preferredWidth: Theme.scaled(80)
                     }
 
-                    RowLayout {
+                    ValueInput {
+                        id: setpointInput
                         Layout.fillWidth: true
-                        spacing: Theme.scaled(15)
-
-                        TouchSlider {
-                            id: setpointSlider
-                            Layout.fillWidth: true
-                            from: 0
-                            to: step && step.pump === "flow" ? 8 : 12
-                            value: step ? (step.pump === "flow" ? step.flow : step.pressure) : 0
-                            stepSize: 0.1
-                            handleColor: step && step.pump === "flow" ? Theme.flowGoalColor : Theme.pressureGoalColor
-                            progressColor: step && step.pump === "flow" ? Theme.flowGoalColor : Theme.pressureGoalColor
-                            onMoved: {
-                                if (profile && selectedStepIndex >= 0) {
-                                    if (profile.steps[selectedStepIndex].pump === "flow") {
-                                        profile.steps[selectedStepIndex].flow = value
-                                    } else {
-                                        profile.steps[selectedStepIndex].pressure = value
-                                    }
-                                    uploadProfile()
+                        from: 0
+                        to: step && step.pump === "flow" ? 8 : 12
+                        value: step ? (step.pump === "flow" ? step.flow : step.pressure) : 0
+                        stepSize: 0.1
+                        suffix: step && step.pump === "flow" ? " mL/s" : " bar"
+                        valueColor: step && step.pump === "flow" ? Theme.flowColor : Theme.pressureColor
+                        accentColor: step && step.pump === "flow" ? Theme.flowGoalColor : Theme.pressureGoalColor
+                        onValueModified: function(newValue) {
+                            if (profile && selectedStepIndex >= 0) {
+                                if (profile.steps[selectedStepIndex].pump === "flow") {
+                                    profile.steps[selectedStepIndex].flow = newValue
+                                } else {
+                                    profile.steps[selectedStepIndex].pressure = newValue
                                 }
+                                uploadProfile()
                             }
-                        }
-
-                        Text {
-                            text: setpointSlider.value.toFixed(1)
-                            font: Theme.bodyFont
-                            color: step && step.pump === "flow" ? Theme.flowColor : Theme.pressureColor
-                            Layout.preferredWidth: Theme.scaled(40)
                         }
                     }
                 }
 
                 // Temperature
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: Theme.scaled(8)
+                    spacing: Theme.scaled(12)
 
                     Text {
-                        text: "Temperature (\u00B0C)"
+                        text: "Temp"
                         font: Theme.captionFont
                         color: Theme.textSecondaryColor
+                        Layout.preferredWidth: Theme.scaled(80)
                     }
 
-                    RowLayout {
+                    ValueInput {
+                        id: tempInput
                         Layout.fillWidth: true
-                        spacing: Theme.scaled(15)
-
-                        TouchSlider {
-                            id: tempSlider
-                            Layout.fillWidth: true
-                            from: 70
-                            to: 100
-                            value: step ? step.temperature : 93
-                            stepSize: 0.5
-                            handleColor: Theme.temperatureGoalColor
-                            progressColor: Theme.temperatureGoalColor
-                            onMoved: {
-                                if (profile && selectedStepIndex >= 0) {
-                                    profile.steps[selectedStepIndex].temperature = value
-                                    uploadProfile()
-                                }
+                        from: 70
+                        to: 100
+                        value: step ? step.temperature : 93
+                        stepSize: 0.1
+                        suffix: "\u00B0C"
+                        valueColor: Theme.temperatureColor
+                        accentColor: Theme.temperatureGoalColor
+                        onValueModified: function(newValue) {
+                            if (profile && selectedStepIndex >= 0) {
+                                profile.steps[selectedStepIndex].temperature = newValue
+                                uploadProfile()
                             }
-                        }
-
-                        Text {
-                            text: tempSlider.value.toFixed(1)
-                            font: Theme.bodyFont
-                            color: Theme.temperatureColor
-                            Layout.preferredWidth: Theme.scaled(40)
                         }
                     }
                 }
 
                 // Duration
-                ColumnLayout {
+                RowLayout {
                     Layout.fillWidth: true
-                    spacing: Theme.scaled(8)
+                    spacing: Theme.scaled(12)
 
                     Text {
-                        text: "Duration (seconds)"
+                        text: "Duration"
                         font: Theme.captionFont
                         color: Theme.textSecondaryColor
+                        Layout.preferredWidth: Theme.scaled(80)
                     }
 
-                    RowLayout {
+                    ValueInput {
+                        id: durationInput
                         Layout.fillWidth: true
-                        spacing: Theme.scaled(15)
-
-                        TouchSlider {
-                            id: durationSlider
-                            Layout.fillWidth: true
-                            from: 0
-                            to: 120
-                            value: step ? step.seconds : 30
-                            stepSize: 1
-                            handleColor: Theme.accentColor
-                            progressColor: Theme.accentColor
-                            onMoved: {
-                                if (profile && selectedStepIndex >= 0) {
-                                    profile.steps[selectedStepIndex].seconds = value
-                                    uploadProfile()
-                                }
+                        from: 0
+                        to: 120
+                        value: step ? step.seconds : 30
+                        stepSize: 1
+                        decimals: 0
+                        suffix: "s"
+                        accentColor: Theme.accentColor
+                        onValueModified: function(newValue) {
+                            if (profile && selectedStepIndex >= 0) {
+                                profile.steps[selectedStepIndex].seconds = newValue
+                                uploadProfile()
                             }
-                        }
-
-                        Text {
-                            text: durationSlider.value.toFixed(0) + "s"
-                            font: Theme.bodyFont
-                            color: Theme.textColor
-                            Layout.preferredWidth: Theme.scaled(40)
                         }
                     }
                 }
@@ -814,93 +782,66 @@ Page {
                             }
                         }
 
-                        RowLayout {
+                        ValueInput {
+                            id: exitValueInput
                             Layout.fillWidth: true
                             enabled: exitIfCheck.checked
-                            spacing: Theme.scaled(10)
-
-                            TouchSlider {
-                                id: exitValueSlider
-                                Layout.fillWidth: true
-                                from: 0
-                                to: step && (step.exit_type === "flow_over" || step.exit_type === "flow_under") ? 8 : 12
-                                value: {
-                                    if (!step) return 0
-                                    switch (step.exit_type) {
-                                        case "pressure_over": return step.exit_pressure_over || 0
-                                        case "pressure_under": return step.exit_pressure_under || 0
-                                        case "flow_over": return step.exit_flow_over || 0
-                                        case "flow_under": return step.exit_flow_under || 0
-                                        default: return 0
-                                    }
-                                }
-                                stepSize: 0.1
-                                onMoved: {
-                                    if (!profile || selectedStepIndex < 0) return
-                                    var s = profile.steps[selectedStepIndex]
-                                    switch (s.exit_type) {
-                                        case "pressure_over": profile.steps[selectedStepIndex].exit_pressure_over = value; break
-                                        case "pressure_under": profile.steps[selectedStepIndex].exit_pressure_under = value; break
-                                        case "flow_over": profile.steps[selectedStepIndex].exit_flow_over = value; break
-                                        case "flow_under": profile.steps[selectedStepIndex].exit_flow_under = value; break
-                                    }
-                                    uploadProfile()
+                            from: 0
+                            to: step && (step.exit_type === "flow_over" || step.exit_type === "flow_under") ? 8 : 12
+                            value: {
+                                if (!step) return 0
+                                switch (step.exit_type) {
+                                    case "pressure_over": return step.exit_pressure_over || 0
+                                    case "pressure_under": return step.exit_pressure_under || 0
+                                    case "flow_over": return step.exit_flow_over || 0
+                                    case "flow_under": return step.exit_flow_under || 0
+                                    default: return 0
                                 }
                             }
-
-                            Text {
-                                text: exitValueSlider.value.toFixed(1)
-                                font: Theme.bodyFont
-                                color: Theme.textColor
-                                Layout.preferredWidth: Theme.scaled(40)
+                            stepSize: 0.1
+                            suffix: step && (step.exit_type === "flow_over" || step.exit_type === "flow_under") ? " mL/s" : " bar"
+                            onValueModified: function(newValue) {
+                                if (!profile || selectedStepIndex < 0) return
+                                var s = profile.steps[selectedStepIndex]
+                                switch (s.exit_type) {
+                                    case "pressure_over": profile.steps[selectedStepIndex].exit_pressure_over = newValue; break
+                                    case "pressure_under": profile.steps[selectedStepIndex].exit_pressure_under = newValue; break
+                                    case "flow_over": profile.steps[selectedStepIndex].exit_flow_over = newValue; break
+                                    case "flow_under": profile.steps[selectedStepIndex].exit_flow_under = newValue; break
+                                }
+                                uploadProfile()
                             }
                         }
                     }
                 }
 
                 // Limiter (max pressure when flow-controlled, or max flow when pressure-controlled)
-                GroupBox {
+                RowLayout {
                     Layout.fillWidth: true
-                    title: step && step.pump === "flow" ? "Max Pressure Limiter" : "Max Flow Limiter"
-                    background: Rectangle {
-                        color: Qt.rgba(255, 255, 255, 0.05)
-                        radius: Theme.scaled(8)
-                        y: parent.topPadding - parent.padding
-                        width: parent.width
-                        height: parent.height - parent.topPadding + parent.padding
-                    }
-                    label: Text {
-                        text: parent.title
+                    spacing: Theme.scaled(12)
+
+                    Text {
+                        text: step && step.pump === "flow" ? "Max P" : "Max F"
                         font: Theme.captionFont
                         color: Theme.textSecondaryColor
+                        Layout.preferredWidth: Theme.scaled(80)
                     }
 
-                    RowLayout {
-                        anchors.fill: parent
-                        spacing: Theme.scaled(10)
-
-                        TouchSlider {
-                            id: limiterSlider
-                            Layout.fillWidth: true
-                            from: 0
-                            to: step && step.pump === "flow" ? 12 : 8
-                            value: step ? step.max_flow_or_pressure : 0
-                            stepSize: 0.1
-                            onMoved: {
-                                if (profile && selectedStepIndex >= 0) {
-                                    profile.steps[selectedStepIndex].max_flow_or_pressure = value
-                                    uploadProfile()
-                                }
+                    ValueInput {
+                        id: limiterInput
+                        Layout.fillWidth: true
+                        from: 0
+                        to: step && step.pump === "flow" ? 12 : 8
+                        value: step ? step.max_flow_or_pressure : 0
+                        stepSize: 0.1
+                        suffix: step && step.pump === "flow" ? " bar" : " mL/s"
+                        valueColor: value > 0 ? Theme.warningColor : Theme.textSecondaryColor
+                        accentColor: Theme.warningColor
+                        onValueModified: function(newValue) {
+                            if (profile && selectedStepIndex >= 0) {
+                                profile.steps[selectedStepIndex].max_flow_or_pressure = newValue
+                                uploadProfile()
                             }
-                        }
-
-                        Text {
-                            text: limiterSlider.value > 0 ?
-                                  limiterSlider.value.toFixed(1) + (step && step.pump === "flow" ? " bar" : " mL/s") :
-                                  "Off"
-                            font: Theme.bodyFont
-                            color: limiterSlider.value > 0 ? Theme.warningColor : Theme.textSecondaryColor
-                            Layout.preferredWidth: Theme.scaled(60)
                         }
                     }
                 }

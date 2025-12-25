@@ -1,63 +1,199 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 import DE1App
 
-Slider {
-    id: control
+Item {
+    id: root
 
     property color trackColor: Theme.surfaceColor
     property color progressColor: Theme.primaryColor
     property color handleColor: Theme.primaryColor
 
+    // Slider properties exposed
+    property real from: 0
+    property real to: 100
+    property real value: 0
+    property real stepSize: 1
+    property bool pressed: slider.pressed
+    property real visualPosition: slider.visualPosition
+
+    // Button configuration
+    property bool showButtons: true
+    property real buttonSize: Theme.scaled(44)
+
+    // Signals
+    signal moved()
+
     implicitWidth: 200
-    implicitHeight: Theme.scaled(60)  // Large touch area
+    implicitHeight: Theme.scaled(60)
 
-    background: Item {
-        x: control.leftPadding
-        y: control.topPadding + control.availableHeight / 2 - height / 2
-        width: control.availableWidth
-        height: Theme.scaled(60)  // Full touch height
+    RowLayout {
+        anchors.fill: parent
+        spacing: Theme.scaled(8)
 
-        // Visual track (smaller than touch area)
+        // Minus button
         Rectangle {
-            anchors.centerIn: parent
-            width: parent.width
-            height: Theme.scaled(8)
+            id: minusButton
+            visible: root.showButtons
+            Layout.preferredWidth: root.buttonSize
+            Layout.preferredHeight: root.buttonSize
             radius: height / 2
-            color: control.trackColor
+            color: minusArea.pressed ? Qt.darker(Theme.surfaceColor, 1.3) : Theme.surfaceColor
+            border.width: 1
+            border.color: Theme.borderColor
 
-            // Progress fill
-            Rectangle {
-                width: control.visualPosition * parent.width
-                height: parent.height
-                radius: parent.radius
-                color: control.progressColor
+            Text {
+                anchors.centerIn: parent
+                text: "\u2212"  // minus sign
+                font.pixelSize: Theme.scaled(24)
+                font.bold: true
+                color: root.value <= root.from ? Theme.textSecondaryColor : Theme.textColor
+            }
+
+            MouseArea {
+                id: minusArea
+                anchors.fill: parent
+                onClicked: {
+                    var newVal = root.value - root.stepSize
+                    if (newVal >= root.from) {
+                        root.value = Math.round(newVal / root.stepSize) * root.stepSize
+                        root.moved()
+                    }
+                }
+                // Long press for continuous decrement
+                onPressAndHold: decrementTimer.start()
+                onReleased: decrementTimer.stop()
+                onCanceled: decrementTimer.stop()
+            }
+
+            Timer {
+                id: decrementTimer
+                interval: 100
+                repeat: true
+                onTriggered: {
+                    var newVal = root.value - root.stepSize
+                    if (newVal >= root.from) {
+                        root.value = Math.round(newVal / root.stepSize) * root.stepSize
+                        root.moved()
+                    }
+                }
             }
         }
-    }
 
-    handle: Item {
-        x: control.leftPadding + control.visualPosition * (control.availableWidth - width)
-        y: control.topPadding + control.availableHeight / 2 - height / 2
-        width: Theme.scaled(60)   // Large touch target
-        height: Theme.scaled(60)  // Large touch target
+        // The actual slider
+        Slider {
+            id: slider
+            Layout.fillWidth: true
+            Layout.preferredHeight: Theme.scaled(60)
 
-        // Visual handle (smaller, centered)
+            from: root.from
+            to: root.to
+            value: root.value
+            stepSize: root.stepSize
+
+            onMoved: {
+                root.value = value
+                root.moved()
+            }
+
+            onPressedChanged: root.pressedChanged()
+
+            background: Item {
+                x: slider.leftPadding
+                y: slider.topPadding + slider.availableHeight / 2 - height / 2
+                width: slider.availableWidth
+                height: Theme.scaled(60)
+
+                // Visual track (smaller than touch area)
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width
+                    height: Theme.scaled(8)
+                    radius: height / 2
+                    color: root.trackColor
+
+                    // Progress fill
+                    Rectangle {
+                        width: slider.visualPosition * parent.width
+                        height: parent.height
+                        radius: parent.radius
+                        color: root.progressColor
+                    }
+                }
+            }
+
+            handle: Item {
+                x: slider.leftPadding + slider.visualPosition * (slider.availableWidth - width)
+                y: slider.topPadding + slider.availableHeight / 2 - height / 2
+                width: Theme.scaled(60)
+                height: Theme.scaled(60)
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: Theme.scaled(24)
+                    height: Theme.scaled(24)
+                    radius: width / 2
+                    color: slider.pressed ? Qt.darker(root.handleColor, 1.2) : root.handleColor
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: Theme.scaled(10)
+                        height: Theme.scaled(10)
+                        radius: width / 2
+                        color: "white"
+                        opacity: 0.3
+                    }
+                }
+            }
+        }
+
+        // Plus button
         Rectangle {
-            anchors.centerIn: parent
-            width: Theme.scaled(24)
-            height: Theme.scaled(24)
-            radius: width / 2
-            color: control.pressed ? Qt.darker(control.handleColor, 1.2) : control.handleColor
+            id: plusButton
+            visible: root.showButtons
+            Layout.preferredWidth: root.buttonSize
+            Layout.preferredHeight: root.buttonSize
+            radius: height / 2
+            color: plusArea.pressed ? Qt.darker(Theme.surfaceColor, 1.3) : Theme.surfaceColor
+            border.width: 1
+            border.color: Theme.borderColor
 
-            // Inner highlight
-            Rectangle {
+            Text {
                 anchors.centerIn: parent
-                width: Theme.scaled(10)
-                height: Theme.scaled(10)
-                radius: width / 2
-                color: "white"
-                opacity: 0.3
+                text: "+"
+                font.pixelSize: Theme.scaled(24)
+                font.bold: true
+                color: root.value >= root.to ? Theme.textSecondaryColor : Theme.textColor
+            }
+
+            MouseArea {
+                id: plusArea
+                anchors.fill: parent
+                onClicked: {
+                    var newVal = root.value + root.stepSize
+                    if (newVal <= root.to) {
+                        root.value = Math.round(newVal / root.stepSize) * root.stepSize
+                        root.moved()
+                    }
+                }
+                // Long press for continuous increment
+                onPressAndHold: incrementTimer.start()
+                onReleased: incrementTimer.stop()
+                onCanceled: incrementTimer.stop()
+            }
+
+            Timer {
+                id: incrementTimer
+                interval: 100
+                repeat: true
+                onTriggered: {
+                    var newVal = root.value + root.stepSize
+                    if (newVal <= root.to) {
+                        root.value = Math.round(newVal / root.stepSize) * root.stepSize
+                        root.moved()
+                    }
+                }
             }
         }
     }

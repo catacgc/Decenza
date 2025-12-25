@@ -174,6 +174,7 @@ set(QML_FILES
     qml/components/ConnectionIndicator.qml
     qml/components/PresetPillRow.qml
     qml/components/TouchSlider.qml
+    qml/components/ValueInput.qml
     qml/components/ShotGraph.qml
     qml/components/StatusBar.qml
     qml/components/ProfileGraph.qml
