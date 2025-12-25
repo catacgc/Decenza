@@ -910,6 +910,9 @@ void ScreensaverVideoManager::onDownloadFinished()
     emit cacheUsedBytesChanged();
     emit videoReady(cachePath);
 
+    // Save cache index after each download so progress isn't lost when app is killed
+    saveCacheIndex();
+
     // Continue with queue
     QTimer::singleShot(100, this, &ScreensaverVideoManager::processDownloadQueue);
 }
