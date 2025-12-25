@@ -15,6 +15,15 @@
 
 class Settings;
 
+// Represents a video category from the categories manifest
+struct VideoCategory {
+    QString id;
+    QString name;
+    QString bucket;
+
+    bool isValid() const { return !id.isEmpty() && !bucket.isEmpty(); }
+};
+
 // Represents a single video item from the catalog
 struct VideoItem {
     int id = 0;
@@ -49,6 +58,12 @@ class ScreensaverVideoManager : public QObject {
     Q_PROPERTY(QDateTime lastUpdatedUtc READ lastUpdatedUtc NOTIFY catalogUpdated)
     Q_PROPERTY(int itemCount READ itemCount NOTIFY catalogUpdated)
 
+    // Category state
+    Q_PROPERTY(QVariantList categories READ categories NOTIFY categoriesChanged)
+    Q_PROPERTY(QString selectedCategoryId READ selectedCategoryId WRITE setSelectedCategoryId NOTIFY selectedCategoryIdChanged)
+    Q_PROPERTY(QString selectedCategoryName READ selectedCategoryName NOTIFY selectedCategoryIdChanged)
+    Q_PROPERTY(bool isFetchingCategories READ isFetchingCategories NOTIFY isFetchingCategoriesChanged)
+
     // Cache state
     Q_PROPERTY(bool cacheEnabled READ cacheEnabled WRITE setCacheEnabled NOTIFY cacheEnabledChanged)
     Q_PROPERTY(bool streamingFallbackEnabled READ streamingFallbackEnabled WRITE setStreamingFallbackEnabled NOTIFY streamingFallbackEnabledChanged)
@@ -75,6 +90,12 @@ public:
     QDateTime lastUpdatedUtc() const { return m_lastUpdatedUtc; }
     int itemCount() const { return m_catalog.size(); }
 
+    // Category getters
+    QVariantList categories() const;
+    QString selectedCategoryId() const { return m_selectedCategoryId; }
+    QString selectedCategoryName() const;
+    bool isFetchingCategories() const { return m_isFetchingCategories; }
+
     bool cacheEnabled() const { return m_cacheEnabled; }
     bool streamingFallbackEnabled() const { return m_streamingFallbackEnabled; }
     qint64 maxCacheBytes() const { return m_maxCacheBytes; }
@@ -93,8 +114,12 @@ public:
     void setCacheEnabled(bool enabled);
     void setStreamingFallbackEnabled(bool enabled);
     void setMaxCacheBytes(qint64 bytes);
+    void setSelectedCategoryId(const QString& categoryId);
 
 public slots:
+    // Category management
+    void refreshCategories();
+
     // Catalog management
     void refreshCatalog();
 
@@ -116,6 +141,11 @@ signals:
     void catalogUpdated();
     void catalogError(const QString& message);
 
+    void categoriesChanged();
+    void selectedCategoryIdChanged();
+    void isFetchingCategoriesChanged();
+    void categoriesError(const QString& message);
+
     void cacheEnabledChanged();
     void streamingFallbackEnabledChanged();
     void maxCacheBytesChanged();
@@ -128,12 +158,17 @@ signals:
     void downloadError(const QString& message);
 
 private slots:
+    void onCategoriesReplyFinished();
     void onCatalogReplyFinished();
     void onDownloadProgress(qint64 received, qint64 total);
     void onDownloadFinished();
     void processDownloadQueue();
 
 private:
+    // Category parsing
+    void parseCategories(const QByteArray& data);
+    QString buildCatalogUrlForCategory(const QString& categoryId) const;
+
     // Catalog parsing
     void parseCatalog(const QByteArray& data);
     VideoItem parseVideoItem(const QJsonObject& obj);
@@ -166,6 +201,12 @@ private:
     Settings* m_settings;
     QNetworkAccessManager* m_networkManager;
 
+    // Category state
+    QList<VideoCategory> m_categories;
+    QString m_selectedCategoryId;
+    bool m_isFetchingCategories = false;
+    QNetworkReply* m_categoriesReply = nullptr;
+
     // Catalog state
     bool m_enabled = true;
     QString m_catalogUrl;
@@ -181,13 +222,15 @@ private:
     qint64 m_maxCacheBytes = 2LL * 1024 * 1024 * 1024;  // 2 GB default
     qint64 m_cacheUsedBytes = 0;
     QString m_cacheDir;
-    QMap<int, CachedVideo> m_cacheIndex;  // catalogId -> CachedVideo
+    QMap<QString, CachedVideo> m_cacheIndex;  // video path -> CachedVideo
 
     // Download state
     bool m_isDownloading = false;
     double m_downloadProgress = 0.0;
     QList<int> m_downloadQueue;  // List of catalog indices to download
     int m_currentDownloadIndex = -1;
+    int m_totalToDownload = 0;   // Total videos to download this session
+    int m_downloadedCount = 0;   // Videos downloaded so far this session
     QNetworkReply* m_downloadReply = nullptr;
     QFile* m_downloadFile = nullptr;
 
@@ -197,5 +240,7 @@ private:
     QString m_currentVideoSourceUrl;
 
     // Constants
+    static const QString CATEGORIES_URL;
     static const QString DEFAULT_CATALOG_URL;
+    static const QString DEFAULT_CATEGORY_ID;
 };

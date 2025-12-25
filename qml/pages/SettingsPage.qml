@@ -75,504 +75,747 @@ Page {
         }
     }
 
-    // Main content area
-    Item {
-        id: mainContentArea
+    // Tab bar at top
+    TabBar {
+        id: tabBar
         anchors.top: parent.top
         anchors.topMargin: Theme.scaled(60)
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: 200  // Space for bottom panels + nav bar
         anchors.leftMargin: Theme.standardMargin
         anchors.rightMargin: Theme.standardMargin
 
-        // Machine and Scale side by side
-        RowLayout {
-            anchors.fill: parent
-            spacing: 15
+        background: Rectangle {
+            color: "transparent"
+        }
 
-            // Machine Connection
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: Theme.surfaceColor
-                radius: Theme.cardRadius
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 15
-                    spacing: 10
-
-                    Text {
-                        text: "Machine"
-                        color: Theme.textColor
-                        font.pixelSize: 16
-                        font.bold: true
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Text {
-                            text: "Status:"
-                            color: Theme.textSecondaryColor
-                        }
-
-                        Text {
-                            text: DE1Device.connected ? "Connected" : "Disconnected"
-                            color: DE1Device.connected ? Theme.successColor : Theme.errorColor
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Button {
-                            text: BLEManager.scanning ? "Stop Scan" : "Scan for DE1"
-                            onClicked: {
-                                console.log("DE1 scan button clicked! scanning=" + BLEManager.scanning)
-                                if (BLEManager.scanning) {
-                                    BLEManager.stopScan()
-                                } else {
-                                    BLEManager.startScan()
-                                }
-                            }
-                            onPressed: console.log("DE1 button PRESSED")
-                            onReleased: console.log("DE1 button RELEASED")
-                        }
-                    }
-
-                    Text {
-                        text: "Firmware: " + (DE1Device.firmwareVersion || "Unknown")
-                        color: Theme.textSecondaryColor
-                        visible: DE1Device.connected
-                    }
-
-                    ListView {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 60
-                        clip: true
-                        model: BLEManager.discoveredDevices
-
-                        delegate: ItemDelegate {
-                            width: ListView.view.width
-                            contentItem: Text {
-                                text: modelData.name + " (" + modelData.address + ")"
-                                color: Theme.textColor
-                            }
-                            background: Rectangle {
-                                color: parent.hovered ? Theme.accentColor : "transparent"
-                                radius: 4
-                            }
-                            onClicked: DE1Device.connectToDevice(modelData.address)
-                        }
-
-                        Label {
-                            anchors.centerIn: parent
-                            text: "No devices found"
-                            visible: parent.count === 0
-                            color: Theme.textSecondaryColor
-                        }
-                    }
-
-                    // DE1 scan log
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        color: Qt.darker(Theme.surfaceColor, 1.2)
-                        radius: 4
-
-                        ScrollView {
-                            id: de1LogScroll
-                            anchors.fill: parent
-                            anchors.margins: 8
-                            clip: true
-
-                            TextArea {
-                                id: de1LogText
-                                readOnly: true
-                                color: Theme.textSecondaryColor
-                                font.pixelSize: 11
-                                font.family: "monospace"
-                                wrapMode: Text.Wrap
-                                background: null
-                                text: ""
-                            }
-                        }
-
-                        Connections {
-                            target: BLEManager
-                            function onDe1LogMessage(message) {
-                                de1LogText.text += message + "\n"
-                                de1LogScroll.ScrollBar.vertical.position = 1.0 - de1LogScroll.ScrollBar.vertical.size
-                            }
-                        }
-                    }
-                }
+        TabButton {
+            text: "Bluetooth"
+            width: implicitWidth
+            font.pixelSize: 14
+            font.bold: tabBar.currentIndex === 0
+            contentItem: Text {
+                text: parent.text
+                font: parent.font
+                color: tabBar.currentIndex === 0 ? Theme.primaryColor : Theme.textSecondaryColor
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
             }
+            background: Rectangle {
+                color: tabBar.currentIndex === 0 ? Theme.surfaceColor : "transparent"
+                radius: 6
+            }
+        }
 
-            // Scale Connection
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                color: Theme.surfaceColor
-                radius: Theme.cardRadius
+        TabButton {
+            text: "Preferences"
+            width: implicitWidth
+            font.pixelSize: 14
+            font.bold: tabBar.currentIndex === 1
+            contentItem: Text {
+                text: parent.text
+                font: parent.font
+                color: tabBar.currentIndex === 1 ? Theme.primaryColor : Theme.textSecondaryColor
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                color: tabBar.currentIndex === 1 ? Theme.surfaceColor : "transparent"
+                radius: 6
+            }
+        }
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 15
-                    spacing: 10
-
-                    Text {
-                        text: "Scale"
-                        color: Theme.textColor
-                        font.pixelSize: 16
-                        font.bold: true
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true
-
-                        Text {
-                            text: "Status:"
-                            color: Theme.textSecondaryColor
-                        }
-
-                        Text {
-                            text: (ScaleDevice && ScaleDevice.connected) ? "Connected" :
-                                  BLEManager.scaleConnectionFailed ? "Not found" : "Disconnected"
-                            color: (ScaleDevice && ScaleDevice.connected) ? Theme.successColor :
-                                   BLEManager.scaleConnectionFailed ? Theme.errorColor : Theme.textSecondaryColor
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Button {
-                            text: BLEManager.scanning ? "Scanning..." : "Scan for Scales"
-                            enabled: !BLEManager.scanning
-                            onClicked: BLEManager.scanForScales()
-                        }
-                    }
-
-                    // Saved scale info
-                    RowLayout {
-                        Layout.fillWidth: true
-                        visible: BLEManager.hasSavedScale
-
-                        Text {
-                            text: "Saved scale:"
-                            color: Theme.textSecondaryColor
-                        }
-
-                        Text {
-                            text: Settings.scaleType || "Unknown"
-                            color: Theme.textColor
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Button {
-                            text: "Forget"
-                            onClicked: {
-                                Settings.setScaleAddress("")
-                                Settings.setScaleType("")
-                                BLEManager.clearSavedScale()
-                            }
-                        }
-                    }
-
-                    // Show weight when connected
-                    RowLayout {
-                        Layout.fillWidth: true
-                        visible: ScaleDevice && ScaleDevice.connected
-
-                        Text {
-                            text: "Weight:"
-                            color: Theme.textSecondaryColor
-                        }
-
-                        Text {
-                            text: ScaleDevice ? ScaleDevice.weight.toFixed(1) + " g" : "0.0 g"
-                            color: Theme.textColor
-                            font: Theme.bodyFont
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        Button {
-                            text: "Tare"
-                            onClicked: {
-                                if (ScaleDevice) ScaleDevice.tare()
-                            }
-                        }
-                    }
-
-                    ListView {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 60
-                        clip: true
-                        visible: !ScaleDevice || !ScaleDevice.connected
-                        model: BLEManager.discoveredScales
-
-                        delegate: ItemDelegate {
-                            width: ListView.view.width
-                            contentItem: RowLayout {
-                                Text {
-                                    text: modelData.name
-                                    color: Theme.textColor
-                                    Layout.fillWidth: true
-                                }
-                                Text {
-                                    text: modelData.type
-                                    color: Theme.textSecondaryColor
-                                    font.pixelSize: 12
-                                }
-                            }
-                            background: Rectangle {
-                                color: parent.hovered ? Theme.accentColor : "transparent"
-                                radius: 4
-                            }
-                            onClicked: {
-                                console.log("Connect to scale:", modelData.name, modelData.type)
-                            }
-                        }
-
-                        Label {
-                            anchors.centerIn: parent
-                            text: "No scales found"
-                            visible: parent.count === 0
-                            color: Theme.textSecondaryColor
-                        }
-                    }
-
-                    // Scale scan log
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        color: Qt.darker(Theme.surfaceColor, 1.2)
-                        radius: 4
-
-                        ScrollView {
-                            id: scaleLogScroll
-                            anchors.fill: parent
-                            anchors.margins: 8
-                            clip: true
-
-                            TextArea {
-                                id: scaleLogText
-                                readOnly: true
-                                color: Theme.textSecondaryColor
-                                font.pixelSize: 11
-                                font.family: "monospace"
-                                wrapMode: Text.Wrap
-                                background: null
-                                text: ""
-                            }
-                        }
-
-                        Connections {
-                            target: BLEManager
-                            function onScaleLogMessage(message) {
-                                scaleLogText.text += message + "\n"
-                                scaleLogScroll.ScrollBar.vertical.position = 1.0 - scaleLogScroll.ScrollBar.vertical.size
-                            }
-                        }
-                    }
-                }
+        TabButton {
+            text: "Screensaver"
+            width: implicitWidth
+            font.pixelSize: 14
+            font.bold: tabBar.currentIndex === 2
+            contentItem: Text {
+                text: parent.text
+                font: parent.font
+                color: tabBar.currentIndex === 2 ? Theme.primaryColor : Theme.textSecondaryColor
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                color: tabBar.currentIndex === 2 ? Theme.surfaceColor : "transparent"
+                radius: 6
             }
         }
     }
 
-    // Bottom panels row
-    RowLayout {
+    // Tab content area
+    StackLayout {
+        id: tabContent
+        anchors.top: tabBar.bottom
+        anchors.topMargin: 15
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: parent.bottom
+        anchors.bottom: bottomBar.top
+        anchors.bottomMargin: 15
         anchors.leftMargin: Theme.standardMargin
         anchors.rightMargin: Theme.standardMargin
-        anchors.bottomMargin: 85
-        spacing: 15
-        height: 100
 
-        // About - bottom left
-        Rectangle {
-            id: aboutBox
-            Layout.preferredWidth: 140
-            Layout.fillHeight: true
-            color: Theme.surfaceColor
-            radius: Theme.cardRadius
+        currentIndex: tabBar.currentIndex
 
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 2
-
-                Text {
-                    text: "DE1 Controller"
-                    color: Theme.textColor
-                    font.pixelSize: 14
-                    font.bold: true
-                }
-
-                Text {
-                    text: "Version 1.0.0"
-                    color: DE1Device.simulationMode ? Theme.primaryColor : Theme.textSecondaryColor
-                    font.pixelSize: 12
-                }
-
-                Text {
-                    text: DE1Device.simulationMode ? "SIM MODE" : "Built with Qt 6"
-                    color: DE1Device.simulationMode ? Theme.primaryColor : Theme.textSecondaryColor
-                    font.pixelSize: 12
-                    font.bold: DE1Device.simulationMode
-                }
-            }
-        }
-
-        // Auto-sleep settings
-        Rectangle {
-            Layout.preferredWidth: 220
-            Layout.fillHeight: true
-            color: Theme.surfaceColor
-            radius: Theme.cardRadius
-
-            // Map slider position (0-8) to minutes (0=never, then 15,30,45,60,90,120,180,240)
-            property var sleepValues: [0, 15, 30, 45, 60, 90, 120, 180, 240]
-            property int currentMinutes: Settings.value("autoSleepMinutes", 0)
-
-            function minutesToIndex(mins) {
-                for (var i = 0; i < sleepValues.length; i++) {
-                    if (sleepValues[i] === mins) return i
-                }
-                return 0  // Default to "Never"
-            }
-
-            function formatTime(mins) {
-                if (mins === 0) return "Never"
-                if (mins < 60) return mins + " min"
-                var hours = mins / 60
-                if (hours === 1) return "1 hour"
-                return hours + " hours"
-            }
-
-            ColumnLayout {
-                anchors.fill: parent
-                anchors.margins: 12
-                spacing: 4
-
-                Text {
-                    text: "Auto-Sleep"
-                    color: Theme.textColor
-                    font.pixelSize: 14
-                    font.bold: true
-                }
-
-                Text {
-                    text: parent.parent.formatTime(parent.parent.currentMinutes)
-                    color: Theme.primaryColor
-                    font.pixelSize: 16
-                    font.bold: true
-                }
-
-                Slider {
-                    Layout.fillWidth: true
-                    from: 0
-                    to: 8
-                    stepSize: 1
-                    value: parent.parent.minutesToIndex(parent.parent.currentMinutes)
-                    onMoved: {
-                        var mins = parent.parent.sleepValues[Math.round(value)]
-                        parent.parent.currentMinutes = mins
-                        Settings.setValue("autoSleepMinutes", mins)
-                    }
-                }
-            }
-        }
-
-        // Screensaver settings
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            color: Theme.surfaceColor
-            radius: Theme.cardRadius
-
+        // ============ BLUETOOTH TAB ============
+        Item {
             RowLayout {
                 anchors.fill: parent
-                anchors.margins: 12
-                spacing: 20
+                spacing: 15
 
-                ColumnLayout {
-                    spacing: 4
+                // Machine Connection
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
 
-                    Text {
-                        text: "Screensaver"
-                        color: Theme.textColor
-                        font.pixelSize: 14
-                        font.bold: true
-                    }
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
 
-                    Text {
-                        text: ScreensaverManager.itemCount + " videos" +
-                              (ScreensaverManager.isDownloading ? " (downloading...)" : "")
-                        color: Theme.textSecondaryColor
-                        font.pixelSize: 12
-                    }
+                        Text {
+                            text: "Machine"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
 
-                    Text {
-                        text: "Cache: " + (ScreensaverManager.cacheUsedBytes / 1024 / 1024).toFixed(0) + " MB / " +
-                              (ScreensaverManager.maxCacheBytes / 1024 / 1024 / 1024).toFixed(1) + " GB"
-                        color: Theme.textSecondaryColor
-                        font.pixelSize: 12
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Text {
+                                text: "Status:"
+                                color: Theme.textSecondaryColor
+                            }
+
+                            Text {
+                                text: DE1Device.connected ? "Connected" : "Disconnected"
+                                color: DE1Device.connected ? Theme.successColor : Theme.errorColor
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Button {
+                                text: BLEManager.scanning ? "Stop Scan" : "Scan for DE1"
+                                onClicked: {
+                                    console.log("DE1 scan button clicked! scanning=" + BLEManager.scanning)
+                                    if (BLEManager.scanning) {
+                                        BLEManager.stopScan()
+                                    } else {
+                                        BLEManager.startScan()
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: "Firmware: " + (DE1Device.firmwareVersion || "Unknown")
+                            color: Theme.textSecondaryColor
+                            visible: DE1Device.connected
+                        }
+
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 60
+                            clip: true
+                            model: BLEManager.discoveredDevices
+
+                            delegate: ItemDelegate {
+                                width: ListView.view.width
+                                contentItem: Text {
+                                    text: modelData.name + " (" + modelData.address + ")"
+                                    color: Theme.textColor
+                                }
+                                background: Rectangle {
+                                    color: parent.hovered ? Theme.accentColor : "transparent"
+                                    radius: 4
+                                }
+                                onClicked: DE1Device.connectToDevice(modelData.address)
+                            }
+
+                            Label {
+                                anchors.centerIn: parent
+                                text: "No devices found"
+                                visible: parent.count === 0
+                                color: Theme.textSecondaryColor
+                            }
+                        }
+
+                        // DE1 scan log
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: Qt.darker(Theme.surfaceColor, 1.2)
+                            radius: 4
+
+                            ScrollView {
+                                id: de1LogScroll
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                clip: true
+
+                                TextArea {
+                                    id: de1LogText
+                                    readOnly: true
+                                    color: Theme.textSecondaryColor
+                                    font.pixelSize: 11
+                                    font.family: "monospace"
+                                    wrapMode: Text.Wrap
+                                    background: null
+                                    text: ""
+                                }
+                            }
+
+                            Connections {
+                                target: BLEManager
+                                function onDe1LogMessage(message) {
+                                    de1LogText.text += message + "\n"
+                                    de1LogScroll.ScrollBar.vertical.position = 1.0 - de1LogScroll.ScrollBar.vertical.size
+                                }
+                            }
+                        }
                     }
                 }
 
+                // Scale Connection
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
+
+                        Text {
+                            text: "Scale"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Text {
+                                text: "Status:"
+                                color: Theme.textSecondaryColor
+                            }
+
+                            Text {
+                                text: (ScaleDevice && ScaleDevice.connected) ? "Connected" :
+                                      BLEManager.scaleConnectionFailed ? "Not found" : "Disconnected"
+                                color: (ScaleDevice && ScaleDevice.connected) ? Theme.successColor :
+                                       BLEManager.scaleConnectionFailed ? Theme.errorColor : Theme.textSecondaryColor
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Button {
+                                text: BLEManager.scanning ? "Scanning..." : "Scan for Scales"
+                                enabled: !BLEManager.scanning
+                                onClicked: BLEManager.scanForScales()
+                            }
+                        }
+
+                        // Saved scale info
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: BLEManager.hasSavedScale
+
+                            Text {
+                                text: "Saved scale:"
+                                color: Theme.textSecondaryColor
+                            }
+
+                            Text {
+                                text: Settings.scaleType || "Unknown"
+                                color: Theme.textColor
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Button {
+                                text: "Forget"
+                                onClicked: {
+                                    Settings.setScaleAddress("")
+                                    Settings.setScaleType("")
+                                    BLEManager.clearSavedScale()
+                                }
+                            }
+                        }
+
+                        // Show weight when connected
+                        RowLayout {
+                            Layout.fillWidth: true
+                            visible: ScaleDevice && ScaleDevice.connected
+
+                            Text {
+                                text: "Weight:"
+                                color: Theme.textSecondaryColor
+                            }
+
+                            Text {
+                                text: ScaleDevice ? ScaleDevice.weight.toFixed(1) + " g" : "0.0 g"
+                                color: Theme.textColor
+                                font: Theme.bodyFont
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Button {
+                                text: "Tare"
+                                onClicked: {
+                                    if (ScaleDevice) ScaleDevice.tare()
+                                }
+                            }
+                        }
+
+                        ListView {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 60
+                            clip: true
+                            visible: !ScaleDevice || !ScaleDevice.connected
+                            model: BLEManager.discoveredScales
+
+                            delegate: ItemDelegate {
+                                width: ListView.view.width
+                                contentItem: RowLayout {
+                                    Text {
+                                        text: modelData.name
+                                        color: Theme.textColor
+                                        Layout.fillWidth: true
+                                    }
+                                    Text {
+                                        text: modelData.type
+                                        color: Theme.textSecondaryColor
+                                        font.pixelSize: 12
+                                    }
+                                }
+                                background: Rectangle {
+                                    color: parent.hovered ? Theme.accentColor : "transparent"
+                                    radius: 4
+                                }
+                                onClicked: {
+                                    console.log("Connect to scale:", modelData.name, modelData.type)
+                                }
+                            }
+
+                            Label {
+                                anchors.centerIn: parent
+                                text: "No scales found"
+                                visible: parent.count === 0
+                                color: Theme.textSecondaryColor
+                            }
+                        }
+
+                        // Scale scan log
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            color: Qt.darker(Theme.surfaceColor, 1.2)
+                            radius: 4
+
+                            ScrollView {
+                                id: scaleLogScroll
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                clip: true
+
+                                TextArea {
+                                    id: scaleLogText
+                                    readOnly: true
+                                    color: Theme.textSecondaryColor
+                                    font.pixelSize: 11
+                                    font.family: "monospace"
+                                    wrapMode: Text.Wrap
+                                    background: null
+                                    text: ""
+                                }
+                            }
+
+                            Connections {
+                                target: BLEManager
+                                function onScaleLogMessage(message) {
+                                    scaleLogText.text += message + "\n"
+                                    scaleLogScroll.ScrollBar.vertical.position = 1.0 - scaleLogScroll.ScrollBar.vertical.size
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ============ PREFERENCES TAB ============
+        Item {
+            RowLayout {
+                anchors.fill: parent
+                spacing: 15
+
+                // Auto-sleep settings
+                Rectangle {
+                    Layout.preferredWidth: 300
+                    Layout.fillHeight: true
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+
+                    property var sleepValues: [0, 15, 30, 45, 60, 90, 120, 180, 240]
+                    property int currentMinutes: Settings.value("autoSleepMinutes", 0)
+
+                    function minutesToIndex(mins) {
+                        for (var i = 0; i < sleepValues.length; i++) {
+                            if (sleepValues[i] === mins) return i
+                        }
+                        return 0
+                    }
+
+                    function formatTime(mins) {
+                        if (mins === 0) return "Never"
+                        if (mins < 60) return mins + " min"
+                        var hours = mins / 60
+                        if (hours === 1) return "1 hour"
+                        return hours + " hours"
+                    }
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
+
+                        Text {
+                            text: "Auto-Sleep"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: "Put the machine to sleep after inactivity"
+                            color: Theme.textSecondaryColor
+                            font.pixelSize: 12
+                        }
+
+                        Item { Layout.fillHeight: true }
+
+                        Text {
+                            text: parent.parent.formatTime(parent.parent.currentMinutes)
+                            color: Theme.primaryColor
+                            font.pixelSize: 24
+                            font.bold: true
+                            Layout.alignment: Qt.AlignHCenter
+                        }
+
+                        Slider {
+                            Layout.fillWidth: true
+                            from: 0
+                            to: 8
+                            stepSize: 1
+                            value: parent.parent.minutesToIndex(parent.parent.currentMinutes)
+                            onMoved: {
+                                var mins = parent.parent.sleepValues[Math.round(value)]
+                                parent.parent.currentMinutes = mins
+                                Settings.setValue("autoSleepMinutes", mins)
+                            }
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+                }
+
+                // About box
+                Rectangle {
+                    Layout.preferredWidth: 200
+                    Layout.fillHeight: true
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 8
+
+                        Text {
+                            text: "About"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        Item { Layout.fillHeight: true }
+
+                        Text {
+                            text: "DE1 Controller"
+                            color: Theme.textColor
+                            font.pixelSize: 14
+                        }
+
+                        Text {
+                            text: "Version 1.0.0"
+                            color: DE1Device.simulationMode ? Theme.primaryColor : Theme.textSecondaryColor
+                            font.pixelSize: 12
+                        }
+
+                        Text {
+                            text: DE1Device.simulationMode ? "SIMULATION MODE" : "Built with Qt 6"
+                            color: DE1Device.simulationMode ? Theme.primaryColor : Theme.textSecondaryColor
+                            font.pixelSize: 12
+                            font.bold: DE1Device.simulationMode
+                        }
+
+                        Item { Layout.fillHeight: true }
+                    }
+                }
+
+                // Spacer
                 Item { Layout.fillWidth: true }
+            }
+        }
 
-                ColumnLayout {
-                    spacing: 8
+        // ============ SCREENSAVER TAB ============
+        Item {
+            RowLayout {
+                anchors.fill: parent
+                spacing: 15
 
-                    RowLayout {
+                // Category selector
+                Rectangle {
+                    Layout.preferredWidth: 250
+                    Layout.fillHeight: true
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
                         spacing: 10
 
                         Text {
-                            text: "Enabled"
+                            text: "Video Category"
                             color: Theme.textColor
-                            font.pixelSize: 12
+                            font.pixelSize: 16
+                            font.bold: true
                         }
-
-                        Switch {
-                            checked: ScreensaverManager.enabled
-                            onCheckedChanged: ScreensaverManager.enabled = checked
-                        }
-                    }
-
-                    RowLayout {
-                        spacing: 10
 
                         Text {
-                            text: "Cache"
-                            color: Theme.textColor
+                            text: "Choose a theme for screensaver videos"
+                            color: Theme.textSecondaryColor
                             font.pixelSize: 12
+                            wrapMode: Text.WordWrap
+                            Layout.fillWidth: true
                         }
 
-                        Switch {
-                            checked: ScreensaverManager.cacheEnabled
-                            onCheckedChanged: ScreensaverManager.cacheEnabled = checked
+                        Item { height: 10 }
+
+                        // Category list
+                        ListView {
+                            id: categoryList
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            clip: true
+                            model: ScreensaverManager.categories
+                            spacing: 4
+
+                            delegate: ItemDelegate {
+                                width: ListView.view.width
+                                height: 44
+                                highlighted: modelData.id === ScreensaverManager.selectedCategoryId
+
+                                background: Rectangle {
+                                    color: parent.highlighted ? Theme.primaryColor :
+                                           parent.hovered ? Qt.darker(Theme.surfaceColor, 1.1) : "transparent"
+                                    radius: 6
+                                }
+
+                                contentItem: Text {
+                                    text: modelData.name
+                                    color: parent.highlighted ? "white" : Theme.textColor
+                                    font.pixelSize: 14
+                                    font.bold: parent.highlighted
+                                    verticalAlignment: Text.AlignVCenter
+                                    leftPadding: 10
+                                }
+
+                                onClicked: {
+                                    ScreensaverManager.selectedCategoryId = modelData.id
+                                }
+                            }
+
+                            Label {
+                                anchors.centerIn: parent
+                                text: ScreensaverManager.isFetchingCategories ? "Loading..." : "No categories"
+                                visible: parent.count === 0
+                                color: Theme.textSecondaryColor
+                            }
+                        }
+
+                        Button {
+                            text: "Refresh Categories"
+                            Layout.fillWidth: true
+                            enabled: !ScreensaverManager.isFetchingCategories
+                            onClicked: ScreensaverManager.refreshCategories()
                         }
                     }
                 }
 
-                ColumnLayout {
-                    spacing: 8
+                // Screensaver settings
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
 
-                    Button {
-                        text: "Refresh"
-                        onClicked: ScreensaverManager.refreshCatalog()
-                        enabled: !ScreensaverManager.isRefreshing
-                    }
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 15
 
-                    Button {
-                        text: "Clear Cache"
-                        onClicked: ScreensaverManager.clearCache()
+                        Text {
+                            text: "Screensaver Settings"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        // Status row
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 20
+
+                            ColumnLayout {
+                                spacing: 4
+
+                                Text {
+                                    text: "Current Category"
+                                    color: Theme.textSecondaryColor
+                                    font.pixelSize: 12
+                                }
+
+                                Text {
+                                    text: ScreensaverManager.selectedCategoryName
+                                    color: Theme.primaryColor
+                                    font.pixelSize: 16
+                                    font.bold: true
+                                }
+                            }
+
+                            ColumnLayout {
+                                spacing: 4
+
+                                Text {
+                                    text: "Videos"
+                                    color: Theme.textSecondaryColor
+                                    font.pixelSize: 12
+                                }
+
+                                Text {
+                                    text: ScreensaverManager.itemCount + (ScreensaverManager.isDownloading ? " (downloading...)" : "")
+                                    color: Theme.textColor
+                                    font.pixelSize: 16
+                                }
+                            }
+
+                            ColumnLayout {
+                                spacing: 4
+
+                                Text {
+                                    text: "Cache Usage"
+                                    color: Theme.textSecondaryColor
+                                    font.pixelSize: 12
+                                }
+
+                                Text {
+                                    text: (ScreensaverManager.cacheUsedBytes / 1024 / 1024).toFixed(0) + " MB / " +
+                                          (ScreensaverManager.maxCacheBytes / 1024 / 1024 / 1024).toFixed(1) + " GB"
+                                    color: Theme.textColor
+                                    font.pixelSize: 16
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        // Download progress
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: 6
+                            radius: 3
+                            color: Qt.darker(Theme.surfaceColor, 1.3)
+                            visible: ScreensaverManager.isDownloading
+
+                            Rectangle {
+                                width: parent.width * ScreensaverManager.downloadProgress
+                                height: parent.height
+                                radius: 3
+                                color: Theme.primaryColor
+
+                                Behavior on width { NumberAnimation { duration: 200 } }
+                            }
+                        }
+
+                        // Toggles row
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 30
+
+                            RowLayout {
+                                spacing: 10
+
+                                Text {
+                                    text: "Enabled"
+                                    color: Theme.textColor
+                                    font.pixelSize: 14
+                                }
+
+                                Switch {
+                                    checked: ScreensaverManager.enabled
+                                    onCheckedChanged: ScreensaverManager.enabled = checked
+                                }
+                            }
+
+                            RowLayout {
+                                spacing: 10
+
+                                Text {
+                                    text: "Cache Videos"
+                                    color: Theme.textColor
+                                    font.pixelSize: 14
+                                }
+
+                                Switch {
+                                    checked: ScreensaverManager.cacheEnabled
+                                    onCheckedChanged: ScreensaverManager.cacheEnabled = checked
+                                }
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
+
+                        Item { Layout.fillHeight: true }
+
+                        // Action buttons
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 10
+
+                            Button {
+                                text: "Refresh Videos"
+                                onClicked: ScreensaverManager.refreshCatalog()
+                                enabled: !ScreensaverManager.isRefreshing
+                            }
+
+                            Button {
+                                text: "Clear Cache"
+                                onClicked: ScreensaverManager.clearCache()
+                            }
+
+                            Item { Layout.fillWidth: true }
+                        }
                     }
                 }
             }
@@ -581,6 +824,7 @@ Page {
 
     // Bottom bar with back button
     Rectangle {
+        id: bottomBar
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
