@@ -154,6 +154,7 @@ void BLEManager::doStartScan() {
     clearDevices();
     m_scanning = true;
     emit scanningChanged();
+    emit scanStarted();  // Notify that scan has actually started
     emit de1LogMessage("Scanning for devices...");
 
     qDebug() << "Starting BLE scan with timeout:" << m_discoveryAgent->lowEnergyDiscoveryTimeout() << "ms";

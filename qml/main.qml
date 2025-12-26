@@ -53,8 +53,7 @@ ApplicationWindow {
     Timer {
         id: inactivityTimer
         interval: root.autoSleepMinutes * 60 * 1000  // Convert minutes to ms
-        running: root.autoSleepMinutes > 0 && pageStack.currentItem &&
-                 pageStack.currentItem.objectName !== "screensaverPage"
+        running: root.autoSleepMinutes > 0 && !screensaverActive
         repeat: false
         onTriggered: {
             console.log("Auto-sleep triggered after", root.autoSleepMinutes, "minutes of inactivity")
@@ -96,6 +95,14 @@ ApplicationWindow {
     // Current page title - set by each page
     property string currentPageTitle: ""
 
+    // Suppress scale dialogs briefly after waking from sleep
+    property bool justWokeFromSleep: false
+    Timer {
+        id: wakeSuppressionTimer
+        interval: 2000  // Suppress dialogs for 2 seconds after wake
+        onTriggered: root.justWokeFromSleep = false
+    }
+
     // Update scale factor when window resizes
     onWidthChanged: updateScale()
     onHeightChanged: updateScale()
@@ -124,6 +131,14 @@ ApplicationWindow {
         id: pageStack
         anchors.fill: parent
         initialItem: idlePage
+
+        // Default: instant transitions (no animation)
+        pushEnter: Transition {}
+        pushExit: Transition {}
+        popEnter: Transition {}
+        popExit: Transition {}
+        replaceEnter: Transition {}
+        replaceExit: Transition {}
 
         Component {
             id: idlePage
@@ -163,11 +178,6 @@ ApplicationWindow {
         Component {
             id: flushPage
             FlushPage {}
-        }
-
-        Component {
-            id: screensaverPage
-            ScreensaverPage {}
         }
     }
 
@@ -222,9 +232,15 @@ ApplicationWindow {
             bleErrorDialog.open()
         }
         function onFlowScaleFallback() {
+            // Don't show during screensaver or when waking from it
+            if (screensaverActive) return
+            if (root.justWokeFromSleep) return
             flowScaleDialog.open()
         }
         function onScaleDisconnected() {
+            // Don't show during screensaver or when waking from it
+            if (screensaverActive) return
+            if (root.justWokeFromSleep) return
             scaleDisconnectedDialog.open()
         }
     }
@@ -343,7 +359,7 @@ ApplicationWindow {
         anchors.right: parent.right
         height: 70
         z: 100
-        visible: !pageStack.currentItem || pageStack.currentItem.objectName !== "screensaverPage"
+        visible: !screensaverActive
     }
 
     // Connection state handler - auto navigate based on machine state
@@ -417,8 +433,21 @@ ApplicationWindow {
         pageStack.push(flushPage)
     }
 
+    property bool screensaverActive: false
+
     function goToScreensaver() {
+        screensaverActive = true
         pageStack.replace(screensaverPage)
+    }
+
+    function goToIdleFromScreensaver() {
+        screensaverActive = false
+        pageStack.replace(idlePage)
+    }
+
+    Component {
+        id: screensaverPage
+        ScreensaverPage {}
     }
 
     // Touch capture to reset inactivity timer (transparent, doesn't block input)

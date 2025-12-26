@@ -90,7 +90,13 @@ int main(int argc, char *argv[])
             emit bleManager.flowScaleFallback();
         }
     });
-    flowScaleFallbackTimer.start();
+    // Start timer only when scanning actually begins (after first-run dialog)
+    QObject::connect(&bleManager, &BLEManager::scanStarted, &flowScaleFallbackTimer, [&flowScaleFallbackTimer]() {
+        if (!flowScaleFallbackTimer.isActive()) {
+            qDebug() << "Scan started, starting 30s FlowScale fallback timer";
+            flowScaleFallbackTimer.start();
+        }
+    });
 
     // Set up QML engine
     QQmlApplicationEngine engine;

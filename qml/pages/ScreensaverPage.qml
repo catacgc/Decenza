@@ -335,15 +335,6 @@ Page {
     Keys.onPressed: wake()
 
     function wake() {
-        // Stop media playback and reset state
-        mediaPlayer.stop()
-        imageDisplayTimer.stop()
-        mediaPlaying = false
-        isCurrentItemImage = false
-        useFirstImage = true
-        imageDisplay1.source = ""
-        imageDisplay2.source = ""
-
         // Wake up the DE1
         if (DE1Device.connected) {
             DE1Device.wakeUp()
@@ -356,8 +347,18 @@ Page {
             BLEManager.tryDirectConnectToScale()
         }
 
+        // Suppress scale dialogs briefly after waking
+        root.justWokeFromSleep = true
+        wakeSuppressionTimer.start()
+
         // Navigate back to idle
-        root.goToIdle()
+        root.goToIdleFromScreensaver()
+    }
+
+    // Clean up media when page is being removed
+    StackView.onRemoved: {
+        mediaPlayer.stop()
+        imageDisplayTimer.stop()
     }
 
     // Auto-wake when DE1 wakes up externally (button press on machine)
@@ -366,19 +367,16 @@ Page {
         function onStateChanged() {
             var state = DE1Device.stateString
             if (state !== "Sleep" && state !== "GoingToSleep") {
-                mediaPlayer.stop()
-                imageDisplayTimer.stop()
-                mediaPlaying = false
-                isCurrentItemImage = false
-                useFirstImage = true
-                imageDisplay1.source = ""
-                imageDisplay2.source = ""
                 if (ScaleDevice && ScaleDevice.connected) {
                     ScaleDevice.wake()
                 } else {
                     BLEManager.tryDirectConnectToScale()
                 }
-                root.goToIdle()
+                // Suppress scale dialogs briefly after waking
+                root.justWokeFromSleep = true
+                wakeSuppressionTimer.start()
+                // Navigate back to idle
+                root.goToIdleFromScreensaver()
             }
         }
     }
