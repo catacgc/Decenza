@@ -30,13 +30,13 @@ Settings::Settings(QObject* parent)
         QJsonArray defaultFavorites;
 
         QJsonObject adaptive;
-        adaptive["name"] = "Adaptive v2";
-        adaptive["filename"] = "Adaptive v2";
+        adaptive["name"] = "Adaptive Espresso";
+        adaptive["filename"] = "adaptive_espresso";
         defaultFavorites.append(adaptive);
 
         QJsonObject blooming;
-        blooming["name"] = "blooming espresso";
-        blooming["filename"] = "blooming espresso";
+        blooming["name"] = "Blooming Espresso";
+        blooming["filename"] = "blooming_espresso";
         defaultFavorites.append(blooming);
 
         m_settings.setValue("profile/favorites", QJsonDocument(defaultFavorites).toJson());

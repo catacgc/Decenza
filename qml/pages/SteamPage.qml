@@ -106,7 +106,7 @@ Page {
 
                 ValueInput {
                     id: steamingFlowSlider
-                    Layout.fillWidth: true
+                    Layout.preferredWidth: 150
                     from: 40
                     to: 250
                     stepSize: 5
@@ -332,6 +332,7 @@ Page {
 
                     ValueInput {
                         id: durationSlider
+                        Layout.preferredWidth: 150
                         from: 1
                         to: 120
                         stepSize: 1
@@ -377,6 +378,7 @@ Page {
 
                     ValueInput {
                         id: flowSlider
+                        Layout.preferredWidth: 150
                         from: 40
                         to: 250
                         stepSize: 5
@@ -422,6 +424,7 @@ Page {
 
                     ValueInput {
                         id: steamTempSlider
+                        Layout.preferredWidth: 150
                         from: 120
                         to: 170
                         stepSize: 1

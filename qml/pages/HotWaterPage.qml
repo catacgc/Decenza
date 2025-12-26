@@ -280,6 +280,7 @@ Page {
 
                     ValueInput {
                         id: volumeInput
+                        Layout.preferredWidth: 150
                         value: getCurrentVesselVolume()
                         from: 50
                         to: 500
@@ -319,6 +320,7 @@ Page {
 
                     ValueInput {
                         id: temperatureInput
+                        Layout.preferredWidth: 150
                         value: Settings.waterTemperature
                         from: 40
                         to: 100

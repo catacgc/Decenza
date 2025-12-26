@@ -1031,23 +1031,29 @@ Page {
     }
 
     function loadCurrentProfile() {
-        profile = {
-            title: MainController.currentProfileName || "New Profile",
-            steps: [],
-            target_weight: MainController.targetWeight || 36,
-            espresso_temperature: 93,
-            mode: "frame_based"
-        }
-        // Try to load actual profile data
+        // Load profile data from MainController
         var loadedProfile = MainController.getCurrentProfile()
-        if (loadedProfile) {
+        if (loadedProfile && loadedProfile.steps && loadedProfile.steps.length > 0) {
             profile = loadedProfile
+        } else {
+            // Fallback to empty profile
+            profile = {
+                title: MainController.currentProfileName || "New Profile",
+                steps: [],
+                target_weight: MainController.targetWeight || 36,
+                espresso_temperature: 93,
+                mode: "frame_based"
+            }
         }
-        // Track the original profile name for saving
-        originalProfileName = MainController.currentProfileName || ""
+        // Track the original profile filename for saving (not the title!)
+        originalProfileName = MainController.baseProfileName || ""
         profileModified = false
         selectedStepIndex = -1
         updatePageTitle()
+        // Force graph to update with new profile data
+        if (profile && profile.steps) {
+            profileGraph.frames = profile.steps.slice()
+        }
     }
 
     // Reload profile when page becomes active (StackView reactivation)

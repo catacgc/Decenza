@@ -498,7 +498,7 @@ Page {
 
                             ValueInput {
                                 id: sleepInput
-                                Layout.fillWidth: true
+                                Layout.preferredWidth: 150
                                 from: 0
                                 to: 240
                                 stepSize: 5

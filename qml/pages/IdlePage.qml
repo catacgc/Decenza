@@ -77,17 +77,29 @@ Page {
             }
         }
 
-        // Preset row with animation
+        // Single container for all preset rows - ensures consistent Y position
         Item {
             Layout.alignment: Qt.AlignHCenter
-            Layout.preferredHeight: activePresetFunction === "steam" ? steamPresetRow.implicitHeight : 0
-            Layout.preferredWidth: steamPresetRow.implicitWidth
+            Layout.preferredHeight: activePresetFunction !== "" ? activePresetRow.implicitHeight : 0
+            Layout.preferredWidth: activePresetRow.implicitWidth
             clip: true
+
+            // Get the currently active preset row
+            property var activePresetRow: {
+                switch (activePresetFunction) {
+                    case "steam": return steamPresetRow
+                    case "espresso": return espressoPresetRow
+                    case "hotwater": return hotWaterPresetRow
+                    case "flush": return flushPresetRow
+                    default: return steamPresetRow  // fallback
+                }
+            }
 
             Behavior on Layout.preferredHeight {
                 NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
             }
 
+            // All preset rows stacked in same position
             PresetPillRow {
                 id: steamPresetRow
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -109,18 +121,6 @@ Page {
 
                 Behavior on opacity { NumberAnimation { duration: 150 } }
             }
-        }
-
-        // Espresso profile preset row with animation
-        Item {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredHeight: activePresetFunction === "espresso" ? espressoPresetRow.implicitHeight : 0
-            Layout.preferredWidth: espressoPresetRow.implicitWidth
-            clip: true
-
-            Behavior on Layout.preferredHeight {
-                NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
-            }
 
             PresetPillRow {
                 id: espressoPresetRow
@@ -140,18 +140,6 @@ Page {
                 }
 
                 Behavior on opacity { NumberAnimation { duration: 150 } }
-            }
-        }
-
-        // Hot water preset row with animation
-        Item {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredHeight: activePresetFunction === "hotwater" ? hotWaterPresetRow.implicitHeight : 0
-            Layout.preferredWidth: hotWaterPresetRow.implicitWidth
-            clip: true
-
-            Behavior on Layout.preferredHeight {
-                NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
             }
 
             PresetPillRow {
@@ -177,18 +165,6 @@ Page {
                 }
 
                 Behavior on opacity { NumberAnimation { duration: 150 } }
-            }
-        }
-
-        // Flush preset row with animation
-        Item {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredHeight: activePresetFunction === "flush" ? flushPresetRow.implicitHeight : 0
-            Layout.preferredWidth: flushPresetRow.implicitWidth
-            clip: true
-
-            Behavior on Layout.preferredHeight {
-                NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
             }
 
             PresetPillRow {

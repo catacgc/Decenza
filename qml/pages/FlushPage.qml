@@ -282,6 +282,7 @@ Page {
 
                     ValueInput {
                         id: secondsInput
+                        Layout.preferredWidth: 150
                         value: getCurrentPresetSeconds()
                         from: 1
                         to: 30
@@ -321,6 +322,7 @@ Page {
 
                     ValueInput {
                         id: flowInput
+                        Layout.preferredWidth: 150
                         value: getCurrentPresetFlow()
                         from: 2
                         to: 10
