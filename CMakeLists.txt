@@ -69,6 +69,7 @@ set(SOURCES
     src/main.cpp
     src/core/settings.cpp
     src/core/batterymanager.cpp
+    src/core/batterydrainer.cpp
     src/ble/protocol/binarycodec.cpp
     src/ble/blemanager.cpp
     src/ble/de1device.cpp
@@ -100,6 +101,7 @@ set(SOURCES
 set(HEADERS
     src/core/settings.h
     src/core/batterymanager.h
+    src/core/batterydrainer.h
     src/ble/protocol/binarycodec.h
     src/ble/protocol/de1characteristics.h
     src/ble/blemanager.h

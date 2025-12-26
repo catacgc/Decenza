@@ -76,6 +76,135 @@ Page {
         }
     }
 
+    // GPU-draining overlay when battery drain is active
+    Rectangle {
+        id: drainOverlay
+        anchors.fill: parent
+        z: 1000
+        visible: BatteryDrainer.running
+        color: "#000000"
+
+        // Tap anywhere to stop
+        MouseArea {
+            anchors.fill: parent
+            onClicked: BatteryDrainer.stop()
+        }
+
+        // Heavy GPU animation - multiple rotating gradients with blur
+        Repeater {
+            model: 8
+            Rectangle {
+                anchors.centerIn: parent
+                width: parent.width * 1.5
+                height: parent.height * 1.5
+                color: "transparent"
+                rotation: index * 45
+
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: Qt.hsla(Math.random(), 1, 0.5, 0.3) }
+                    GradientStop { position: 0.5; color: Qt.hsla(Math.random(), 1, 0.5, 0.3) }
+                    GradientStop { position: 1.0; color: Qt.hsla(Math.random(), 1, 0.5, 0.3) }
+                }
+
+                RotationAnimation on rotation {
+                    from: index * 45
+                    to: index * 45 + 360
+                    duration: 2000 + index * 500
+                    loops: Animation.Infinite
+                    running: BatteryDrainer.running
+                }
+            }
+        }
+
+        // Many animated circles for GPU load
+        Repeater {
+            model: 50
+            Rectangle {
+                property real startX: Math.random() * drainOverlay.width
+                property real startY: Math.random() * drainOverlay.height
+                x: startX
+                y: startY
+                width: 50 + Math.random() * 100
+                height: width
+                radius: width / 2
+                color: "transparent"
+                border.width: 3
+                border.color: Qt.hsla(index / 50.0, 1, 0.5, 0.7)
+
+                SequentialAnimation on scale {
+                    loops: Animation.Infinite
+                    running: BatteryDrainer.running
+                    NumberAnimation { from: 0.5; to: 2.0; duration: 1000 + Math.random() * 2000; easing.type: Easing.InOutQuad }
+                    NumberAnimation { from: 2.0; to: 0.5; duration: 1000 + Math.random() * 2000; easing.type: Easing.InOutQuad }
+                }
+
+                RotationAnimation on rotation {
+                    from: 0; to: 360
+                    duration: 3000 + Math.random() * 2000
+                    loops: Animation.Infinite
+                    running: BatteryDrainer.running
+                }
+
+                NumberAnimation on opacity {
+                    from: 0.3; to: 1.0
+                    duration: 500 + Math.random() * 1000
+                    loops: Animation.Infinite
+                    running: BatteryDrainer.running
+                }
+            }
+        }
+
+        // Status text
+        Column {
+            anchors.centerIn: parent
+            spacing: 20
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "DRAINING BATTERY"
+                color: "white"
+                font.pixelSize: 48
+                font.bold: true
+
+                SequentialAnimation on opacity {
+                    loops: Animation.Infinite
+                    running: BatteryDrainer.running
+                    NumberAnimation { from: 1.0; to: 0.3; duration: 500 }
+                    NumberAnimation { from: 0.3; to: 1.0; duration: 500 }
+                }
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "CPU: " + QThread.idealThreadCount + " cores @ 100%"
+                color: "#ff6666"
+                font.pixelSize: 24
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "GPU: Heavy animations active"
+                color: "#66ff66"
+                font.pixelSize: 24
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Battery: " + BatteryManager.batteryPercent + "%"
+                color: "yellow"
+                font.pixelSize: 32
+                font.bold: true
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                text: "Tap anywhere to stop"
+                color: "#aaaaaa"
+                font.pixelSize: 18
+            }
+        }
+    }
+
     // Tab bar at top
     TabBar {
         id: tabBar
@@ -788,6 +917,26 @@ Page {
                                 checked: DE1Device.usbChargerOn
                                 onClicked: DE1Device.setUsbChargerOn(checked)
                             }
+                        }
+
+                        // Battery drain button for testing
+                        Button {
+                            Layout.fillWidth: true
+                            text: BatteryDrainer.running ? "DRAINING... (tap to stop)" : "Drain Battery (Test)"
+                            background: Rectangle {
+                                radius: 6
+                                color: BatteryDrainer.running ? Theme.errorColor : Theme.backgroundColor
+                                border.color: Theme.errorColor
+                                border.width: 1
+                            }
+                            contentItem: Text {
+                                text: parent.text
+                                color: BatteryDrainer.running ? "white" : Theme.errorColor
+                                font.pixelSize: 12
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            onClicked: BatteryDrainer.toggle()
                         }
                     }
                 }
