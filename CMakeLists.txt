@@ -7,10 +7,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(BUILD_NUMBER_FILE "${CMAKE_SOURCE_DIR}/buildnumber.txt")
 set(BUILD_INFO_HEADER "${CMAKE_BINARY_DIR}/buildinfo.h")
 
+# Read build number at configure time
+file(READ "${BUILD_NUMBER_FILE}" CURRENT_BUILD_NUMBER)
+string(STRIP "${CURRENT_BUILD_NUMBER}" CURRENT_BUILD_NUMBER)
+# Build target will increment, so compute next build number for Android version
+math(EXPR NEXT_BUILD_NUMBER "${CURRENT_BUILD_NUMBER} + 1")
+
 # Generate initial header at configure time (without incrementing)
 if(NOT EXISTS "${BUILD_INFO_HEADER}")
-    file(READ "${BUILD_NUMBER_FILE}" CURRENT_BUILD_NUMBER)
-    string(STRIP "${CURRENT_BUILD_NUMBER}" CURRENT_BUILD_NUMBER)
     file(WRITE "${BUILD_INFO_HEADER}"
         "#pragma once\n// Auto-generated - do not edit\n#define BUILD_NUMBER ${CURRENT_BUILD_NUMBER}\n#define BUILD_NUMBER_STRING \"${CURRENT_BUILD_NUMBER}\"\n")
 endif()
@@ -225,6 +229,8 @@ set_property(TARGET Decenza_DE1 APPEND PROPERTY SOURCES ${QML_FILES})
 if(ANDROID)
     set_target_properties(Decenza_DE1 PROPERTIES
         QT_ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android"
+        QT_ANDROID_VERSION_CODE "${NEXT_BUILD_NUMBER}"
+        QT_ANDROID_VERSION_NAME "1.0.${NEXT_BUILD_NUMBER}"
     )
     # Add OpenSSL libraries for HTTPS support
     add_android_openssl_libraries(Decenza_DE1)
