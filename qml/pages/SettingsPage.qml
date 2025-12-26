@@ -324,6 +324,28 @@ Page {
                             }
                         }
 
+                        // FlowScale fallback notice
+                        Rectangle {
+                            Layout.fillWidth: true
+                            height: flowScaleNotice.implicitHeight + 16
+                            radius: 6
+                            color: Qt.rgba(Theme.warningColor.r, Theme.warningColor.g, Theme.warningColor.b, 0.15)
+                            border.color: Theme.warningColor
+                            border.width: 1
+                            visible: ScaleDevice && ScaleDevice.name === "Flow Scale"
+
+                            Text {
+                                id: flowScaleNotice
+                                anchors.fill: parent
+                                anchors.margins: 8
+                                text: "Using Flow Scale (estimated weight from DE1 flow data)"
+                                color: Theme.warningColor
+                                font.pixelSize: 12
+                                wrapMode: Text.Wrap
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                        }
+
                         // Saved scale info
                         RowLayout {
                             Layout.fillWidth: true
