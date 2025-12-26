@@ -30,8 +30,8 @@ Settings::Settings(QObject* parent)
         QJsonArray defaultFavorites;
 
         QJsonObject adaptive;
-        adaptive["name"] = "Adaptive Espresso";
-        adaptive["filename"] = "adaptive_espresso";
+        adaptive["name"] = "Adaptive v2";
+        adaptive["filename"] = "best_practice";
         defaultFavorites.append(adaptive);
 
         QJsonObject blooming;
