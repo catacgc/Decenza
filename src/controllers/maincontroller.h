@@ -4,6 +4,7 @@
 #include <QVariantList>
 #include <QMap>
 #include "../profile/profile.h"
+#include "../network/visualizeruploader.h"
 
 class Settings;
 class DE1Device;
@@ -19,6 +20,7 @@ class MainController : public QObject {
     Q_PROPERTY(bool profileModified READ isProfileModified NOTIFY profileModifiedChanged)
     Q_PROPERTY(double targetWeight READ targetWeight WRITE setTargetWeight NOTIFY targetWeightChanged)
     Q_PROPERTY(QVariantList availableProfiles READ availableProfiles NOTIFY profilesChanged)
+    Q_PROPERTY(VisualizerUploader* visualizer READ visualizer CONSTANT)
 
 public:
     explicit MainController(Settings* settings, DE1Device* device,
@@ -31,6 +33,7 @@ public:
     double targetWeight() const;
     void setTargetWeight(double weight);
     QVariantList availableProfiles() const;
+    VisualizerUploader* visualizer() const { return m_visualizer; }
 
     const Profile& currentProfile() const { return m_currentProfile; }
 
@@ -75,6 +78,7 @@ private:
     DE1Device* m_device = nullptr;
     MachineState* m_machineState = nullptr;
     ShotDataModel* m_shotDataModel = nullptr;
+    VisualizerUploader* m_visualizer = nullptr;
 
     Profile m_currentProfile;
     QStringList m_availableProfiles;

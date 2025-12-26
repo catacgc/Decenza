@@ -1,0 +1,307 @@
+#include "visualizeruploader.h"
+#include "../models/shotdatamodel.h"
+#include "../core/settings.h"
+
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QHttpMultiPart>
+#include <QDateTime>
+#include <QDebug>
+#include <QUuid>
+
+VisualizerUploader::VisualizerUploader(Settings* settings, QObject* parent)
+    : QObject(parent)
+    , m_settings(settings)
+    , m_networkManager(new QNetworkAccessManager(this))
+{
+}
+
+void VisualizerUploader::uploadShot(ShotDataModel* shotData,
+                                     const QString& profileTitle,
+                                     double duration,
+                                     double finalWeight,
+                                     double doseWeight)
+{
+    if (!shotData) {
+        emit uploadFailed("No shot data available");
+        return;
+    }
+
+    // Check credentials
+    QString username = m_settings->value("visualizer/username", "").toString();
+    QString password = m_settings->value("visualizer/password", "").toString();
+
+    if (username.isEmpty() || password.isEmpty()) {
+        m_lastUploadStatus = "No credentials configured";
+        emit lastUploadStatusChanged();
+        emit uploadFailed("Visualizer credentials not configured");
+        return;
+    }
+
+    // Check minimum duration
+    double minDuration = m_settings->value("visualizer/minDuration", 6.0).toDouble();
+    if (duration < minDuration) {
+        m_lastUploadStatus = QString("Shot too short (%1s < %2s)").arg(duration, 0, 'f', 1).arg(minDuration, 0, 'f', 0);
+        emit lastUploadStatusChanged();
+        qDebug() << "Visualizer: Shot too short, not uploading";
+        return;
+    }
+
+    m_uploading = true;
+    emit uploadingChanged();
+    m_lastUploadStatus = "Uploading...";
+    emit lastUploadStatusChanged();
+
+    // Build JSON payload
+    QByteArray jsonData = buildShotJson(shotData, profileTitle, finalWeight, doseWeight);
+
+    // Build multipart form data
+    QString boundary = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    QByteArray multipartData = buildMultipartData(jsonData, boundary);
+
+    // Create request
+    QUrl url(VISUALIZER_API_URL);
+    QNetworkRequest request(url);
+    request.setRawHeader("Authorization", authHeader().toUtf8());
+    request.setRawHeader("Content-Type", QString("multipart/form-data; boundary=%1").arg(boundary).toUtf8());
+
+    // Send request
+    QNetworkReply* reply = m_networkManager->post(request, multipartData);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        onUploadFinished(reply);
+    });
+
+    qDebug() << "Visualizer: Uploading shot...";
+}
+
+void VisualizerUploader::testConnection()
+{
+    QString username = m_settings->value("visualizer/username", "").toString();
+    QString password = m_settings->value("visualizer/password", "").toString();
+
+    if (username.isEmpty() || password.isEmpty()) {
+        emit connectionTestResult(false, "Username or password not set");
+        return;
+    }
+
+    // Try to access the API to verify credentials
+    // We'll use a simple GET to the shots endpoint
+    QNetworkRequest request(QUrl("https://visualizer.coffee/api/shots?items=1"));
+    request.setRawHeader("Authorization", authHeader().toUtf8());
+
+    QNetworkReply* reply = m_networkManager->get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        onTestFinished(reply);
+    });
+}
+
+void VisualizerUploader::onUploadFinished(QNetworkReply* reply)
+{
+    m_uploading = false;
+    emit uploadingChanged();
+
+    if (reply->error() == QNetworkReply::NoError) {
+        QByteArray response = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(response);
+        QJsonObject obj = doc.object();
+
+        QString shotId = obj["id"].toString();
+        if (!shotId.isEmpty()) {
+            m_lastShotUrl = QString(VISUALIZER_SHOT_URL) + shotId;
+            m_lastUploadStatus = "Upload successful";
+            emit lastShotUrlChanged();
+            emit lastUploadStatusChanged();
+            emit uploadSuccess(shotId, m_lastShotUrl);
+            qDebug() << "Visualizer: Upload successful, ID:" << shotId;
+        } else {
+            m_lastUploadStatus = "Upload completed (no ID returned)";
+            emit lastUploadStatusChanged();
+            qDebug() << "Visualizer: Upload response:" << response;
+        }
+    } else {
+        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QString errorMsg;
+
+        if (statusCode == 401) {
+            errorMsg = "Invalid credentials";
+        } else if (statusCode == 422) {
+            QByteArray response = reply->readAll();
+            QJsonDocument doc = QJsonDocument::fromJson(response);
+            errorMsg = doc.object()["error"].toString();
+            if (errorMsg.isEmpty()) {
+                errorMsg = "Invalid shot data";
+            }
+        } else {
+            errorMsg = reply->errorString();
+        }
+
+        m_lastUploadStatus = "Failed: " + errorMsg;
+        emit lastUploadStatusChanged();
+        emit uploadFailed(errorMsg);
+        qDebug() << "Visualizer: Upload failed -" << errorMsg;
+    }
+
+    reply->deleteLater();
+}
+
+void VisualizerUploader::onTestFinished(QNetworkReply* reply)
+{
+    if (reply->error() == QNetworkReply::NoError) {
+        emit connectionTestResult(true, "Connection successful!");
+    } else {
+        int statusCode = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QString errorMsg;
+
+        if (statusCode == 401) {
+            errorMsg = "Invalid username or password";
+        } else {
+            errorMsg = reply->errorString();
+        }
+
+        emit connectionTestResult(false, errorMsg);
+    }
+
+    reply->deleteLater();
+}
+
+QByteArray VisualizerUploader::buildShotJson(ShotDataModel* shotData,
+                                              const QString& profileTitle,
+                                              double finalWeight,
+                                              double doseWeight)
+{
+    QJsonObject root;
+
+    // Timestamp (Unix epoch in seconds)
+    root["clock"] = static_cast<qint64>(QDateTime::currentSecsSinceEpoch());
+
+    // Get data from ShotDataModel
+    const auto& pressureData = shotData->pressureData();
+    const auto& flowData = shotData->flowData();
+    const auto& temperatureData = shotData->temperatureData();
+    const auto& pressureGoalData = shotData->pressureGoalData();
+    const auto& flowGoalData = shotData->flowGoalData();
+    const auto& temperatureGoalData = shotData->temperatureGoalData();
+    const auto& weightData = shotData->weightData();
+
+    // Build elapsed time array (from pressure data timestamps)
+    QJsonArray elapsed;
+    for (const auto& pt : pressureData) {
+        elapsed.append(pt.x());
+    }
+    root["elapsed"] = elapsed;
+
+    // Pressure data
+    QJsonObject pressure;
+    QJsonArray pressureValues;
+    for (const auto& pt : pressureData) {
+        pressureValues.append(pt.y());
+    }
+    pressure["pressure"] = pressureValues;
+
+    // Pressure goal
+    if (!pressureGoalData.isEmpty()) {
+        QJsonArray pressureGoalValues;
+        for (const auto& pt : pressureGoalData) {
+            pressureGoalValues.append(pt.y());
+        }
+        pressure["pressure_goal"] = pressureGoalValues;
+    }
+    root["pressure"] = pressure;
+
+    // Flow data
+    QJsonObject flow;
+    QJsonArray flowValues;
+    for (const auto& pt : flowData) {
+        flowValues.append(pt.y());
+    }
+    flow["flow"] = flowValues;
+
+    // Flow goal
+    if (!flowGoalData.isEmpty()) {
+        QJsonArray flowGoalValues;
+        for (const auto& pt : flowGoalData) {
+            flowGoalValues.append(pt.y());
+        }
+        flow["flow_goal"] = flowGoalValues;
+    }
+
+    // Weight data (scaled back - we divided by 5 for display)
+    if (!weightData.isEmpty()) {
+        QJsonArray weightValues;
+        for (const auto& pt : weightData) {
+            weightValues.append(pt.y() * 5.0);  // Undo the /5 scaling
+        }
+        flow["weight"] = weightValues;
+    }
+    root["flow"] = flow;
+
+    // Temperature data
+    QJsonObject temperature;
+    QJsonArray basketValues;
+    for (const auto& pt : temperatureData) {
+        basketValues.append(pt.y());
+    }
+    temperature["basket"] = basketValues;
+
+    // Temperature goal
+    if (!temperatureGoalData.isEmpty()) {
+        QJsonArray tempGoalValues;
+        for (const auto& pt : temperatureGoalData) {
+            tempGoalValues.append(pt.y());
+        }
+        temperature["goal"] = tempGoalValues;
+    }
+    root["temperature"] = temperature;
+
+    // Profile info
+    QJsonObject profile;
+    profile["title"] = profileTitle;
+    root["profile"] = profile;
+
+    // Totals
+    QJsonObject totals;
+    if (finalWeight > 0) {
+        totals["weight"] = finalWeight;
+    } else if (!weightData.isEmpty()) {
+        // Use last weight value if no final weight provided
+        totals["weight"] = weightData.last().y() * 5.0;
+    }
+    if (doseWeight > 0) {
+        totals["dose"] = doseWeight;
+    }
+    root["totals"] = totals;
+
+    // App info
+    QJsonObject app;
+    app["name"] = "DE1 Qt";
+    app["version"] = "1.0.0";
+    root["app"] = app;
+
+    return QJsonDocument(root).toJson(QJsonDocument::Compact);
+}
+
+QByteArray VisualizerUploader::buildMultipartData(const QByteArray& jsonData, const QString& boundary)
+{
+    QByteArray data;
+
+    // File part
+    data.append("--" + boundary.toUtf8() + "\r\n");
+    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"shot.json\"\r\n");
+    data.append("Content-Type: application/json\r\n\r\n");
+    data.append(jsonData);
+    data.append("\r\n");
+
+    // End boundary
+    data.append("--" + boundary.toUtf8() + "--\r\n");
+
+    return data;
+}
+
+QString VisualizerUploader::authHeader() const
+{
+    QString username = m_settings->value("visualizer/username", "").toString();
+    QString password = m_settings->value("visualizer/password", "").toString();
+    QString credentials = username + ":" + password;
+    return "Basic " + credentials.toUtf8().toBase64();
+}
