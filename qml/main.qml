@@ -257,9 +257,12 @@ ApplicationWindow {
     // Start BLE scanning (called after first-run dialog or on subsequent launches)
     function startBluetoothScan() {
         console.log("Starting Bluetooth scan, hasSavedScale:", BLEManager.hasSavedScale)
-        // Try direct connect first if we have a saved scale (this also starts scanning)
         if (BLEManager.hasSavedScale) {
+            // Try direct connect if we have a saved scale (this also starts scanning)
             BLEManager.tryDirectConnectToScale()
+        } else {
+            // First run or no saved scale - scan for scales so user can pair one
+            BLEManager.scanForScales()
         }
         // Always start scanning after a delay (startScan is safe to call multiple times)
         scanDelayTimer.start()
