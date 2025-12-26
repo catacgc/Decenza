@@ -196,10 +196,11 @@ void BatteryManager::applySmartCharging() {
         break;
     }
 
-    // Update charger state if different
-    if (shouldChargerBeOn != m_device->usbChargerOn()) {
-        m_device->setUsbChargerOn(shouldChargerBeOn);
-    }
+    // IMPORTANT: Always send the charger command with force=true.
+    // The DE1 has a 10-minute timeout that automatically turns the charger back ON.
+    // We must resend the command every 60 seconds to keep it off (if that's what we want).
+    // This matches de1app behavior which always calls set_usb_charger_on every check.
+    m_device->setUsbChargerOn(shouldChargerBeOn, true);
 
     // Update isCharging state
     if (m_isCharging != shouldChargerBeOn) {

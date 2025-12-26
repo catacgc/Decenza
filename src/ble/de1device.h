@@ -99,8 +99,8 @@ public slots:
     // MMR write (for advanced settings like steam flow)
     void writeMMR(uint32_t address, uint32_t value);
 
-    // USB charger control
-    void setUsbChargerOn(bool on);
+    // USB charger control (force=true to resend even if state unchanged, needed for DE1's 10-min timeout)
+    void setUsbChargerOn(bool on, bool force = false);
 
 signals:
     void connectedChanged();

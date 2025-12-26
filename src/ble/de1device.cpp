@@ -727,14 +727,28 @@ void DE1Device::writeMMR(uint32_t address, uint32_t value) {
     });
 }
 
-void DE1Device::setUsbChargerOn(bool on) {
-    if (m_usbChargerOn == on) {
+void DE1Device::setUsbChargerOn(bool on, bool force) {
+    // IMPORTANT: The DE1 has a 10-minute timeout that automatically turns the charger back ON.
+    // We must resend the charger state periodically (every 60 seconds) to overcome this.
+    // Use force=true to resend even if state hasn't changed.
+    bool stateChanged = (m_usbChargerOn != on);
+
+    if (!stateChanged && !force) {
         return;
     }
-    m_usbChargerOn = on;
-    qDebug() << "DE1Device: Setting USB charger" << (on ? "ON" : "OFF");
+
+    if (stateChanged) {
+        m_usbChargerOn = on;
+        qDebug() << "DE1Device: Setting USB charger" << (on ? "ON" : "OFF");
+    } else {
+        qDebug() << "DE1Device: Resending USB charger" << (on ? "ON" : "OFF") << "(keep-alive)";
+    }
+
     writeMMR(DE1::MMR::USB_CHARGER, on ? 1 : 0);
-    emit usbChargerOnChanged();
+
+    if (stateChanged) {
+        emit usbChargerOnChanged();
+    }
 }
 
 void DE1Device::sendInitialSettings() {
