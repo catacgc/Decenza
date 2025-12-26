@@ -31,4 +31,16 @@ if(DEFINED MANIFEST_FILE AND EXISTS "${MANIFEST_FILE}")
     file(WRITE "${MANIFEST_FILE}" "${MANIFEST_CONTENT}")
 endif()
 
+# Create git tag for this build (allows finding exact commit by build number)
+# Use git tag -f to overwrite if tag exists (in case of rebuild)
+find_program(GIT_EXECUTABLE git)
+if(GIT_EXECUTABLE)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} tag -f "build-${BUILD_NUMBER}"
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+endif()
+
 message(STATUS "Build number: ${BUILD_NUMBER}")

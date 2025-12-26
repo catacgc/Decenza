@@ -198,6 +198,7 @@ add_custom_target(increment_build_number ALL
         -DBUILD_NUMBER_FILE=${BUILD_NUMBER_FILE}
         -DOUTPUT_HEADER=${BUILD_INFO_HEADER}
         -DMANIFEST_FILE=${CMAKE_SOURCE_DIR}/android/AndroidManifest.xml
+        -DCMAKE_SOURCE_DIR=${CMAKE_SOURCE_DIR}
         -P ${CMAKE_SOURCE_DIR}/cmake/IncrementBuildNumber.cmake
     BYPRODUCTS ${BUILD_INFO_HEADER}
     COMMENT "Incrementing build number..."
