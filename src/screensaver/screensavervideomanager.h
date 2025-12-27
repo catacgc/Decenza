@@ -212,6 +212,7 @@ private:
 
     // Migration
     void migrateToNewBucketStructure();
+    void migrateFromOldCacheLocation();
 
 private:
     Settings* m_settings;

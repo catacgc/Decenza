@@ -37,10 +37,37 @@ ScreensaverVideoManager::ScreensaverVideoManager(Settings* settings, QObject* pa
     , m_settings(settings)
     , m_networkManager(new QNetworkAccessManager(this))
 {
-    // Initialize cache directory
+    // Initialize cache directory - use shared/external storage to persist across app updates
+#if defined(Q_OS_ANDROID)
+    // On Android, use external app storage (/storage/emulated/0/Android/data/<package>/files)
+    // This persists across app updates and doesn't require extra permissions
+    QStringList appDataPaths = QStandardPaths::standardLocations(QStandardPaths::AppDataLocation);
+    QString dataPath;
+    for (const QString& path : appDataPaths) {
+        // Prefer external storage path (contains "/Android/data/")
+        if (path.contains("/Android/data/")) {
+            dataPath = path;
+            break;
+        }
+    }
+    if (dataPath.isEmpty() && !appDataPaths.isEmpty()) {
+        dataPath = appDataPaths.first();
+    }
+    m_cacheDir = dataPath + "/screensaver_videos";
+#elif defined(Q_OS_IOS)
+    // On iOS, use Documents folder which is backed up and persists
+    QString dataPath = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    m_cacheDir = dataPath + "/screensaver_videos";
+#else
+    // On desktop, use app-specific location
     QString dataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     m_cacheDir = dataPath + "/screensaver_videos";
+#endif
+
     QDir().mkpath(m_cacheDir);
+
+    // Migrate from old location if needed (one-time migration)
+    migrateFromOldCacheLocation();
 
     // Load settings
     m_enabled = m_settings->value("screensaver/enabled", true).toBool();
@@ -74,6 +101,117 @@ ScreensaverVideoManager::~ScreensaverVideoManager()
 {
     stopBackgroundDownload();
     saveCacheIndex();
+}
+
+void ScreensaverVideoManager::migrateFromOldCacheLocation()
+{
+#if defined(Q_OS_ANDROID)
+    // Check if migration already done
+    if (m_settings->value("screensaver/cacheMigrated", false).toBool()) {
+        return;
+    }
+
+    // Old location was in internal app-private storage (/data/data/<package>/files)
+    // Find the internal storage path (doesn't contain "/Android/data/")
+    QString oldDataPath;
+    QStringList appDataPaths = QStandardPaths::standardLocations(QStandardPaths::AppDataLocation);
+    for (const QString& path : appDataPaths) {
+        if (!path.contains("/Android/data/") && path.contains("/data/data/")) {
+            oldDataPath = path;
+            break;
+        }
+    }
+    if (oldDataPath.isEmpty()) {
+        // Fallback: use writable location which is typically internal
+        oldDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    }
+
+    QString oldCacheDir = oldDataPath + "/screensaver_videos";
+
+    // Don't migrate if old and new are the same
+    if (oldCacheDir == m_cacheDir) {
+        m_settings->setValue("screensaver/cacheMigrated", true);
+        return;
+    }
+
+    QDir oldDir(oldCacheDir);
+
+    if (!oldDir.exists()) {
+        // No old cache to migrate
+        m_settings->setValue("screensaver/cacheMigrated", true);
+        return;
+    }
+
+    qDebug() << "[Screensaver] Migrating cache from" << oldCacheDir << "to" << m_cacheDir;
+
+    // Move all video/image files
+    QStringList filters = {"*.mp4", "*.jpg", "*.jpeg", "*.png"};
+    QStringList files = oldDir.entryList(filters, QDir::Files);
+    int migratedCount = 0;
+
+    for (const QString& file : files) {
+        QString oldPath = oldCacheDir + "/" + file;
+        QString newPath = m_cacheDir + "/" + file;
+
+        if (QFile::exists(newPath)) {
+            // Already exists in new location, just remove old
+            QFile::remove(oldPath);
+        } else if (QFile::rename(oldPath, newPath)) {
+            migratedCount++;
+        } else {
+            // rename failed (cross-filesystem), try copy+delete
+            if (QFile::copy(oldPath, newPath)) {
+                QFile::remove(oldPath);
+                migratedCount++;
+            }
+        }
+    }
+
+    // Copy cache index and update paths
+    QString oldIndexPath = oldCacheDir + "/cache_index.json";
+    QString newIndexPath = m_cacheDir + "/cache_index.json";
+
+    if (QFile::exists(oldIndexPath) && !QFile::exists(newIndexPath)) {
+        QFile oldIndexFile(oldIndexPath);
+        if (oldIndexFile.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(oldIndexFile.readAll());
+            oldIndexFile.close();
+
+            if (doc.isObject()) {
+                QJsonObject root = doc.object();
+                QJsonObject newRoot;
+
+                for (auto it = root.begin(); it != root.end(); ++it) {
+                    QJsonObject cached = it.value().toObject();
+                    QString oldLocalPath = cached["localPath"].toString();
+
+                    // Update path from old to new location
+                    QString fileName = QFileInfo(oldLocalPath).fileName();
+                    QString newLocalPath = m_cacheDir + "/" + fileName;
+
+                    if (QFile::exists(newLocalPath)) {
+                        cached["localPath"] = newLocalPath;
+                        newRoot[it.key()] = cached;
+                    }
+                }
+
+                // Save updated index
+                QFile newIndexFile(newIndexPath);
+                if (newIndexFile.open(QIODevice::WriteOnly)) {
+                    newIndexFile.write(QJsonDocument(newRoot).toJson());
+                    newIndexFile.close();
+                }
+            }
+        }
+        QFile::remove(oldIndexPath);
+    }
+
+    // Try to remove old directory (will fail if not empty, which is fine)
+    oldDir.rmdir(oldCacheDir);
+
+    m_settings->setValue("screensaver/cacheMigrated", true);
+    qDebug() << "[Screensaver] Migrated" << migratedCount << "files to new cache location";
+#endif
 }
 
 void ScreensaverVideoManager::migrateToNewBucketStructure()
