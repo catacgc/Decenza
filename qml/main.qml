@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import DecenzaDE1
 
 ApplicationWindow {
@@ -108,8 +109,20 @@ ApplicationWindow {
     onWidthChanged: updateScale()
     onHeightChanged: updateScale()
     Component.onCompleted: {
+        // On Android, scale window to physical pixels (Qt reports logical dp)
+        if (Qt.platform.os === "android") {
+            var dpr = Screen.devicePixelRatio
+            console.log("Android - devicePixelRatio:", dpr, "Logical:", Screen.width, "x", Screen.height)
+            root.width = Screen.width * dpr
+            root.height = Screen.height * dpr
+            console.log("Android - Window set to:", root.width, "x", root.height)
+        }
+
         updateScale()
         console.log("Auto-sleep setting:", root.autoSleepMinutes, "minutes (0 = never)")
+
+        // Re-check size after Android fullscreen transition completes
+        fullscreenDelayTimer.start()
 
         // Check for first run and show welcome dialog or start scanning
         var firstRunComplete = Settings.value("firstRunComplete", false)
@@ -120,15 +133,20 @@ ApplicationWindow {
         }
     }
 
+    // Timer to re-check window size after Android hides navigation bar
+    Timer {
+        id: fullscreenDelayTimer
+        interval: 500
+        onTriggered: {
+            updateScale()
+            console.log("Delayed size check - Window:", width, "x", height)
+        }
+    }
+
     function updateScale() {
-        // Scale based on the smaller ratio to maintain aspect ratio
         var scaleX = width / Theme.refWidth
         var scaleY = height / Theme.refHeight
-        var scale = Math.min(scaleX, scaleY)
-        // Android reports window size minus system bars, and in dp not pixels.
-        // On a 1280x800 tablet, this can report as low as 962x553.
-        // Minimum scale of 1.0 ensures UI matches the reference design.
-        Theme.scale = Math.max(1.0, scale)
+        Theme.scale = Math.min(scaleX, scaleY)
         console.log("Window:", width, "x", height, "Scale:", Theme.scale.toFixed(2))
     }
 
