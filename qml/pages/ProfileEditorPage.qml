@@ -258,73 +258,79 @@ Page {
         }
     }
 
-    // Save As dialog - horizontal layout positioned above keyboard
+    // Save As dialog - just title input, filename derived automatically
     Dialog {
         id: saveAsDialog
         title: "Save Profile As"
         x: (parent.width - width) / 2
-        y: Theme.scaled(80)  // Position near top, above keyboard
-        width: Theme.scaled(700)
+        y: Theme.scaled(80)
+        width: Theme.scaled(400)
         modal: true
         standardButtons: Dialog.Save | Dialog.Cancel
 
-        RowLayout {
+        property string pendingFilename: ""
+
+        ColumnLayout {
             width: parent.width
-            spacing: Theme.scaled(20)
+            spacing: Theme.scaled(10)
 
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.scaled(5)
-
-                Text {
-                    text: "Profile Title"
-                    font: Theme.captionFont
-                    color: Theme.textSecondaryColor
-                }
-
-                TextField {
-                    id: saveAsTitleField
-                    Layout.fillWidth: true
-                    text: profile ? profile.title : ""
-                    font: Theme.bodyFont
-                    placeholderText: "Enter title"
-                    onAccepted: saveAsFilenameField.forceActiveFocus()
-                }
+            Text {
+                text: "Profile Title"
+                font: Theme.captionFont
+                color: Theme.textSecondaryColor
             }
 
-            ColumnLayout {
+            TextField {
+                id: saveAsTitleField
                 Layout.fillWidth: true
-                spacing: Theme.scaled(5)
-
-                Text {
-                    text: "Filename"
-                    font: Theme.captionFont
-                    color: Theme.textSecondaryColor
-                }
-
-                TextField {
-                    id: saveAsFilenameField
-                    Layout.fillWidth: true
-                    text: originalProfileName || "my_profile"
-                    font: Theme.bodyFont
-                    placeholderText: "filename"
-                    validator: RegularExpressionValidator { regularExpression: /[a-zA-Z0-9_-]+/ }
-                    onAccepted: saveAsDialog.accept()
-                }
+                text: profile ? profile.title : ""
+                font: Theme.bodyFont
+                placeholderText: "Enter title"
+                onAccepted: saveAsDialog.accept()
             }
         }
 
         onAccepted: {
-            if (saveAsFilenameField.text.length > 0 && saveAsTitleField.text.length > 0) {
-                saveProfileAs(saveAsFilenameField.text, saveAsTitleField.text)
-                root.goBack()
+            if (saveAsTitleField.text.length > 0) {
+                var filename = MainController.titleToFilename(saveAsTitleField.text)
+                if (MainController.profileExists(filename) && filename !== originalProfileName) {
+                    // File exists and it's not the current file - ask to overwrite
+                    saveAsDialog.pendingFilename = filename
+                    overwriteDialog.open()
+                } else {
+                    saveProfileAs(filename, saveAsTitleField.text)
+                    root.goBack()
+                }
             }
         }
 
         onOpened: {
             saveAsTitleField.text = profile ? profile.title : ""
-            saveAsFilenameField.text = originalProfileName || "my_profile"
             saveAsTitleField.forceActiveFocus()
+        }
+    }
+
+    // Overwrite confirmation dialog
+    Dialog {
+        id: overwriteDialog
+        title: "Profile Exists"
+        x: (parent.width - width) / 2
+        y: Theme.scaled(80)
+        width: Theme.scaled(400)
+        modal: true
+        standardButtons: Dialog.Yes | Dialog.No
+
+        Text {
+            width: parent.width
+            text: "A profile with this name already exists.\nDo you want to overwrite it?"
+            font: Theme.bodyFont
+            color: Theme.textColor
+            wrapMode: Text.Wrap
+        }
+
+        onAccepted: {
+            saveProfileAs(saveAsDialog.pendingFilename, saveAsTitleField.text)
+            root.goBack()
         }
     }
 

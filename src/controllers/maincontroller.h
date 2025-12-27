@@ -40,6 +40,8 @@ public:
 
     Q_INVOKABLE QVariantMap getCurrentProfile() const;
     Q_INVOKABLE void markProfileClean();  // Called after save
+    Q_INVOKABLE QString titleToFilename(const QString& title) const;
+    Q_INVOKABLE bool profileExists(const QString& filename) const;
 
 public slots:
     void loadProfile(const QString& profileName);

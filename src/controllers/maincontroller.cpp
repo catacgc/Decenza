@@ -326,8 +326,8 @@ bool MainController::saveProfileAs(const QString& filename, const QString& title
         m_baseProfileName = filename;
         if (m_settings) {
             m_settings->setCurrentProfile(filename);
-            // Update favorite to point to new file
-            if (!oldFilename.isEmpty() && oldFilename != filename) {
+            // Always update favorite (handles both filename and title changes)
+            if (!oldFilename.isEmpty()) {
                 m_settings->updateFavoriteProfile(oldFilename, filename, title);
             }
         }
@@ -338,6 +338,57 @@ bool MainController::saveProfileAs(const QString& filename, const QString& title
         qWarning() << "Failed to save profile to:" << path;
     }
     return success;
+}
+
+QString MainController::titleToFilename(const QString& title) const {
+    // Replace accented characters
+    QString result = title;
+    result.replace(QChar(0xE9), 'e');  // é
+    result.replace(QChar(0xE8), 'e');  // è
+    result.replace(QChar(0xEA), 'e');  // ê
+    result.replace(QChar(0xEB), 'e');  // ë
+    result.replace(QChar(0xE1), 'a');  // á
+    result.replace(QChar(0xE0), 'a');  // à
+    result.replace(QChar(0xE2), 'a');  // â
+    result.replace(QChar(0xE4), 'a');  // ä
+    result.replace(QChar(0xED), 'i');  // í
+    result.replace(QChar(0xEC), 'i');  // ì
+    result.replace(QChar(0xEE), 'i');  // î
+    result.replace(QChar(0xEF), 'i');  // ï
+    result.replace(QChar(0xF3), 'o');  // ó
+    result.replace(QChar(0xF2), 'o');  // ò
+    result.replace(QChar(0xF4), 'o');  // ô
+    result.replace(QChar(0xF6), 'o');  // ö
+    result.replace(QChar(0xFA), 'u');  // ú
+    result.replace(QChar(0xF9), 'u');  // ù
+    result.replace(QChar(0xFB), 'u');  // û
+    result.replace(QChar(0xFC), 'u');  // ü
+    result.replace(QChar(0xF1), 'n');  // ñ
+    result.replace(QChar(0xE7), 'c');  // ç
+
+    // Replace non-alphanumeric with underscore
+    QString sanitized;
+    for (const QChar& c : result) {
+        if (c.isLetterOrNumber()) {
+            sanitized += c.toLower();
+        } else {
+            sanitized += '_';
+        }
+    }
+
+    // Collapse multiple underscores and trim
+    while (sanitized.contains("__")) {
+        sanitized.replace("__", "_");
+    }
+    while (sanitized.startsWith('_')) sanitized.remove(0, 1);
+    while (sanitized.endsWith('_')) sanitized.chop(1);
+
+    return sanitized;
+}
+
+bool MainController::profileExists(const QString& filename) const {
+    QString path = profilesPath() + "/" + filename + ".json";
+    return QFile::exists(path);
 }
 
 void MainController::applySteamSettings() {

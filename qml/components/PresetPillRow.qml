@@ -7,48 +7,134 @@ Item {
 
     property var presets: []
     property int selectedIndex: -1
+    property real maxWidth: Theme.scaled(900)  // Max width before wrapping
 
     signal presetSelected(int index)
 
-    implicitHeight: Theme.scaled(70)
-    implicitWidth: presetsRow.implicitWidth
+    implicitHeight: contentColumn.implicitHeight
+    implicitWidth: maxWidth
 
-    Row {
-        id: presetsRow
-        anchors.centerIn: parent
-        spacing: Theme.scaled(16)
+    // Calculate how many pills fit per row
+    readonly property real pillSpacing: Theme.scaled(12)
+    readonly property real pillPadding: Theme.scaled(40)  // Horizontal padding inside pill
+
+    // Hidden TextMetrics for measuring pill text widths
+    TextMetrics {
+        id: textMetrics
+        font.pixelSize: Theme.scaled(16)
+        font.bold: true
+    }
+
+    function measureTextWidth(text) {
+        textMetrics.text = text
+        return textMetrics.width
+    }
+
+    // Group presets into rows, distributing evenly for aesthetics (3/2 instead of 4/1)
+    function calculateRows() {
+        if (presets.length === 0) return []
+
+        // First pass: calculate pill widths based on actual text width
+        var pillWidths = []
+        for (var i = 0; i < presets.length; i++) {
+            var textWidth = measureTextWidth(presets[i].name || "")
+            pillWidths.push(textWidth + pillPadding)
+        }
+
+        // Count how many rows we need with greedy packing
+        var numRows = 1
+        var rowWidth = 0
+        for (i = 0; i < presets.length; i++) {
+            var neededWidth = rowWidth > 0 ? pillWidths[i] + pillSpacing : pillWidths[i]
+            if (rowWidth + neededWidth > maxWidth) {
+                numRows++
+                rowWidth = pillWidths[i]
+            } else {
+                rowWidth += neededWidth
+            }
+        }
+
+        // If only one row needed, just return all in one row
+        if (numRows === 1) {
+            var singleRow = []
+            for (i = 0; i < presets.length; i++) {
+                singleRow.push({index: i, preset: presets[i], width: pillWidths[i]})
+            }
+            return [singleRow]
+        }
+
+        // Distribute pills evenly across rows
+        var pillsPerRow = Math.ceil(presets.length / numRows)
+        var rows = []
+        var currentRow = []
+
+        for (i = 0; i < presets.length; i++) {
+            currentRow.push({index: i, preset: presets[i], width: pillWidths[i]})
+
+            if (currentRow.length >= pillsPerRow) {
+                rows.push(currentRow)
+                currentRow = []
+                // Recalculate for remaining pills to keep distribution even
+                var remaining = presets.length - i - 1
+                var remainingRows = numRows - rows.length
+                if (remainingRows > 0) {
+                    pillsPerRow = Math.ceil(remaining / remainingRows)
+                }
+            }
+        }
+
+        if (currentRow.length > 0) {
+            rows.push(currentRow)
+        }
+
+        return rows
+    }
+
+    Column {
+        id: contentColumn
+        anchors.horizontalCenter: parent.horizontalCenter
+        spacing: Theme.scaled(8)
 
         Repeater {
-            model: root.presets
+            model: root.calculateRows()
 
-            Rectangle {
-                id: pill
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: root.pillSpacing
 
-                property bool isSelected: index === root.selectedIndex
+                Repeater {
+                    model: modelData
 
-                width: pillText.implicitWidth + Theme.scaled(48)
-                height: Theme.scaled(60)
-                radius: Theme.scaled(12)
+                    Rectangle {
+                        id: pill
 
-                color: isSelected ? Theme.primaryColor : Theme.backgroundColor
-                border.color: isSelected ? Theme.primaryColor : Theme.textSecondaryColor
-                border.width: 1
+                        property bool isSelected: modelData.index === root.selectedIndex
 
-                Behavior on color { ColorAnimation { duration: 150 } }
+                        width: pillText.implicitWidth + root.pillPadding
+                        height: Theme.scaled(50)
+                        radius: Theme.scaled(10)
 
-                Text {
-                    id: pillText
-                    anchors.centerIn: parent
-                    text: modelData.name || ""
-                    color: pill.isSelected ? "white" : Theme.textColor
-                    font.pixelSize: Theme.scaled(18)
-                    font.bold: true
-                }
+                        color: isSelected ? Theme.primaryColor : Theme.backgroundColor
+                        border.color: isSelected ? Theme.primaryColor : Theme.textSecondaryColor
+                        border.width: 1
 
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.presetSelected(index)
+                        Behavior on color { ColorAnimation { duration: 150 } }
+
+                        Text {
+                            id: pillText
+                            anchors.centerIn: parent
+                            text: modelData.preset.name || ""
+                            color: pill.isSelected ? "white" : Theme.textColor
+                            font.pixelSize: Theme.scaled(16)
+                            font.bold: true
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: root.presetSelected(modelData.index)
+                        }
+                    }
                 }
             }
         }
