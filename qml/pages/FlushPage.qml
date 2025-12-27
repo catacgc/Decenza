@@ -196,6 +196,14 @@ Page {
                                             }
                                         }
 
+                                        onDoubleClicked: {
+                                            holdTimer.stop()
+                                            held = true  // Prevent single-click selection on release
+                                            editingPresetIndex = presetDelegate.presetIndex
+                                            editPresetNameInput.text = modelData.name
+                                            editPresetPopup.open()
+                                        }
+
                                         Timer {
                                             id: holdTimer
                                             interval: 500
@@ -250,7 +258,7 @@ Page {
                     Item { Layout.fillWidth: true }
 
                     Text {
-                        text: "Drag to reorder, hold to rename"
+                        text: "Drag to reorder, hold or double-click to edit"
                         color: Theme.textSecondaryColor
                         font: Theme.labelFont
                     }

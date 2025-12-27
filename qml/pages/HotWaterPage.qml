@@ -194,6 +194,14 @@ Page {
                                             }
                                         }
 
+                                        onDoubleClicked: {
+                                            holdTimer.stop()
+                                            held = true  // Prevent single-click selection on release
+                                            editingVesselIndex = vesselDelegate.vesselIndex
+                                            editVesselNameInput.text = modelData.name
+                                            editVesselPopup.open()
+                                        }
+
                                         Timer {
                                             id: holdTimer
                                             interval: 500
@@ -248,7 +256,7 @@ Page {
                     Item { Layout.fillWidth: true }
 
                     Text {
-                        text: "Drag to reorder, hold to rename"
+                        text: "Drag to reorder, hold or double-click to edit"
                         color: Theme.textSecondaryColor
                         font: Theme.labelFont
                     }
