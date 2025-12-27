@@ -14,18 +14,18 @@ Button {
     property bool _longPressTriggered: false
     property bool _isPressed: false
 
-    implicitWidth: 150
-    implicitHeight: 120
+    implicitWidth: Theme.scaled(150)
+    implicitHeight: Theme.scaled(120)
 
     contentItem: Column {
-        spacing: 10
+        spacing: Theme.scaled(10)
         anchors.centerIn: parent
 
         Image {
             anchors.horizontalCenter: parent.horizontalCenter
             source: control.iconSource
-            width: 48
-            height: 48
+            width: Theme.scaled(48)
+            height: Theme.scaled(48)
             fillMode: Image.PreserveAspectFit
             visible: control.iconSource !== ""
         }

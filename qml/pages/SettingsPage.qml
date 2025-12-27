@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import DecenzaDE1
 import "../components"
 
@@ -333,6 +334,25 @@ Page {
             }
             background: Rectangle {
                 color: tabBar.currentIndex === 3 ? Theme.surfaceColor : "transparent"
+                radius: 6
+            }
+        }
+
+        TabButton {
+            text: "Resolution"
+            width: implicitWidth
+            visible: Qt.platform.os === "windows"
+            font.pixelSize: 14
+            font.bold: tabBar.currentIndex === 4
+            contentItem: Text {
+                text: parent.text
+                font: parent.font
+                color: tabBar.currentIndex === 4 ? Theme.primaryColor : Theme.textSecondaryColor
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                color: tabBar.currentIndex === 4 ? Theme.surfaceColor : "transparent"
                 radius: 6
             }
         }
@@ -713,7 +733,7 @@ Page {
 
                             ValueInput {
                                 id: sleepInput
-                                Layout.preferredWidth: 150
+                                Layout.preferredWidth: Theme.scaled(150)
                                 from: 0
                                 to: 240
                                 stepSize: 5
@@ -1535,6 +1555,169 @@ Page {
                         }
 
                         Item { Layout.fillHeight: true }
+                    }
+                }
+            }
+        }
+
+        // ============ RESOLUTION TAB (Windows only) ============
+        Item {
+            id: resolutionTab
+            visible: Qt.platform.os === "windows"
+
+            // Resolution presets
+            property var resolutions: [
+                { name: "Phone - iPhone 15 Pro Max", width: 430, height: 932, category: "phone" },
+                { name: "Phone - iPhone 15", width: 393, height: 852, category: "phone" },
+                { name: "Phone - Pixel 8", width: 411, height: 915, category: "phone" },
+                { name: "Phone - Galaxy S24", width: 360, height: 780, category: "phone" },
+                { name: "Tablet 7\" - Portrait", width: 600, height: 1024, category: "tablet" },
+                { name: "Tablet 7\" - Landscape", width: 1024, height: 600, category: "tablet" },
+                { name: "Tablet 10\" - Portrait", width: 800, height: 1280, category: "tablet" },
+                { name: "Tablet 10\" - Landscape", width: 1280, height: 800, category: "tablet" },
+                { name: "iPad 10.2\" - Portrait", width: 810, height: 1080, category: "tablet" },
+                { name: "iPad 10.2\" - Landscape", width: 1080, height: 810, category: "tablet" },
+                { name: "iPad Pro 11\" - Portrait", width: 834, height: 1194, category: "tablet" },
+                { name: "iPad Pro 11\" - Landscape", width: 1194, height: 834, category: "tablet" },
+                { name: "iPad Pro 12.9\" - Portrait", width: 1024, height: 1366, category: "tablet" },
+                { name: "iPad Pro 12.9\" - Landscape", width: 1366, height: 1024, category: "tablet" },
+                { name: "Desktop HD", width: 1280, height: 720, category: "desktop" },
+                { name: "Desktop Full HD", width: 1920, height: 1080, category: "desktop" }
+            ]
+
+            ColumnLayout {
+                anchors.fill: parent
+                spacing: 15
+
+                // Current resolution display
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 80
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+
+                    RowLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 20
+
+                        Column {
+                            spacing: 4
+
+                            Text {
+                                text: "Current Window Size"
+                                color: Theme.textSecondaryColor
+                                font.pixelSize: 12
+                            }
+
+                            Text {
+                                text: Window.window ? (Window.window.width + " × " + Window.window.height) : "Unknown"
+                                color: Theme.primaryColor
+                                font.pixelSize: 24
+                                font.bold: true
+                            }
+                        }
+
+                        Column {
+                            spacing: 4
+
+                            Text {
+                                text: "Scale Factor"
+                                color: Theme.textSecondaryColor
+                                font.pixelSize: 12
+                            }
+
+                            Text {
+                                text: Theme.scale.toFixed(2) + "x"
+                                color: Theme.textColor
+                                font.pixelSize: 24
+                                font.bold: true
+                            }
+                        }
+
+                        Item { Layout.fillWidth: true }
+                    }
+                }
+
+                // Resolution grid
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 10
+
+                        Text {
+                            text: "Select Resolution"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: "Click to resize window. Use for testing UI scaling."
+                            color: Theme.textSecondaryColor
+                            font.pixelSize: 12
+                        }
+
+                        GridView {
+                            id: resolutionGrid
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+                            cellWidth: 200
+                            cellHeight: 70
+                            clip: true
+                            model: resolutionTab.resolutions
+
+                            delegate: Rectangle {
+                                width: resolutionGrid.cellWidth - 8
+                                height: resolutionGrid.cellHeight - 8
+                                radius: 8
+                                color: mouseArea.containsMouse ? Qt.lighter(Theme.backgroundColor, 1.2) : Theme.backgroundColor
+                                border.color: Theme.textSecondaryColor
+                                border.width: 1
+
+                                ColumnLayout {
+                                    anchors.fill: parent
+                                    anchors.margins: 10
+                                    spacing: 4
+
+                                    Text {
+                                        text: modelData.name
+                                        color: Theme.textColor
+                                        font.pixelSize: 12
+                                        font.bold: true
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
+                                        text: modelData.width + " × " + modelData.height
+                                        color: modelData.category === "phone" ? Theme.primaryColor :
+                                               modelData.category === "tablet" ? Theme.successColor :
+                                               Theme.warningColor
+                                        font.pixelSize: 16
+                                        font.bold: true
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: mouseArea
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: {
+                                        if (Window.window) {
+                                            Window.window.width = modelData.width
+                                            Window.window.height = modelData.height
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

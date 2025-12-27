@@ -30,7 +30,9 @@ src/
 ├── models/
 │   └── shotdatamodel.*     # Shot data for graphing
 ├── core/
-│   └── settings.*          # QSettings persistence
+│   ├── settings.*          # QSettings persistence
+│   ├── batterymanager.*    # Smart charging control
+│   └── batterydrainer.*    # Battery drain test utility
 └── main.cpp                # Entry point, object wiring
 
 qml/
@@ -87,9 +89,31 @@ Also: Steaming, HotWater, Flushing
 - Command queue prevents BLE overflow (50ms between writes)
 - Shot samples at ~5Hz during extraction
 - Profile upload: header (5 bytes) + frames (8 bytes each)
+- USB charger control: MMR address `0x803854` (1=on, 0=off)
+- DE1 has 10-minute timeout that auto-enables charger; must resend command every 60s
+
+## Battery Management
+
+### Smart Charging (BatteryManager)
+- **Off**: Charger always on (no control)
+- **On** (default): Maintains 55-65% charge
+- **Night**: Maintains 90-95% charge
+- Commands sent every 60 seconds with `force=true` to overcome DE1 timeout
+
+### Battery Drainer (testing utility)
+- Spawns CPU workers on all cores (heavy math: primes, trig, matrix ops)
+- Enables max screen brightness and flashlight (Android JNI)
+- Real CPU usage from `/proc/stat`, GPU usage from sysfs (device-specific)
+- Full-screen overlay with tap-to-stop
 
 ## Platforms
 
 - Desktop: Windows, macOS, Linux
 - Mobile: Android (API 28+), iOS (14.0+)
 - Android needs Location permission for BLE scanning
+
+## Git Workflow
+
+- **IMPORTANT**: Always push with tags: `git push && git push --tags`
+- Build numbers auto-increment and create `build-N` tags
+- Tags allow users to reference exact versions by build number

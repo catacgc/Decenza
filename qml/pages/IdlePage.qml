@@ -30,7 +30,7 @@ Page {
         // Main action buttons row
         RowLayout {
             Layout.alignment: Qt.AlignHCenter
-            spacing: 30
+            spacing: Theme.scaled(30)
 
             ActionButton {
                 text: "Espresso"
@@ -256,18 +256,18 @@ Page {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 70
+        height: Theme.scaled(70)
         color: Theme.surfaceColor
 
         RowLayout {
             anchors.fill: parent
-            anchors.leftMargin: 15
-            anchors.rightMargin: 15
-            spacing: 15
+            anchors.leftMargin: Theme.scaled(15)
+            anchors.rightMargin: Theme.scaled(15)
+            spacing: Theme.scaled(15)
 
             // Sleep button
             Button {
-                Layout.preferredHeight: 50
+                Layout.preferredHeight: Theme.scaled(50)
                 enabled: DE1Device.connected
                 onClicked: {
                     // Put scale to sleep and disconnect (if connected)
@@ -294,17 +294,17 @@ Page {
                 }
                 background: Rectangle {
                     implicitWidth: Theme.scaled(120)
-                    implicitHeight: 50
+                    implicitHeight: Theme.scaled(50)
                     color: parent.down ? Qt.darker("#555555", 1.2) : "#555555"
                     radius: Theme.scaled(8)
                     opacity: parent.enabled ? 1.0 : 0.5
                 }
                 contentItem: RowLayout {
-                    spacing: 8
+                    spacing: Theme.scaled(8)
                     Image {
                         source: "qrc:/icons/sleep.svg"
-                        sourceSize.width: 24
-                        sourceSize.height: 24
+                        sourceSize.width: Theme.scaled(24)
+                        sourceSize.height: Theme.scaled(24)
                         Layout.alignment: Qt.AlignVCenter
                     }
                     Text {
@@ -320,11 +320,11 @@ Page {
 
             // Settings button
             RoundButton {
-                Layout.preferredWidth: 50
-                Layout.preferredHeight: 50
+                Layout.preferredWidth: Theme.scaled(50)
+                Layout.preferredHeight: Theme.scaled(50)
                 icon.source: "qrc:/icons/settings.svg"
-                icon.width: 28
-                icon.height: 28
+                icon.width: Theme.scaled(28)
+                icon.height: Theme.scaled(28)
                 flat: true
                 icon.color: Theme.textColor
                 onClicked: root.goToSettings()

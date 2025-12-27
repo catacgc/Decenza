@@ -22,7 +22,7 @@ Item {
     // Signals - emits the new value for parent to apply
     signal valueModified(real newValue)
 
-    implicitWidth: Theme.scaled(120)
+    implicitWidth: Theme.scaled(160)
     implicitHeight: Theme.scaled(56)
 
     // Compact value display
@@ -41,7 +41,7 @@ Item {
 
             // Minus button
             Rectangle {
-                Layout.preferredWidth: Theme.scaled(40)
+                Layout.preferredWidth: Theme.scaled(32)
                 Layout.fillHeight: true
                 radius: Theme.scaled(8)
                 color: minusArea.pressed ? Qt.darker(Theme.surfaceColor, 1.3) : "transparent"
@@ -49,7 +49,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "\u2212"
-                    font.pixelSize: Theme.scaled(22)
+                    font.pixelSize: Theme.scaled(20)
                     font.bold: true
                     color: root.value <= root.from ? Theme.textSecondaryColor : Theme.textColor
                 }
@@ -76,14 +76,19 @@ Item {
                 id: valueContainer
                 Layout.fillWidth: true
                 Layout.fillHeight: true
+                clip: true
 
                 Text {
                     id: valueText
                     anchors.centerIn: parent
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
                     text: root.displayText || (root.value.toFixed(root.decimals) + root.suffix)
-                    font: Theme.headingFont
+                    font.pixelSize: Theme.scaled(24)
+                    font.bold: true
                     color: valueDragArea.isDragging ? root.accentColor : root.valueColor
                     opacity: valueDragArea.isDragging ? 0.3 : 1.0
+                    elide: Text.ElideRight
                     Behavior on opacity { NumberAnimation { duration: 100 } }
                 }
 
@@ -252,7 +257,7 @@ Item {
 
             // Plus button
             Rectangle {
-                Layout.preferredWidth: Theme.scaled(40)
+                Layout.preferredWidth: Theme.scaled(32)
                 Layout.fillHeight: true
                 radius: Theme.scaled(8)
                 color: plusArea.pressed ? Qt.darker(Theme.surfaceColor, 1.3) : "transparent"
@@ -260,7 +265,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "+"
-                    font.pixelSize: Theme.scaled(22)
+                    font.pixelSize: Theme.scaled(20)
                     font.bold: true
                     color: root.value >= root.to ? Theme.textSecondaryColor : Theme.textColor
                 }

@@ -97,7 +97,7 @@ Page {
             // Vessel Presets Section
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 90
+                Layout.preferredHeight: Theme.scaled(90)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -261,7 +261,7 @@ Page {
             // Volume (per-vessel, auto-saves)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
+                Layout.preferredHeight: Theme.scaled(100)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -280,7 +280,7 @@ Page {
 
                     ValueInput {
                         id: volumeInput
-                        Layout.preferredWidth: 150
+                        Layout.preferredWidth: Theme.scaled(150)
                         value: getCurrentVesselVolume()
                         from: 50
                         to: 500
@@ -301,7 +301,7 @@ Page {
             // Temperature (global setting)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
+                Layout.preferredHeight: Theme.scaled(100)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -320,7 +320,7 @@ Page {
 
                     ValueInput {
                         id: temperatureInput
-                        Layout.preferredWidth: 150
+                        Layout.preferredWidth: Theme.scaled(150)
                         value: Settings.waterTemperature
                         from: 40
                         to: 100
@@ -347,7 +347,7 @@ Page {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 70
+        height: Theme.scaled(70)
         color: Theme.primaryColor
 
         RowLayout {

@@ -97,7 +97,7 @@ Page {
             // Presets Section
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 90
+                Layout.preferredHeight: Theme.scaled(90)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -263,7 +263,7 @@ Page {
             // Duration (per-preset, auto-saves)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
+                Layout.preferredHeight: Theme.scaled(100)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -282,7 +282,7 @@ Page {
 
                     ValueInput {
                         id: secondsInput
-                        Layout.preferredWidth: 150
+                        Layout.preferredWidth: Theme.scaled(150)
                         value: getCurrentPresetSeconds()
                         from: 1
                         to: 30
@@ -303,7 +303,7 @@ Page {
             // Flow Rate (per-preset, auto-saves)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
+                Layout.preferredHeight: Theme.scaled(100)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -322,7 +322,7 @@ Page {
 
                     ValueInput {
                         id: flowInput
-                        Layout.preferredWidth: 150
+                        Layout.preferredWidth: Theme.scaled(150)
                         value: getCurrentPresetFlow()
                         from: 2
                         to: 10
@@ -350,7 +350,7 @@ Page {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 70
+        height: Theme.scaled(70)
         color: Theme.primaryColor
 
         RowLayout {

@@ -106,7 +106,7 @@ Page {
 
                 ValueInput {
                     id: steamingFlowSlider
-                    Layout.preferredWidth: 150
+                    Layout.preferredWidth: Theme.scaled(150)
                     from: 40
                     to: 250
                     stepSize: 5
@@ -146,7 +146,7 @@ Page {
             // Pitcher Presets Section
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 90
+                Layout.preferredHeight: Theme.scaled(90)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -313,7 +313,7 @@ Page {
             // Duration (per-pitcher, auto-saves)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
+                Layout.preferredHeight: Theme.scaled(100)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -332,7 +332,7 @@ Page {
 
                     ValueInput {
                         id: durationSlider
-                        Layout.preferredWidth: 150
+                        Layout.preferredWidth: Theme.scaled(150)
                         from: 1
                         to: 120
                         stepSize: 1
@@ -352,7 +352,7 @@ Page {
             // Steam Flow (per-pitcher, auto-saves)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
+                Layout.preferredHeight: Theme.scaled(100)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -378,7 +378,7 @@ Page {
 
                     ValueInput {
                         id: flowSlider
-                        Layout.preferredWidth: 150
+                        Layout.preferredWidth: Theme.scaled(150)
                         from: 40
                         to: 250
                         stepSize: 5
@@ -398,7 +398,7 @@ Page {
             // Temperature (global setting)
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 100
+                Layout.preferredHeight: Theme.scaled(100)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
@@ -424,7 +424,7 @@ Page {
 
                     ValueInput {
                         id: steamTempSlider
-                        Layout.preferredWidth: 150
+                        Layout.preferredWidth: Theme.scaled(150)
                         from: 120
                         to: 170
                         stepSize: 1
@@ -452,7 +452,7 @@ Page {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        height: 70
+        height: Theme.scaled(70)
         color: Theme.primaryColor
 
         RowLayout {
