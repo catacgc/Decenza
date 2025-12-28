@@ -51,28 +51,22 @@ ApplicationWindow {
     }
 
     // Global tap handler for accessibility - announces any Text tapped
-    MouseArea {
-        id: accessibilityTapOverlay
-        anchors.fill: parent
-        z: 10000  // Above everything
+    // Using TapHandler instead of MouseArea because it doesn't block other handlers
+    TapHandler {
+        id: accessibilityTapHandler
         enabled: typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
-        propagateComposedEvents: true
+        // grabPermissions set to allow underlying controls to also receive the tap
+        grabPermissions: PointerHandler.CanTakeOverFromAnything | PointerHandler.ApprovesTakeOverByAnything
 
-        onPressed: function(mouse) {
-            // Find Text at tap location (use local coords, search from parent)
-            var textItem = findTextAt(parent, mouse.x, mouse.y)
+        onTapped: function(eventPoint) {
+            // Find Text at tap location
+            var textItem = findTextAt(parent, eventPoint.position.x, eventPoint.position.y)
 
             if (textItem && textItem.text) {
                 // Use label voice (lower pitch, faster) to distinguish from buttons
                 AccessibilityManager.announceLabel(textItem.text)
             }
-
-            // Always let the event through
-            mouse.accepted = false
         }
-
-        onClicked: function(mouse) { mouse.accepted = false }
-        onReleased: function(mouse) { mouse.accepted = false }
     }
 
     // Put machine and scale to sleep when closing the app
