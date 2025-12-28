@@ -321,7 +321,7 @@ Page {
                     anchors.fill: parent
                     onClicked: {
                         if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
-                            AccessibilityManager.announce("Group temperature: " + DE1Device.temperature.toFixed(1) + " degrees Celsius", true)
+                            AccessibilityManager.announceLabel("Group temperature: " + DE1Device.temperature.toFixed(1) + " degrees Celsius")
                         }
                     }
                 }
@@ -349,7 +349,7 @@ Page {
                         if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
                             var level = DE1Device.waterLevel.toFixed(0)
                             var warning = level <= 20 ? ". Warning: water level is low" : ""
-                            AccessibilityManager.announce("Water level: " + level + " percent" + warning, true)
+                            AccessibilityManager.announceLabel("Water level: " + level + " percent" + warning)
                         }
                     }
                 }
@@ -382,7 +382,7 @@ Page {
                             } else {
                                 status += ". No scale connected"
                             }
-                            AccessibilityManager.announce(status, true)
+                            AccessibilityManager.announceLabel(status)
                         }
                     }
                 }
