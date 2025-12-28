@@ -17,62 +17,66 @@ ApplicationWindow {
     // Flag to prevent navigation during flow calibration
     property bool calibrationInProgress: false
 
-    // Global accessibility: find and announce Text items on tap
-    // x, y are in the coordinate space of 'item'
-    function findTextAt(item, x, y) {
-        if (!item || !item.visible) return null
+    // Global accessibility: find closest Text within radius of tap
+    // Use physical units: 10mm (~1cm) converted to pixels
+    property real accessibilitySearchRadius: Screen.pixelDensity * 10  // 10mm in pixels
 
-        // Check if point is within this item's bounds
-        if (x < 0 || x > item.width || y < 0 || y > item.height) {
-            return null
+    // Collect all Text items with their global positions
+    function collectTexts(item, offsetX, offsetY, results) {
+        if (!item || !item.visible) return
+
+        // Skip items with custom handlers
+        if (item.accessibilityCustomHandler) return
+
+        // Handle ScrollView/Flickable scroll offset
+        var scrollOffsetX = 0
+        var scrollOffsetY = 0
+        if (item.contentItem && item.contentX !== undefined) {
+            scrollOffsetX = -item.contentX
+            scrollOffsetY = -item.contentY
         }
 
-        // Recursively check children first (reverse order for top-most first)
-        // Use 'children' for most items, but some containers use 'data' or 'contentChildren'
+        // If this is a Text with content, add it
+        if (item instanceof Text && item.text && item.text.length > 0) {
+            var centerX = offsetX + item.width / 2
+            var centerY = offsetY + item.height / 2
+            results.push({ text: item, x: centerX, y: centerY })
+        }
+
+        // Check contentItem for ScrollView/Flickable
+        if (item.contentItem && item.contentX !== undefined) {
+            collectTexts(item.contentItem, offsetX + scrollOffsetX, offsetY + scrollOffsetY, results)
+        }
+
+        // Recurse into children
         var childList = item.children || item.contentChildren || []
-        for (var i = childList.length - 1; i >= 0; i--) {
+        for (var i = 0; i < childList.length; i++) {
             var child = childList[i]
             if (!child || !child.visible || child.width === undefined) continue
-
-            // Map coordinates to child's space
-            var childX = x - child.x
-            var childY = y - child.y
-
-            var found = findTextAt(child, childX, childY)
-            if (found) return found
+            collectTexts(child, offsetX + child.x + scrollOffsetX, offsetY + child.y + scrollOffsetY, results)
         }
-
-        // Check if this item itself is a Text
-        if (item instanceof Text && item.text && item.text.length > 0) {
-            return item
-        }
-
-        return null
     }
 
-    // Global tap handler for accessibility - announces any Text tapped
-    // Using Item + TapHandler instead of MouseArea because TapHandler doesn't block other handlers
-    Item {
-        anchors.fill: parent
-        z: 10000
+    function findTextAt(item, tapX, tapY) {
+        var results = []
+        collectTexts(item, 0, 0, results)
 
-        TapHandler {
-            id: accessibilityTapHandler
-            enabled: typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
-            // Allow underlying controls to also receive the tap
-            grabPermissions: PointerHandler.ApprovesTakeOverByAnything
+        var closest = null
+        var closestDist = accessibilitySearchRadius
 
-            onTapped: function(eventPoint) {
-                // Find Text at tap location
-                var textItem = findTextAt(root, eventPoint.position.x, eventPoint.position.y)
-
-                if (textItem && textItem.text) {
-                    // Use label voice (lower pitch, faster) to distinguish from buttons
-                    AccessibilityManager.announceLabel(textItem.text)
-                }
+        for (var i = 0; i < results.length; i++) {
+            var dx = results[i].x - tapX
+            var dy = results[i].y - tapY
+            var dist = Math.sqrt(dx * dx + dy * dy)
+            if (dist < closestDist) {
+                closestDist = dist
+                closest = results[i].text
             }
         }
+
+        return closest
     }
+
 
     // Put machine and scale to sleep when closing the app
     onClosing: function(close) {
@@ -186,6 +190,26 @@ ApplicationWindow {
         var scaleX = width / Theme.refWidth
         var scaleY = height / Theme.refHeight
         Theme.scale = Math.min(scaleX, scaleY)
+    }
+
+    // Global tap handler for accessibility - announces any Text tapped
+    MouseArea {
+        id: accessibilityTapOverlay
+        anchors.fill: parent
+        z: 10000  // Above everything
+        enabled: typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
+        propagateComposedEvents: true
+
+        onPressed: function(mouse) {
+            var textItem = findTextAt(parent, mouse.x, mouse.y)
+            if (textItem && textItem.text) {
+                AccessibilityManager.announceLabel(textItem.text)
+            }
+            mouse.accepted = false
+        }
+
+        onClicked: function(mouse) { mouse.accepted = false }
+        onReleased: function(mouse) { mouse.accepted = false }
     }
 
     // Page stack for navigation
