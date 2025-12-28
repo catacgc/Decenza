@@ -617,8 +617,8 @@ void MainController::onEspressoCycleStarted() {
 }
 
 void MainController::onShotEnded() {
-    // Upload to visualizer.coffee if enabled
-    if (m_settings && m_settings->visualizerAutoUpload() && m_shotDataModel && m_visualizer) {
+    // Upload to visualizer.coffee if enabled - only for espresso shots
+    if (m_extractionStarted && m_settings && m_settings->visualizerAutoUpload() && m_shotDataModel && m_visualizer) {
         double duration = m_shotDataModel->maxTime();
         QString profileTitle = m_currentProfile.title();
 
