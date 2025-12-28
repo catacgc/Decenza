@@ -19,6 +19,7 @@
 #include "core/logger.h"
 #include "core/batterymanager.h"
 #include "core/batterydrainer.h"
+#include "core/accessibilitymanager.h"
 #include "ble/blemanager.h"
 #include "ble/de1device.h"
 #include "ble/scaledevice.h"
@@ -56,27 +57,33 @@ int main(int argc, char *argv[])
     BLEManager bleManager;
     DE1Device de1Device;
     std::unique_ptr<ScaleDevice> physicalScale;  // Physical BLE scale (when connected)
-    FlowScale flowScale;  // Virtual scale using DE1 flow data (always available)
+    FlowScale flowScale;  // Virtual scale using DE1 flow data (fallback when no BLE scale)
     ShotDataModel shotDataModel;
     MachineState machineState(&de1Device);
     machineState.setSettings(&settings);
-    machineState.setFlowScale(&flowScale);  // For calibration - always receives flow samples
+    machineState.setScale(&flowScale);  // Start with FlowScale, switch to physical scale if found
     flowScale.setSettings(&settings);
     MainController mainController(&settings, &de1Device, &machineState, &shotDataModel);
+
+    // Connect FlowScale to graph initially (will be disconnected if physical scale found)
+    QObject::connect(&flowScale, &ScaleDevice::weightChanged,
+                     &mainController, &MainController::onScaleWeightChanged);
+
     ScreensaverVideoManager screensaverManager(&settings);
     BatteryManager batteryManager;
     batteryManager.setDE1Device(&de1Device);
     batteryManager.setSettings(&settings);
     BatteryDrainer batteryDrainer;
+    AccessibilityManager accessibilityManager;
 
-    // FlowScale fallback timer - wait 30 seconds for physical scale before using FlowScale
+    // FlowScale fallback timer - notify after 30 seconds if no physical scale found
     QTimer flowScaleFallbackTimer;
     flowScaleFallbackTimer.setSingleShot(true);
     flowScaleFallbackTimer.setInterval(30000);  // 30 seconds
     QObject::connect(&flowScaleFallbackTimer, &QTimer::timeout,
-                     [&machineState, &physicalScale, &flowScale, &bleManager]() {
+                     [&physicalScale, &bleManager]() {
         if (!physicalScale || !physicalScale->isConnected()) {
-            machineState.setScale(&flowScale);
+            // No physical scale found - FlowScale is already active, just notify UI
             emit bleManager.flowScaleFallback();
         }
     });
@@ -136,22 +143,32 @@ int main(int argc, char *argv[])
         // Connect scale to BLEManager for auto-scan control
         bleManager.setScaleDevice(physicalScale.get());
 
-        // Connect weight updates to MainController for graph data
+        // Disconnect FlowScale from graph (in case fallback was active)
+        QObject::disconnect(&flowScale, &ScaleDevice::weightChanged,
+                            &mainController, &MainController::onScaleWeightChanged);
+
+        // Connect physical scale weight updates to MainController for graph data
         QObject::connect(physicalScale.get(), &ScaleDevice::weightChanged,
                          &mainController, &MainController::onScaleWeightChanged);
 
         // When physical scale connects/disconnects, switch between physical and FlowScale
         QObject::connect(physicalScale.get(), &ScaleDevice::connectedChanged,
-                         [&physicalScale, &flowScale, &machineState, &engine, &bleManager]() {
+                         [&physicalScale, &flowScale, &machineState, &engine, &bleManager, &mainController]() {
             if (physicalScale && physicalScale->isConnected()) {
                 // Scale connected - use physical scale
                 machineState.setScale(physicalScale.get());
                 engine.rootContext()->setContextProperty("ScaleDevice", physicalScale.get());
+                // Disconnect FlowScale from graph to prevent duplicate data
+                QObject::disconnect(&flowScale, &ScaleDevice::weightChanged,
+                                    &mainController, &MainController::onScaleWeightChanged);
                 qDebug() << "Scale connected - switched to physical scale";
             } else if (physicalScale) {
                 // Scale disconnected - fall back to FlowScale
                 machineState.setScale(&flowScale);
                 engine.rootContext()->setContextProperty("ScaleDevice", &flowScale);
+                // Reconnect FlowScale to graph
+                QObject::connect(&flowScale, &ScaleDevice::weightChanged,
+                                 &mainController, &MainController::onScaleWeightChanged);
                 emit bleManager.scaleDisconnected();
                 qDebug() << "Scale disconnected - switched to FlowScale";
             }
@@ -175,9 +192,8 @@ int main(int argc, char *argv[])
     // BLE scanning is now started from QML after first-run dialog is dismissed
     // This allows the user to turn on their scale before we start scanning
 
-    // Connect FlowScale weight updates to MainController (for when no physical scale)
-    QObject::connect(&flowScale, &ScaleDevice::weightChanged,
-                     &mainController, &MainController::onScaleWeightChanged);
+    // FlowScale weight connection is handled by the fallback timer and scale disconnect logic
+    // Don't connect here - only one scale should feed the graph at a time
 
     // Expose C++ objects to QML
     QQmlContext* context = engine.rootContext();
@@ -192,6 +208,7 @@ int main(int argc, char *argv[])
     context->setContextProperty("ScreensaverManager", &screensaverManager);
     context->setContextProperty("BatteryManager", &batteryManager);
     context->setContextProperty("BatteryDrainer", &batteryDrainer);
+    context->setContextProperty("AccessibilityManager", &accessibilityManager);
     context->setContextProperty("BuildNumber", BUILD_NUMBER_STRING);
 
     // Register types for QML (use different names to avoid conflict with context properties)
@@ -275,8 +292,13 @@ int main(int argc, char *argv[])
         }
     });
 
-    // Cleanup on exit
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, []() {
+    // Cleanup on exit - order matters to avoid race conditions
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&accessibilityManager]() {
+        // Shutdown accessibility FIRST to stop TTS before any other cleanup
+        // This prevents race conditions with Android's hwuiTask thread
+        accessibilityManager.shutdown();
+
+        // Then shutdown logger
         Logger::shutdown();
     });
 

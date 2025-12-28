@@ -67,9 +67,6 @@ void MachineState::setScale(ScaleDevice* scale) {
     }
 }
 
-void MachineState::setFlowScale(ScaleDevice* flowScale) {
-    m_flowScale = flowScale;
-}
 
 void MachineState::setSettings(Settings* settings) {
     m_settings = settings;
@@ -272,11 +269,6 @@ void MachineState::onFlowSample(double flowRate, double deltaTime) {
     // Forward flow samples to the scale (FlowScale will integrate, physical scales ignore)
     if (m_scale) {
         m_scale->addFlowSample(flowRate, deltaTime);
-    }
-
-    // Also always send to FlowScale for calibration tracking (rawFlowIntegral)
-    if (m_flowScale && m_flowScale != m_scale) {
-        m_flowScale->addFlowSample(flowRate, deltaTime);
     }
 }
 

@@ -49,7 +49,6 @@ public:
     double targetWeight() const { return m_targetWeight; }
 
     void setScale(ScaleDevice* scale);
-    void setFlowScale(ScaleDevice* flowScale);  // For calibration - always receives flow samples
     void setSettings(Settings* settings);
     void setTargetWeight(double weight);
 
@@ -86,8 +85,7 @@ private:
     void checkStopAtWeight(double weight);
 
     DE1Device* m_device = nullptr;
-    ScaleDevice* m_scale = nullptr;
-    ScaleDevice* m_flowScale = nullptr;  // FlowScale for calibration (always receives flow samples)
+    ScaleDevice* m_scale = nullptr;  // Either FlowScale (fallback) or physical BLE scale
     Settings* m_settings = nullptr;
 
     Phase m_phase = Phase::Disconnected;
