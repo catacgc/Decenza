@@ -42,9 +42,11 @@ void AccessibilityManager::shutdown()
         m_tts = nullptr;
     }
 
-    if (m_tickSound) {
-        m_tickSound->stop();
-        m_tickSound = nullptr;
+    for (int i = 0; i < 4; i++) {
+        if (m_tickSounds[i]) {
+            m_tickSounds[i]->stop();
+            m_tickSounds[i] = nullptr;
+        }
     }
 }
 
@@ -53,7 +55,8 @@ void AccessibilityManager::loadSettings()
     m_enabled = m_settings.value("accessibility/enabled", false).toBool();
     m_ttsEnabled = m_settings.value("accessibility/ttsEnabled", true).toBool();
     m_tickEnabled = m_settings.value("accessibility/tickEnabled", true).toBool();
-    m_verbosity = m_settings.value("accessibility/verbosity", Normal).toInt();
+    m_tickSoundIndex = m_settings.value("accessibility/tickSoundIndex", 1).toInt();
+    m_tickVolume = m_settings.value("accessibility/tickVolume", 100).toInt();
 }
 
 void AccessibilityManager::saveSettings()
@@ -61,7 +64,8 @@ void AccessibilityManager::saveSettings()
     m_settings.setValue("accessibility/enabled", m_enabled);
     m_settings.setValue("accessibility/ttsEnabled", m_ttsEnabled);
     m_settings.setValue("accessibility/tickEnabled", m_tickEnabled);
-    m_settings.setValue("accessibility/verbosity", m_verbosity);
+    m_settings.setValue("accessibility/tickSoundIndex", m_tickSoundIndex);
+    m_settings.setValue("accessibility/tickVolume", m_tickVolume);
     m_settings.sync();
 }
 
@@ -96,9 +100,13 @@ void AccessibilityManager::initTts()
 
 void AccessibilityManager::initTickSound()
 {
-    m_tickSound = new QSoundEffect(this);
-    m_tickSound->setSource(QUrl("qrc:/sounds/tick.wav"));
-    m_tickSound->setVolume(0.5);
+    // Pre-load all 4 tick sounds for instant playback
+    qreal vol = m_tickVolume / 100.0;
+    for (int i = 0; i < 4; i++) {
+        m_tickSounds[i] = new QSoundEffect(this);
+        m_tickSounds[i]->setSource(QUrl(QString("qrc:/sounds/frameclick%1.wav").arg(i + 1)));
+        m_tickSounds[i]->setVolume(vol);
+    }
 }
 
 void AccessibilityManager::setEnabled(bool enabled)
@@ -132,12 +140,39 @@ void AccessibilityManager::setTickEnabled(bool enabled)
     emit tickEnabledChanged();
 }
 
-void AccessibilityManager::setVerbosity(int level)
+void AccessibilityManager::setTickSoundIndex(int index)
 {
-    if (m_verbosity == level) return;
-    m_verbosity = qBound(0, level, 2);
+    index = qBound(1, index, 4);
+    if (m_tickSoundIndex == index) return;
+    m_tickSoundIndex = index;
     saveSettings();
-    emit verbosityChanged();
+    emit tickSoundIndexChanged();
+
+    // Play the selected sound immediately (all sounds are pre-loaded)
+    int idx = index - 1;
+    if (idx >= 0 && idx < 4 && m_tickSounds[idx] && m_tickSounds[idx]->status() == QSoundEffect::Ready) {
+        m_tickSounds[idx]->play();
+    }
+}
+
+void AccessibilityManager::setTickVolume(int volume)
+{
+    volume = qBound(0, volume, 100);
+    if (m_tickVolume == volume) return;
+    m_tickVolume = volume;
+    saveSettings();
+    emit tickVolumeChanged();
+
+    // Update all sound volumes
+    qreal vol = volume / 100.0;
+    for (int i = 0; i < 4; i++) {
+        if (m_tickSounds[i]) {
+            m_tickSounds[i]->setVolume(vol);
+        }
+    }
+
+    // Play preview
+    playTick();
 }
 
 void AccessibilityManager::setLastAnnouncedItem(QObject* item)
@@ -159,15 +194,34 @@ void AccessibilityManager::announce(const QString& text, bool interrupt)
     qDebug() << "Accessibility announcement:" << text;
 }
 
+void AccessibilityManager::announceLabel(const QString& text)
+{
+    if (m_shuttingDown || !m_enabled || !m_ttsEnabled || !m_tts) return;
+
+    // Save current settings
+    double originalPitch = m_tts->pitch();
+    double originalRate = m_tts->rate();
+
+    // Lower pitch + faster rate for labels (distinguishes from interactive elements)
+    m_tts->setPitch(-0.3);  // Slightly lower pitch
+    m_tts->setRate(0.2);    // Slightly faster
+
+    m_tts->say(text);
+    qDebug() << "Accessibility label:" << text;
+
+    // Restore settings after speech starts
+    // Note: QTextToSpeech queues the settings, so this works
+    m_tts->setPitch(originalPitch);
+    m_tts->setRate(originalRate);
+}
+
 void AccessibilityManager::playTick()
 {
     if (m_shuttingDown || !m_enabled || !m_tickEnabled) return;
 
-    if (m_tickSound && m_tickSound->status() == QSoundEffect::Ready) {
-        m_tickSound->play();
-    } else {
-        // Fallback to system beep if tick sound not available
-        QApplication::beep();
+    int idx = m_tickSoundIndex - 1;  // Convert 1-4 to 0-3
+    if (idx >= 0 && idx < 4 && m_tickSounds[idx] && m_tickSounds[idx]->status() == QSoundEffect::Ready) {
+        m_tickSounds[idx]->play();
     }
 }
 

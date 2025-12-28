@@ -16,6 +16,7 @@ Item {
     // Display
     property string suffix: ""
     property string displayText: ""  // Optional override for value display
+    property string accessibleName: ""  // Optional override for accessibility announcement
     property color valueColor: Theme.textColor
     property color accentColor: Theme.primaryColor
 
@@ -56,7 +57,8 @@ Item {
     // Announce value when focused (for accessibility)
     onActiveFocusChanged: {
         if (activeFocus && typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
-            AccessibilityManager.announce(root.displayText || (root.value.toFixed(root.decimals) + " " + root.suffix))
+            var text = root.accessibleName || root.displayText || (root.value.toFixed(root.decimals) + " " + root.suffix)
+            AccessibilityManager.announce(text)
         }
     }
 

@@ -301,8 +301,9 @@ Page {
             Layout.alignment: Qt.AlignHCenter
             spacing: Theme.scaled(50)
 
-            // Temperature
+            // Temperature (tap to announce)
             Column {
+                id: temperatureStatus
                 spacing: Theme.spacingSmall
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -316,10 +317,19 @@ Page {
                     color: Theme.textSecondaryColor
                     font: Theme.labelFont
                 }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
+                            AccessibilityManager.announce("Group temperature: " + DE1Device.temperature.toFixed(1) + " degrees Celsius", true)
+                        }
+                    }
+                }
             }
 
-            // Water level
+            // Water level (tap to announce)
             Column {
+                id: waterLevelStatus
                 spacing: Theme.spacingSmall
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -333,13 +343,49 @@ Page {
                     color: Theme.textSecondaryColor
                     font: Theme.labelFont
                 }
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
+                            var level = DE1Device.waterLevel.toFixed(0)
+                            var warning = level <= 20 ? ". Warning: water level is low" : ""
+                            AccessibilityManager.announce("Water level: " + level + " percent" + warning, true)
+                        }
+                    }
+                }
             }
 
-            // Connection status
-            ConnectionIndicator {
-                machineConnected: DE1Device.connected
-                scaleConnected: ScaleDevice && ScaleDevice.connected
-                isFlowScale: ScaleDevice && ScaleDevice.name === "Flow Scale"
+            // Connection status (tap to announce)
+            Item {
+                id: connectionStatus
+                implicitWidth: connectionIndicator.implicitWidth
+                implicitHeight: connectionIndicator.implicitHeight
+
+                ConnectionIndicator {
+                    id: connectionIndicator
+                    machineConnected: DE1Device.connected
+                    scaleConnected: ScaleDevice && ScaleDevice.connected
+                    isFlowScale: ScaleDevice && ScaleDevice.name === "Flow Scale"
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    onClicked: {
+                        if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
+                            var status = DE1Device.connected ? "Machine connected" : "Machine disconnected"
+                            if (ScaleDevice && ScaleDevice.connected) {
+                                if (ScaleDevice.name === "Flow Scale") {
+                                    status += ". Using simulated scale from flow sensor"
+                                } else {
+                                    status += ". Scale connected: " + ScaleDevice.name
+                                }
+                            } else {
+                                status += ". No scale connected"
+                            }
+                            AccessibilityManager.announce(status, true)
+                        }
+                    }
+                }
             }
         }
     }

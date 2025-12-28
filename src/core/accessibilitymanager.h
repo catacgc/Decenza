@@ -13,20 +13,13 @@ class AccessibilityManager : public QObject
     Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
     Q_PROPERTY(bool ttsEnabled READ ttsEnabled WRITE setTtsEnabled NOTIFY ttsEnabledChanged)
     Q_PROPERTY(bool tickEnabled READ tickEnabled WRITE setTickEnabled NOTIFY tickEnabledChanged)
-    Q_PROPERTY(int verbosity READ verbosity WRITE setVerbosity NOTIFY verbosityChanged)
+    Q_PROPERTY(int tickSoundIndex READ tickSoundIndex WRITE setTickSoundIndex NOTIFY tickSoundIndexChanged)
+    Q_PROPERTY(int tickVolume READ tickVolume WRITE setTickVolume NOTIFY tickVolumeChanged)
     Q_PROPERTY(QObject* lastAnnouncedItem READ lastAnnouncedItem WRITE setLastAnnouncedItem NOTIFY lastAnnouncedItemChanged)
 
 public:
     explicit AccessibilityManager(QObject *parent = nullptr);
     ~AccessibilityManager();
-
-    // Verbosity levels
-    enum Verbosity {
-        Minimal = 0,   // Start/stop + errors only
-        Normal = 1,    // + milestones (pressure reached, weight reached)
-        Verbose = 2    // + periodic status updates
-    };
-    Q_ENUM(Verbosity)
 
     bool enabled() const { return m_enabled; }
     void setEnabled(bool enabled);
@@ -37,14 +30,18 @@ public:
     bool tickEnabled() const { return m_tickEnabled; }
     void setTickEnabled(bool enabled);
 
-    int verbosity() const { return m_verbosity; }
-    void setVerbosity(int level);
+    int tickSoundIndex() const { return m_tickSoundIndex; }
+    void setTickSoundIndex(int index);
+
+    int tickVolume() const { return m_tickVolume; }
+    void setTickVolume(int volume);
 
     QObject* lastAnnouncedItem() const { return m_lastAnnouncedItem; }
     void setLastAnnouncedItem(QObject* item);
 
     // Called from QML
     Q_INVOKABLE void announce(const QString& text, bool interrupt = false);
+    Q_INVOKABLE void announceLabel(const QString& text);  // Lower pitch + faster rate for non-interactive text
     Q_INVOKABLE void playTick();
     Q_INVOKABLE void toggleEnabled();  // For backdoor gesture
 
@@ -55,7 +52,8 @@ signals:
     void enabledChanged();
     void ttsEnabledChanged();
     void tickEnabledChanged();
-    void verbosityChanged();
+    void tickSoundIndexChanged();
+    void tickVolumeChanged();
     void lastAnnouncedItemChanged();
 
 private:
@@ -67,12 +65,13 @@ private:
     bool m_enabled = false;
     bool m_ttsEnabled = true;
     bool m_tickEnabled = true;
-    int m_verbosity = Normal;
+    int m_tickSoundIndex = 1;  // 1-4, default to first sound
+    int m_tickVolume = 100;    // 0-100%, default full volume
     QPointer<QObject> m_lastAnnouncedItem;
     bool m_shuttingDown = false;
 
     QTextToSpeech* m_tts = nullptr;
-    QSoundEffect* m_tickSound = nullptr;
+    QSoundEffect* m_tickSounds[4] = {nullptr, nullptr, nullptr, nullptr};  // Pre-loaded sounds
     QSettings m_settings;
 };
 

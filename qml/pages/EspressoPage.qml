@@ -344,11 +344,13 @@ Page {
         }
     }
 
-    // Accessibility: Swipe gesture detection on info bar
+    // Accessibility: Swipe gesture detection on info bar (excludes back button)
     MouseArea {
         id: infoBarSwipeArea
         anchors.fill: infoBar
+        anchors.leftMargin: Theme.scaled(80)  // Don't cover back button
         enabled: typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
+        propagateComposedEvents: true
 
         property real startX: 0
         property real startY: 0
@@ -361,27 +363,33 @@ Page {
         }
 
         onReleased: function(mouse) {
-            if (!swiped) {
-                var deltaX = mouse.x - startX
-                var deltaY = mouse.y - startY
-                var threshold = 50
+            var deltaX = mouse.x - startX
+            var deltaY = mouse.y - startY
+            var threshold = 50
 
-                // Horizontal swipe (left or right)
-                if (Math.abs(deltaX) > threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-                    swiped = true
-                    if (deltaX > 0) {
-                        espressoPage.announceNextValue()
-                    } else {
-                        espressoPage.announcePreviousValue()
-                    }
+            // Horizontal swipe (left or right)
+            if (Math.abs(deltaX) > threshold && Math.abs(deltaX) > Math.abs(deltaY)) {
+                swiped = true
+                if (deltaX > 0) {
+                    espressoPage.announceNextValue()
+                } else {
+                    espressoPage.announcePreviousValue()
                 }
+            }
+        }
+
+        onClicked: function(mouse) {
+            // Pass through non-swipe taps to elements below
+            if (!swiped) {
+                mouse.accepted = false
             }
         }
     }
 
-    // Two-finger tap for full status announcement
+    // Two-finger tap for full status announcement (excludes back button)
     MultiPointTouchArea {
         anchors.fill: infoBar
+        anchors.leftMargin: Theme.scaled(80)  // Don't cover back button
         enabled: typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
         minimumTouchPoints: 2
         maximumTouchPoints: 2

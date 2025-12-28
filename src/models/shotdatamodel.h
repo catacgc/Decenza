@@ -4,6 +4,7 @@
 #include <QTimer>
 #include <QVector>
 #include <QPointF>
+#include <QPointer>
 #include <QVariantList>
 #include <QtCharts/QLineSeries>
 
@@ -70,16 +71,16 @@ private:
     QVector<QPointF> m_temperatureGoalPoints;
     QVector<QPointF> m_weightPoints;
 
-    // Chart series pointers
-    QLineSeries* m_pressureSeries = nullptr;
-    QLineSeries* m_flowSeries = nullptr;
-    QLineSeries* m_temperatureSeries = nullptr;
-    QLineSeries* m_pressureGoalSeries = nullptr;
-    QLineSeries* m_flowGoalSeries = nullptr;
-    QLineSeries* m_temperatureGoalSeries = nullptr;
-    QLineSeries* m_weightSeries = nullptr;
-    QLineSeries* m_extractionMarkerSeries = nullptr;
-    QList<QLineSeries*> m_frameMarkerSeries;
+    // Chart series pointers (QPointer auto-nulls when QML destroys them)
+    QPointer<QLineSeries> m_pressureSeries;
+    QPointer<QLineSeries> m_flowSeries;
+    QPointer<QLineSeries> m_temperatureSeries;
+    QPointer<QLineSeries> m_pressureGoalSeries;
+    QPointer<QLineSeries> m_flowGoalSeries;
+    QPointer<QLineSeries> m_temperatureGoalSeries;
+    QPointer<QLineSeries> m_weightSeries;
+    QPointer<QLineSeries> m_extractionMarkerSeries;
+    QList<QPointer<QLineSeries>> m_frameMarkerSeries;
 
     // Batched update timer (30fps)
     QTimer* m_flushTimer = nullptr;

@@ -1921,7 +1921,21 @@ Page {
                             Switch {
                                 checked: AccessibilityManager.ttsEnabled
                                 enabled: AccessibilityManager.enabled
-                                onCheckedChanged: AccessibilityManager.ttsEnabled = checked
+                                onCheckedChanged: {
+                                    if (AccessibilityManager.enabled) {
+                                        if (checked) {
+                                            // Enable first, then announce
+                                            AccessibilityManager.ttsEnabled = true
+                                            AccessibilityManager.announce("Voice announcements enabled", true)
+                                        } else {
+                                            // Announce first, then disable
+                                            AccessibilityManager.announce("Voice announcements disabled", true)
+                                            AccessibilityManager.ttsEnabled = false
+                                        }
+                                    } else {
+                                        AccessibilityManager.ttsEnabled = checked
+                                    }
+                                }
                             }
                         }
 
@@ -1950,105 +1964,58 @@ Page {
                             Switch {
                                 checked: AccessibilityManager.tickEnabled
                                 enabled: AccessibilityManager.enabled
-                                onCheckedChanged: AccessibilityManager.tickEnabled = checked
-                            }
-                        }
-
-                        Item { height: 5 }
-
-                        // Verbosity selector
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 8
-                            opacity: AccessibilityManager.enabled ? 1.0 : 0.5
-
-                            Text {
-                                text: "Announcement Verbosity"
-                                color: Theme.textSecondaryColor
-                                font.pixelSize: 12
-                            }
-
-                            RowLayout {
-                                Layout.fillWidth: true
-                                spacing: 8
-
-                                Repeater {
-                                    model: [
-                                        { value: 0, label: "Minimal", desc: "Start/stop only" },
-                                        { value: 1, label: "Normal", desc: "Milestones" },
-                                        { value: 2, label: "Verbose", desc: "Periodic updates" }
-                                    ]
-
-                                    delegate: Rectangle {
-                                        id: verbosityButton
-                                        Layout.fillWidth: true
-                                        height: 50
-                                        radius: 6
-                                        color: AccessibilityManager.verbosity === modelData.value ?
-                                               Theme.primaryColor : Theme.backgroundColor
-                                        border.color: AccessibilityManager.verbosity === modelData.value ?
-                                                      Theme.primaryColor : Theme.textSecondaryColor
-                                        border.width: 1
-                                        opacity: AccessibilityManager.enabled ? 1.0 : 0.5
-
-                                        ColumnLayout {
-                                            anchors.centerIn: parent
-                                            spacing: 2
-
-                                            Text {
-                                                text: modelData.label
-                                                color: AccessibilityManager.verbosity === modelData.value ?
-                                                       "white" : Theme.textColor
-                                                font.pixelSize: 14
-                                                font.bold: true
-                                                Layout.alignment: Qt.AlignHCenter
-                                            }
-
-                                            Text {
-                                                text: modelData.desc
-                                                color: AccessibilityManager.verbosity === modelData.value ?
-                                                       Qt.rgba(1, 1, 1, 0.7) : Theme.textSecondaryColor
-                                                font.pixelSize: 10
-                                                Layout.alignment: Qt.AlignHCenter
-                                            }
-                                        }
-
-                                        AccessibleMouseArea {
-                                            anchors.fill: parent
-                                            enabled: AccessibilityManager.enabled
-                                            accessibleName: modelData.label + " verbosity. " + modelData.desc +
-                                                           (AccessibilityManager.verbosity === modelData.value ? ", selected" : "")
-                                            accessibleItem: verbosityButton
-                                            onAccessibleClicked: AccessibilityManager.verbosity = modelData.value
-                                        }
+                                onCheckedChanged: {
+                                    AccessibilityManager.tickEnabled = checked
+                                    if (AccessibilityManager.enabled) {
+                                        AccessibilityManager.announce(checked ? "Frame tick sound enabled" : "Frame tick sound disabled", true)
                                     }
                                 }
                             }
                         }
 
-                        Item { Layout.fillHeight: true }
-
-                        // Test button
+                        // Tick sound picker and volume
                         RowLayout {
                             Layout.fillWidth: true
-                            spacing: 10
+                            spacing: 15
+                            opacity: (AccessibilityManager.enabled && AccessibilityManager.tickEnabled) ? 1.0 : 0.5
 
-                            AccessibleButton {
-                                text: "Test Announcement"
-                                accessibleName: "Test speech announcement"
-                                enabled: AccessibilityManager.enabled && AccessibilityManager.ttsEnabled
-                                onClicked: AccessibilityManager.announce("Accessibility is working correctly", true)
-                            }
-
-                            AccessibleButton {
-                                text: "Test Tick"
-                                accessibleName: "Test tick sound"
-                                enabled: AccessibilityManager.enabled && AccessibilityManager.tickEnabled
-                                onClicked: AccessibilityManager.playTick()
+                            Text {
+                                text: "Tick Sound"
+                                color: Theme.textColor
+                                font.pixelSize: 14
                             }
 
                             Item { Layout.fillWidth: true }
+
+                            ValueInput {
+                                value: AccessibilityManager.tickSoundIndex
+                                from: 1
+                                to: 4
+                                stepSize: 1
+                                suffix: ""
+                                displayText: "Sound " + value
+                                accessibleName: "Select tick sound, 1 to 4. Current: " + value
+                                enabled: AccessibilityManager.enabled && AccessibilityManager.tickEnabled
+                                onValueModified: function(newValue) {
+                                    AccessibilityManager.tickSoundIndex = newValue
+                                }
+                            }
+
+                            ValueInput {
+                                value: AccessibilityManager.tickVolume
+                                from: 10
+                                to: 100
+                                stepSize: 10
+                                suffix: "%"
+                                accessibleName: "Tick volume. Current: " + value + " percent"
+                                enabled: AccessibilityManager.enabled && AccessibilityManager.tickEnabled
+                                onValueModified: function(newValue) {
+                                    AccessibilityManager.tickVolume = newValue
+                                }
+                            }
                         }
+
+                        Item { Layout.fillHeight: true }
                     }
                 }
 

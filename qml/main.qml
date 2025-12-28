@@ -17,6 +17,64 @@ ApplicationWindow {
     // Flag to prevent navigation during flow calibration
     property bool calibrationInProgress: false
 
+    // Global accessibility: find and announce Text items on tap
+    // x, y are in the coordinate space of 'item'
+    function findTextAt(item, x, y) {
+        if (!item || !item.visible) return null
+
+        // Check if point is within this item's bounds
+        if (x < 0 || x > item.width || y < 0 || y > item.height) {
+            return null
+        }
+
+        // Recursively check children first (reverse order for top-most first)
+        // Use 'children' for most items, but some containers use 'data' or 'contentChildren'
+        var childList = item.children || item.contentChildren || []
+        for (var i = childList.length - 1; i >= 0; i--) {
+            var child = childList[i]
+            if (!child || !child.visible || child.width === undefined) continue
+
+            // Map coordinates to child's space
+            var childX = x - child.x
+            var childY = y - child.y
+
+            var found = findTextAt(child, childX, childY)
+            if (found) return found
+        }
+
+        // Check if this item itself is a Text
+        if (item instanceof Text && item.text && item.text.length > 0) {
+            return item
+        }
+
+        return null
+    }
+
+    // Global tap handler for accessibility - announces any Text tapped
+    MouseArea {
+        id: accessibilityTapOverlay
+        anchors.fill: parent
+        z: 10000  // Above everything
+        enabled: typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
+        propagateComposedEvents: true
+
+        onPressed: function(mouse) {
+            // Find Text at tap location (use local coords, search from parent)
+            var textItem = findTextAt(parent, mouse.x, mouse.y)
+
+            if (textItem && textItem.text) {
+                // Use label voice (lower pitch, faster) to distinguish from buttons
+                AccessibilityManager.announceLabel(textItem.text)
+            }
+
+            // Always let the event through
+            mouse.accepted = false
+        }
+
+        onClicked: function(mouse) { mouse.accepted = false }
+        onReleased: function(mouse) { mouse.accepted = false }
+    }
+
     // Put machine and scale to sleep when closing the app
     onClosing: function(close) {
         // Send scale sleep first (it's faster/simpler)
@@ -838,11 +896,6 @@ ApplicationWindow {
 
         function onFrameChanged(frameIndex, frameName) {
             AccessibilityManager.playTick()
-
-            // Announce frame name in verbose mode
-            if (AccessibilityManager.verbosity >= 2) {
-                AccessibilityManager.announce(frameName)
-            }
         }
     }
 

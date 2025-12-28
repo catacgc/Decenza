@@ -82,7 +82,7 @@ void ShotDataModel::clear() {
     if (m_weightSeries) m_weightSeries->clear();
     if (m_extractionMarkerSeries) m_extractionMarkerSeries->clear();
 
-    for (auto* series : m_frameMarkerSeries) {
+    for (const auto& series : m_frameMarkerSeries) {
         if (series) series->clear();
     }
 
@@ -195,7 +195,7 @@ void ShotDataModel::flushToChart() {
             }
         } else {
             if (m_frameMarkerIndex < m_frameMarkerSeries.size()) {
-                auto* series = m_frameMarkerSeries[m_frameMarkerIndex];
+                const auto& series = m_frameMarkerSeries[m_frameMarkerIndex];
                 if (series) {
                     series->append(marker.first, 0);
                     series->append(marker.first, 12);
