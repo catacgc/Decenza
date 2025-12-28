@@ -120,15 +120,60 @@ Also: Steaming, HotWater, Flushing
 - **Key alias**: `de1-key`
 - **Signing**: Automatic during release build via `--sign` flag
 
+### How Signing & Renaming Works
+1. Qt Creator triggers `androiddeployqt` with `--sign` flag
+2. Gradle builds unsigned APK (`android-build-Decenza_DE1-release-unsigned.apk`)
+3. `gradle.buildFinished` hook in `android/build.gradle` triggers:
+   - Finds unsigned APK
+   - Signs it with `apksigner` from Android SDK build-tools
+   - Outputs as `Decenza_DE1_<version>.apk`
+4. `androiddeployqt` also signs the original (creates `-signed.apk`)
+5. For AAB: same hook copies and signs with `jarsigner` to `Decenza_DE1-<version>.aab`
+
 ### Output Files
 - **APK output**: `build/Qt_6_10_1_for_Android_arm64_v8a-Release/android-build-Decenza_DE1/build/outputs/apk/release/`
+  - `android-build-Decenza_DE1-release-signed.apk` (original name)
+  - `Decenza_DE1_1.0.XXX.apk` (versioned copy)
 - **AAB output**: `build/Qt_6_10_1_for_Android_arm64_v8a-Release/android-build-Decenza_DE1/build/outputs/bundle/release/`
-- **Versioned naming**: Handled in `android/build.gradle` (renames to `Decenza_DE1_<version>.apk/.aab`)
+  - `Decenza_DE1-1.0.XXX.aab` (versioned, for Play Store)
 
 ### Gradle Tasks
 - `assembleRelease`: Builds signed APK
 - `bundleRelease`: Builds signed AAB (for Play Store)
-- Post-build renaming tasks in `android/build.gradle` copy and rename outputs with version
+- Post-build hooks in `android/build.gradle` handle versioned naming
+
+## Publishing Releases
+
+### Prerequisites
+- GitHub CLI (`gh`) installed: `winget install GitHub.cli`
+- Authenticated: `gh auth login`
+
+### Creating a Release
+```bash
+gh release create v1.0.XXX \
+  --title "Decenza DE1 v1.0.XXX" \
+  --notes "Release notes here..." \
+  "path/to/Decenza_DE1_1.0.XXX.apk"
+```
+
+### Example with Full Path
+```bash
+cd /c/CODE/de1-qt
+gh release create v1.0.373 \
+  --title "Decenza DE1 v1.0.373" \
+  --notes "## Changes
+- Feature 1
+- Bug fix 2
+
+## Installation
+Download APK and install (allow unknown sources)." \
+  "build/Qt_6_10_1_for_Android_arm64_v8a-Release/android-build-Decenza_DE1/build/outputs/apk/release/Decenza_DE1_1.0.373.apk"
+```
+
+### Notes
+- APK files are for direct distribution (sideloading)
+- AAB files are only for Google Play Store uploads
+- Users cannot install AAB files directly
 
 ## Git Workflow
 
