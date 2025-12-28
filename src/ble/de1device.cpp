@@ -473,8 +473,26 @@ void DE1Device::parseMMRResponse(const QByteArray& data) {
     // Byte 0: Length
     // Bytes 1-3: Address (big endian)
     // Bytes 4+: Data (little endian)
-    Q_UNUSED(data);
-    // Silently consume MMR responses - used internally for GHC status etc.
+    if (data.size() < 5) return;
+
+    const uint8_t* d = reinterpret_cast<const uint8_t*>(data.constData());
+
+    // Extract address (big endian)
+    uint32_t address = (static_cast<uint32_t>(d[1]) << 16) |
+                       (static_cast<uint32_t>(d[2]) << 8) |
+                       static_cast<uint32_t>(d[3]);
+
+    // Check if this is GHC_INFO response (0x80381C -> lower 24 bits = 0x00381C with high byte 0x80)
+    if (address == 0x00381C) {
+        // GHC_INFO: 0 = not installed (headless), 1 = installed, 2 = installed but inactive
+        uint8_t ghcStatus = d[4];
+        bool newHeadless = (ghcStatus == 0);
+        if (m_isHeadless != newHeadless) {
+            m_isHeadless = newHeadless;
+            qDebug() << "DE1Device: GHC status =" << ghcStatus << ", isHeadless =" << m_isHeadless;
+            emit isHeadlessChanged();
+        }
+    }
 }
 
 void DE1Device::writeCharacteristic(const QBluetoothUuid& uuid, const QByteArray& data) {

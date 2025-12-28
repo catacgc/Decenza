@@ -177,6 +177,38 @@ Page {
             }
 
             Item { Layout.fillHeight: true }
+
+            // Stop button for headless machines
+            Rectangle {
+                id: steamStopButton
+                Layout.alignment: Qt.AlignHCenter
+                Layout.preferredWidth: Theme.scaled(200)
+                Layout.preferredHeight: Theme.scaled(60)
+                visible: DE1Device.isHeadless
+                radius: Theme.cardRadius
+                color: stopMouseArea.pressed ? Qt.darker(Theme.errorColor, 1.2) : Theme.errorColor
+
+                Text {
+                    anchors.centerIn: parent
+                    text: "Stop"
+                    color: "white"
+                    font.pixelSize: Theme.scaled(24)
+                    font.weight: Font.Bold
+                }
+
+                AccessibleMouseArea {
+                    id: stopMouseArea
+                    anchors.fill: parent
+                    accessibleName: "Stop steaming"
+                    accessibleItem: steamStopButton
+                    onAccessibleClicked: {
+                        DE1Device.stopOperation()
+                        root.goToIdle()
+                    }
+                }
+            }
+
+            Item { Layout.preferredHeight: Theme.scaled(20) }
         }
 
         // === SETTINGS VIEW ===

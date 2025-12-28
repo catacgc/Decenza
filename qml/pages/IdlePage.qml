@@ -200,6 +200,10 @@ Page {
                         Settings.steamFlow = preset.flow !== undefined ? preset.flow : 150
                     }
                     MainController.applySteamSettings()
+                    // Start steam immediately after selecting preset (headless machines only)
+                    if (DE1Device.isHeadless && MachineState.isReady) {
+                        DE1Device.startSteam()
+                    }
                 }
 
                 Behavior on opacity { NumberAnimation { duration: 150 } }
@@ -222,6 +226,10 @@ Page {
                     var preset = Settings.getFavoriteProfile(index)
                     if (preset && preset.filename) {
                         MainController.loadProfile(preset.filename)
+                    }
+                    // Start espresso immediately after selecting preset (headless machines only)
+                    if (DE1Device.isHeadless && MachineState.isReady) {
+                        DE1Device.startEspresso()
                     }
                 }
 
@@ -247,8 +255,8 @@ Page {
                         Settings.waterVolume = preset.volume
                     }
                     MainController.applyHotWaterSettings()
-                    // Start hot water immediately after selecting preset
-                    if (MachineState.isReady) {
+                    // Start hot water immediately after selecting preset (headless machines only)
+                    if (DE1Device.isHeadless && MachineState.isReady) {
                         DE1Device.startHotWater()
                     }
                 }
@@ -276,8 +284,8 @@ Page {
                         Settings.flushSeconds = preset.seconds
                     }
                     MainController.applyFlushSettings()
-                    // Start flush immediately after selecting preset
-                    if (MachineState.isReady) {
+                    // Start flush immediately after selecting preset (headless machines only)
+                    if (DE1Device.isHeadless && MachineState.isReady) {
                         DE1Device.startFlush()
                     }
                 }

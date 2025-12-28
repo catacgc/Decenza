@@ -42,6 +42,7 @@ class DE1Device : public QObject {
     Q_PROPERTY(double waterLevel READ waterLevel NOTIFY waterLevelChanged)
     Q_PROPERTY(QString firmwareVersion READ firmwareVersion NOTIFY firmwareVersionChanged)
     Q_PROPERTY(bool usbChargerOn READ usbChargerOn NOTIFY usbChargerOnChanged)
+    Q_PROPERTY(bool isHeadless READ isHeadless NOTIFY isHeadlessChanged)
 
 public:
     explicit DE1Device(QObject* parent = nullptr);
@@ -64,6 +65,7 @@ public:
     double waterLevel() const { return m_waterLevel; }
     QString firmwareVersion() const { return m_firmwareVersion; }
     bool usbChargerOn() const { return m_usbChargerOn; }
+    bool isHeadless() const { return m_isHeadless; }
 
     // Simulation mode for GUI development without hardware
     bool simulationMode() const { return m_simulationMode; }
@@ -115,6 +117,7 @@ signals:
     void errorOccurred(const QString& error);
     void simulationModeChanged();
     void usbChargerOnChanged();
+    void isHeadlessChanged();
 
 private slots:
     void onControllerConnected();
@@ -159,6 +162,7 @@ private:
     bool m_connecting = false;
     bool m_simulationMode = false;
     bool m_usbChargerOn = true;  // Default on (safe default like de1app)
+    bool m_isHeadless = false;   // True if GHC (Group Head Controller) is not installed
 
     // Retry logic for service discovery failures
     QBluetoothDeviceInfo m_pendingDevice;
