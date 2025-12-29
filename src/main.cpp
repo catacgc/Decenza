@@ -229,11 +229,13 @@ int main(int argc, char *argv[])
     engine.load(url);
 
 #ifdef Q_OS_ANDROID
-    // Force landscape orientation on Android (after QML is loaded)
-    // SCREEN_ORIENTATION_LANDSCAPE = 0 (forced landscape)
+    // Set landscape orientation on Android (after QML is loaded)
+    // SCREEN_ORIENTATION_SENSOR_LANDSCAPE = 6 (uses sensor to pick correct landscape)
+    // Note: Using 0 (SCREEN_ORIENTATION_LANDSCAPE) causes upside-down display on some tablets
+    // because "natural landscape" varies by device manufacturer
     QJniObject activity = QNativeInterface::QAndroidApplication::context();
     if (activity.isValid()) {
-        activity.callMethod<void>("setRequestedOrientation", "(I)V", 0);
+        activity.callMethod<void>("setRequestedOrientation", "(I)V", 6);
 
         // Enable immersive mode - must run on UI thread
         QNativeInterface::QAndroidApplication::runOnAndroidMainThread([activity]() {
