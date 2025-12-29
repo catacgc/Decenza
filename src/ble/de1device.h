@@ -42,7 +42,7 @@ class DE1Device : public QObject {
     Q_PROPERTY(double waterLevel READ waterLevel NOTIFY waterLevelChanged)
     Q_PROPERTY(QString firmwareVersion READ firmwareVersion NOTIFY firmwareVersionChanged)
     Q_PROPERTY(bool usbChargerOn READ usbChargerOn NOTIFY usbChargerOnChanged)
-    Q_PROPERTY(bool isHeadless READ isHeadless NOTIFY isHeadlessChanged)
+    Q_PROPERTY(bool isHeadless READ isHeadless WRITE setIsHeadless NOTIFY isHeadlessChanged)
 
 public:
     explicit DE1Device(QObject* parent = nullptr);
@@ -66,6 +66,7 @@ public:
     QString firmwareVersion() const { return m_firmwareVersion; }
     bool usbChargerOn() const { return m_usbChargerOn; }
     bool isHeadless() const { return m_isHeadless; }
+    void setIsHeadless(bool headless);
 
     // Simulation mode for GUI development without hardware
     bool simulationMode() const { return m_simulationMode; }

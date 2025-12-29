@@ -202,7 +202,7 @@ Page {
         // Announce tab when changed (accessibility)
         onCurrentIndexChanged: {
             if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
-                var tabNames = ["Bluetooth", "Preferences", "Screensaver", "Visualizer", "Accessibility", "Themes", "Resolution"]
+                var tabNames = ["Bluetooth", "Preferences", "Screensaver", "Visualizer", "Accessibility", "Themes", "Debug"]
                 if (currentIndex >= 0 && currentIndex < tabNames.length) {
                     AccessibilityManager.announce(tabNames[currentIndex] + " tab")
                 }
@@ -369,16 +369,13 @@ Page {
             }
         }
 
-        // NOTE: Keep conditionally-visible tabs (like Resolution) at the END
-        // so they don't leave gaps when hidden on other platforms
         TabButton {
-            id: resolutionTabButton
-            text: "Resolution"
+            id: debugTabButton
+            text: "Debug"
             width: implicitWidth
-            visible: Qt.platform.os === "windows"
             font.pixelSize: 14
             font.bold: tabBar.currentIndex === 6
-            Accessible.name: "Resolution tab" + (tabBar.currentIndex === 6 ? ", selected" : "")
+            Accessible.name: "Debug tab" + (tabBar.currentIndex === 6 ? ", selected" : "")
             contentItem: Text {
                 text: parent.text
                 font: parent.font
@@ -392,8 +389,8 @@ Page {
             }
             AccessibleMouseArea {
                 anchors.fill: parent
-                accessibleName: "Resolution tab" + (tabBar.currentIndex === 6 ? ", selected" : "")
-                accessibleItem: resolutionTabButton
+                accessibleName: "Debug tab" + (tabBar.currentIndex === 6 ? ", selected" : "")
+                accessibleItem: debugTabButton
                 onAccessibleClicked: tabBar.currentIndex = 6
             }
         }
@@ -2280,168 +2277,237 @@ Page {
                 }
             }
 
-        // ============ RESOLUTION TAB (Windows only) ============
-        // NOTE: Keep conditionally-visible tabs at the END of StackLayout
-        // so they don't create empty slots when hidden on other platforms
+        // ============ DEBUG TAB ============
         Item {
-            id: resolutionTab
-            visible: Qt.platform.os === "windows"
-
-            // Resolution presets
-            property var resolutions: [
-                { name: "Phone - iPhone 15 Pro Max", width: 430, height: 932, category: "phone" },
-                { name: "Phone - iPhone 15", width: 393, height: 852, category: "phone" },
-                { name: "Phone - Pixel 8", width: 411, height: 915, category: "phone" },
-                { name: "Phone - Galaxy S24", width: 360, height: 780, category: "phone" },
-                { name: "Tablet 7\" - Portrait", width: 600, height: 1024, category: "tablet" },
-                { name: "Tablet 7\" - Landscape", width: 1024, height: 600, category: "tablet" },
-                { name: "Tablet 10\" - Portrait", width: 800, height: 1280, category: "tablet" },
-                { name: "Tablet 10\" - Landscape", width: 1280, height: 800, category: "tablet" },
-                { name: "iPad 10.2\" - Portrait", width: 810, height: 1080, category: "tablet" },
-                { name: "iPad 10.2\" - Landscape", width: 1080, height: 810, category: "tablet" },
-                { name: "iPad Pro 11\" - Portrait", width: 834, height: 1194, category: "tablet" },
-                { name: "iPad Pro 11\" - Landscape", width: 1194, height: 834, category: "tablet" },
-                { name: "iPad Pro 12.9\" - Portrait", width: 1024, height: 1366, category: "tablet" },
-                { name: "iPad Pro 12.9\" - Landscape", width: 1366, height: 1024, category: "tablet" },
-                { name: "Desktop HD", width: 1280, height: 720, category: "desktop" },
-                { name: "Desktop Full HD", width: 1920, height: 1080, category: "desktop" }
-            ]
+            id: debugTab
 
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 15
 
-                // Current resolution display
+                // Simulation section
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 80
-                    color: Theme.surfaceColor
-                    radius: Theme.cardRadius
-
-                    RowLayout {
-                        anchors.fill: parent
-                        anchors.margins: 15
-                        spacing: 20
-
-                        Column {
-                            spacing: 4
-
-                            Text {
-                                text: "Current Window Size"
-                                color: Theme.textSecondaryColor
-                                font.pixelSize: 12
-                            }
-
-                            Text {
-                                text: Window.window ? (Window.window.width + " × " + Window.window.height) : "Unknown"
-                                color: Theme.primaryColor
-                                font.pixelSize: 24
-                                font.bold: true
-                            }
-                        }
-
-                        Column {
-                            spacing: 4
-
-                            Text {
-                                text: "Scale Factor"
-                                color: Theme.textSecondaryColor
-                                font.pixelSize: 12
-                            }
-
-                            Text {
-                                text: Theme.scale.toFixed(2) + "x"
-                                color: Theme.textColor
-                                font.pixelSize: 24
-                                font.bold: true
-                            }
-                        }
-
-                        Item { Layout.fillWidth: true }
-                    }
-                }
-
-                // Resolution grid
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
+                    Layout.preferredHeight: 180
                     color: Theme.surfaceColor
                     radius: Theme.cardRadius
 
                     ColumnLayout {
                         anchors.fill: parent
                         anchors.margins: 15
-                        spacing: 10
+                        spacing: 12
 
                         Text {
-                            text: "Select Resolution"
+                            text: "Simulation"
                             color: Theme.textColor
                             font.pixelSize: 16
                             font.bold: true
                         }
 
                         Text {
-                            text: "Click to resize window. Use for testing UI scaling."
+                            text: "Enable these options to test the app without hardware connected."
                             color: Theme.textSecondaryColor
                             font.pixelSize: 12
+                            wrapMode: Text.Wrap
+                            Layout.fillWidth: true
                         }
 
-                        GridView {
-                            id: resolutionGrid
+                        RowLayout {
                             Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            cellWidth: 200
-                            cellHeight: 70
-                            clip: true
-                            model: resolutionTab.resolutions
+                            spacing: 20
 
-                            delegate: Rectangle {
-                                width: resolutionGrid.cellWidth - 8
-                                height: resolutionGrid.cellHeight - 8
-                                radius: 8
-                                color: mouseArea.containsMouse ? Qt.lighter(Theme.backgroundColor, 1.2) : Theme.backgroundColor
-                                border.color: Theme.textSecondaryColor
-                                border.width: 1
+                            Text {
+                                text: "Simulate machine connection"
+                                color: Theme.textColor
+                                font.pixelSize: 14
+                            }
 
-                                ColumnLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: 10
-                                    spacing: 4
+                            Item { Layout.fillWidth: true }
 
-                                    Text {
-                                        text: modelData.name
-                                        color: Theme.textColor
-                                        font.pixelSize: 12
-                                        font.bold: true
-                                        elide: Text.ElideRight
-                                        Layout.fillWidth: true
-                                    }
-
-                                    Text {
-                                        text: modelData.width + " × " + modelData.height
-                                        color: modelData.category === "phone" ? Theme.primaryColor :
-                                               modelData.category === "tablet" ? Theme.successColor :
-                                               Theme.warningColor
-                                        font.pixelSize: 16
-                                        font.bold: true
+                            Switch {
+                                checked: DE1Device.simulationMode
+                                onToggled: {
+                                    DE1Device.simulationMode = checked
+                                    if (ScaleDevice) {
+                                        ScaleDevice.simulationMode = checked
                                     }
                                 }
+                            }
+                        }
 
-                                MouseArea {
-                                    id: mouseArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onClicked: {
-                                        if (Window.window) {
-                                            Window.window.width = modelData.width
-                                            Window.window.height = modelData.height
-                                        }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 20
+
+                            Text {
+                                text: "Headless mode (no GHC)"
+                                color: Theme.textColor
+                                font.pixelSize: 14
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Switch {
+                                checked: DE1Device.isHeadless
+                                onToggled: {
+                                    DE1Device.isHeadless = checked
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Battery Drainer section (Android only)
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 150
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+                    visible: Qt.platform.os === "android"
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 12
+
+                        Text {
+                            text: "Battery Drain Test"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        Text {
+                            text: "Drains battery by maxing CPU, GPU, screen brightness and flashlight. Useful for testing smart charging."
+                            color: Theme.textSecondaryColor
+                            font.pixelSize: 12
+                            wrapMode: Text.Wrap
+                            Layout.fillWidth: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 20
+
+                            Text {
+                                text: BatteryDrainer.running ? "Draining... Tap overlay to stop" : "Battery: " + BatteryManager.batteryPercent + "%"
+                                color: BatteryDrainer.running ? Theme.warningColor : Theme.textColor
+                                font.pixelSize: 14
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            AccessibleButton {
+                                text: BatteryDrainer.running ? "Stop" : "Start Drain"
+                                accessibleName: BatteryDrainer.running ? "Stop battery drain" : "Start battery drain test"
+                                onClicked: {
+                                    if (BatteryDrainer.running) {
+                                        BatteryDrainer.stop()
+                                    } else {
+                                        BatteryDrainer.start()
                                     }
                                 }
                             }
                         }
                     }
                 }
+
+                // Window Resolution section (Windows/desktop only)
+                Rectangle {
+                    id: resolutionSection
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 120
+                    color: Theme.surfaceColor
+                    radius: Theme.cardRadius
+                    visible: Qt.platform.os === "windows"
+
+                    // Resolution presets (Decent tablet first as default, landscape only)
+                    property var resolutions: [
+                        { name: "Decent Tablet", width: 1200, height: 800 },
+                        { name: "Tablet 7\"", width: 1024, height: 600 },
+                        { name: "Tablet 10\"", width: 1280, height: 800 },
+                        { name: "iPad 10.2\"", width: 1080, height: 810 },
+                        { name: "iPad Pro 11\"", width: 1194, height: 834 },
+                        { name: "iPad Pro 12.9\"", width: 1366, height: 1024 },
+                        { name: "Desktop HD", width: 1280, height: 720 },
+                        { name: "Desktop Full HD", width: 1920, height: 1080 }
+                    ]
+
+                    ColumnLayout {
+                        anchors.fill: parent
+                        anchors.margins: 15
+                        spacing: 12
+
+                        Text {
+                            text: "Window Resolution"
+                            color: Theme.textColor
+                            font.pixelSize: 16
+                            font.bold: true
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            spacing: 20
+
+                            Text {
+                                text: "Resize window to test UI scaling"
+                                color: Theme.textSecondaryColor
+                                font.pixelSize: 12
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            ComboBox {
+                                id: resolutionCombo
+                                Layout.fillWidth: true
+                                Layout.maximumWidth: parent.width * 0.5
+                                model: resolutionSection.resolutions
+                                textRole: "name"
+                                displayText: Window.window ? (Window.window.width + " × " + Window.window.height) : "Select..."
+
+                                delegate: ItemDelegate {
+                                    width: resolutionCombo.width
+                                    contentItem: Text {
+                                        text: modelData.name + " (" + modelData.width + "×" + modelData.height + ")"
+                                        color: Theme.textColor
+                                        font.pixelSize: 13
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    highlighted: resolutionCombo.highlightedIndex === index
+                                    background: Rectangle {
+                                        color: highlighted ? Theme.accentColor : Theme.surfaceColor
+                                    }
+                                }
+
+                                background: Rectangle {
+                                    color: Theme.backgroundColor
+                                    border.color: Theme.textSecondaryColor
+                                    border.width: 1
+                                    radius: 4
+                                }
+
+                                contentItem: Text {
+                                    text: resolutionCombo.displayText
+                                    color: Theme.textColor
+                                    font.pixelSize: 13
+                                    verticalAlignment: Text.AlignVCenter
+                                    leftPadding: 8
+                                }
+
+                                onActivated: function(index) {
+                                    var res = resolutionSection.resolutions[index]
+                                    if (Window.window && res) {
+                                        Window.window.width = res.width
+                                        Window.window.height = res.height
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Spacer
+                Item { Layout.fillHeight: true }
             }
         }
     }

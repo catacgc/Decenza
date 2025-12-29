@@ -90,6 +90,15 @@ void DE1Device::setSimulationMode(bool enabled) {
     emit connectedChanged();
 }
 
+void DE1Device::setIsHeadless(bool headless) {
+    if (m_isHeadless == headless) {
+        return;
+    }
+    m_isHeadless = headless;
+    qDebug() << "DE1Device: Headless mode" << (headless ? "ENABLED" : "DISABLED");
+    emit isHeadlessChanged();
+}
+
 void DE1Device::connectToDevice(const QString& address) {
     QBluetoothDeviceInfo info(QBluetoothAddress(address), QString(), 0);
     connectToDevice(info);
