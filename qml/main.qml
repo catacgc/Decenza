@@ -78,79 +78,6 @@ ApplicationWindow {
         return closest
     }
 
-    // --- Translation Edit Mode: find closest translatable item ---
-
-    // Collect all translatable items (Tr components or items with translationKey)
-    function collectTranslatables(item, offsetX, offsetY, results) {
-        if (!item || !item.visible) return
-
-        // Handle ScrollView/Flickable scroll offset
-        var scrollOffsetX = 0
-        var scrollOffsetY = 0
-        if (item.contentItem && item.contentX !== undefined) {
-            scrollOffsetX = -item.contentX
-            scrollOffsetY = -item.contentY
-        }
-
-        // Check if this item is translatable:
-        // - Has a 'key' property (Tr component)
-        // - Or has a 'translationKey' property (ActionButton, etc.)
-        var isTranslatable = false
-        var trKey = ""
-        var trFallback = ""
-
-        if (item.key !== undefined && item.fallback !== undefined && typeof item.openEditor === "function") {
-            // This is a Tr component
-            isTranslatable = true
-            trKey = item.key
-            trFallback = item.fallback
-        } else if (item.translationKey !== undefined && item.translationKey !== "") {
-            // This has translationKey (e.g., ActionButton)
-            isTranslatable = true
-            trKey = item.translationKey
-            trFallback = item.translationFallback || ""
-        }
-
-        if (isTranslatable) {
-            var centerX = offsetX + item.width / 2
-            var centerY = offsetY + item.height / 2
-            results.push({ item: item, key: trKey, fallback: trFallback, x: centerX, y: centerY })
-        }
-
-        // Check contentItem for ScrollView/Flickable
-        if (item.contentItem && item.contentX !== undefined) {
-            collectTranslatables(item.contentItem, offsetX + scrollOffsetX, offsetY + scrollOffsetY, results)
-        }
-
-        // Recurse into children
-        var childList = item.children || item.contentChildren || []
-        for (var i = 0; i < childList.length; i++) {
-            var child = childList[i]
-            if (!child || !child.visible || child.width === undefined) continue
-            collectTranslatables(child, offsetX + child.x + scrollOffsetX, offsetY + child.y + scrollOffsetY, results)
-        }
-    }
-
-    function findTranslatableAt(item, tapX, tapY) {
-        var results = []
-        collectTranslatables(item, 0, 0, results)
-
-        var closest = null
-        var closestDist = accessibilitySearchRadius
-
-        for (var i = 0; i < results.length; i++) {
-            var dx = results[i].x - tapX
-            var dy = results[i].y - tapY
-            var dist = Math.sqrt(dx * dx + dy * dy)
-            if (dist < closestDist) {
-                closestDist = dist
-                closest = results[i]
-            }
-        }
-
-        return closest
-    }
-
     // Put machine and scale to sleep when closing the app
     onClosing: function(close) {
         // Send scale sleep first (it's faster/simpler)
@@ -285,196 +212,6 @@ ApplicationWindow {
 
         onClicked: function(mouse) { mouse.accepted = false }
         onReleased: function(mouse) { mouse.accepted = false }
-    }
-
-    // Global tap handler for translation edit mode - opens editor for nearest translatable
-    MouseArea {
-        id: translationEditOverlay
-        anchors.fill: parent
-        z: 10001  // Above accessibility overlay
-        enabled: typeof TranslationManager !== "undefined" && TranslationManager.editModeEnabled
-        propagateComposedEvents: false  // Block events to prevent normal actions
-
-        onClicked: function(mouse) {
-            var result = findTranslatableAt(parent, mouse.x, mouse.y)
-            if (result) {
-                // If it's a Tr component with openEditor, use that
-                if (typeof result.item.openEditor === "function") {
-                    result.item.openEditor()
-                } else {
-                    // Otherwise use the global translation editor
-                    globalTranslationEditor.openFor(result.key, result.fallback)
-                }
-            }
-        }
-    }
-
-    // Global translation editor popup (for items without their own editor)
-    Popup {
-        id: globalTranslationEditor
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-        property string editKey: ""
-        property string editFallback: ""
-
-        function openFor(key, fallback) {
-            editKey = key
-            editFallback = fallback
-            open()
-        }
-
-        width: Math.min(450, root.width - 40)
-        padding: Theme.spacingMedium
-
-        background: Rectangle {
-            color: Theme.surfaceColor
-            radius: Theme.cardRadius
-            border.width: 1
-            border.color: Theme.borderColor
-        }
-
-        onOpened: {
-            globalTranslationInput.text = TranslationManager.translate(editKey, "")
-            globalTranslationInput.forceActiveFocus()
-        }
-
-        contentItem: ColumnLayout {
-            spacing: Theme.spacingMedium
-
-            Text {
-                text: "Edit Translation"
-                font: Theme.titleFont
-                color: Theme.textColor
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
-
-                Text {
-                    text: "Key:"
-                    font: Theme.labelFont
-                    color: Theme.textSecondaryColor
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: globalTranslationEditor.editKey
-                    font: Theme.labelFont
-                    color: Theme.textColor
-                    elide: Text.ElideMiddle
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
-
-                Text {
-                    text: "English (original):"
-                    font: Theme.labelFont
-                    color: Theme.textSecondaryColor
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: globalEnglishText.height + 16
-                    color: Theme.backgroundColor
-                    radius: 4
-
-                    Text {
-                        id: globalEnglishText
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        text: globalTranslationEditor.editFallback
-                        font: Theme.bodyFont
-                        color: Theme.textColor
-                        wrapMode: Text.Wrap
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
-
-                Text {
-                    text: "Translation (" + TranslationManager.getLanguageDisplayName(TranslationManager.currentLanguage) + "):"
-                    font: Theme.labelFont
-                    color: Theme.textSecondaryColor
-                }
-
-                StyledTextField {
-                    id: globalTranslationInput
-                    Layout.fillWidth: true
-                    placeholderText: "Enter translation..."
-
-                    Keys.onReturnPressed: globalSaveButton.clicked()
-                    Keys.onEnterPressed: globalSaveButton.clicked()
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingMedium
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: "Cancel"
-                    onClicked: globalTranslationEditor.close()
-
-                    background: Rectangle {
-                        implicitWidth: 80
-                        implicitHeight: Theme.touchTargetMin
-                        color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Theme.surfaceColor
-                        radius: Theme.buttonRadius
-                        border.width: 1
-                        border.color: Theme.borderColor
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: Theme.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-
-                Button {
-                    id: globalSaveButton
-                    text: "Save"
-                    onClicked: {
-                        if (globalTranslationInput.text.trim() !== "") {
-                            TranslationManager.setTranslation(globalTranslationEditor.editKey, globalTranslationInput.text.trim())
-                        } else {
-                            TranslationManager.deleteTranslation(globalTranslationEditor.editKey)
-                        }
-                        globalTranslationEditor.close()
-                    }
-
-                    background: Rectangle {
-                        implicitWidth: 80
-                        implicitHeight: Theme.touchTargetMin
-                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                        radius: Theme.buttonRadius
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
-        }
     }
 
     // Floating "Done Editing" button - appears when translation edit mode is active
@@ -1085,6 +822,13 @@ ApplicationWindow {
                 if (currentPage !== "flushPage" && !pageStack.busy) {
                     pageStack.replace(flushPage)
                 }
+            } else if (phase === MachineStateType.Phase.Descaling) {
+                if (currentPage !== "descalingPage" && !pageStack.busy) {
+                    pageStack.replace(descalingPage)
+                }
+            } else if (phase === MachineStateType.Phase.Cleaning) {
+                // For now, cleaning uses the built-in machine routine
+                // Could navigate to a cleaning page in the future
             } else if (phase === MachineStateType.Phase.Idle || phase === MachineStateType.Phase.Ready) {
                 // DE1 went to idle - if we're on an operation page, show completion
                 // Note: Don't check pageStack.busy here - completion must always be handled
@@ -1332,6 +1076,8 @@ ApplicationWindow {
     Tr { id: trAnnounceSteaming; key: "main.accessibility.steaming"; fallback: "Steaming"; visible: false }
     Tr { id: trAnnounceHotWater; key: "main.accessibility.dispensingHotWater"; fallback: "Dispensing hot water"; visible: false }
     Tr { id: trAnnounceFlushing; key: "main.accessibility.flushing"; fallback: "Flushing"; visible: false }
+    Tr { id: trAnnounceDescaling; key: "main.accessibility.descaling"; fallback: "Descaling in progress"; visible: false }
+    Tr { id: trAnnounceCleaning; key: "main.accessibility.cleaning"; fallback: "Cleaning in progress"; visible: false }
 
     Connections {
         target: MachineState
@@ -1377,6 +1123,12 @@ ApplicationWindow {
                     break
                 case MachineStateType.Phase.Flushing:
                     announcement = trAnnounceFlushing.text
+                    break
+                case MachineStateType.Phase.Descaling:
+                    announcement = trAnnounceDescaling.text
+                    break
+                case MachineStateType.Phase.Cleaning:
+                    announcement = trAnnounceCleaning.text
                     break
             }
 

@@ -35,6 +35,7 @@
         <file>profiles/cleaning_forward_flush.json</file>
         <file>profiles/cleaning_forward_flush_x5.json</file>
         <file>profiles/cleaning_weber_spring_clean.json</file>
+        <file>profiles/descale_wizard.json</file>
         <file>profiles/cremina_lever_machine.json</file>
         <file>profiles/damian_s_lm_leva.json</file>
         <file>profiles/damian_s_lrv2.json</file>

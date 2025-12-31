@@ -53,7 +53,7 @@ MainController::MainController(Settings* settings, DE1Device* device,
 
     // Create visualizer uploader and importer
     m_visualizer = new VisualizerUploader(m_settings, this);
-    m_visualizerImporter = new VisualizerImporter(this, this);
+    m_visualizerImporter = new VisualizerImporter(this, m_settings, this);
 
     // Refresh profiles when storage permission changes (Android)
     if (m_profileStorage) {
@@ -192,7 +192,8 @@ QVariantList MainController::cleaningProfiles() const {
     QVariantList result;
 
     for (const ProfileInfo& info : m_allProfiles) {
-        if (info.beverageType == "cleaning") {
+        // Include both cleaning and descale profiles in this category
+        if (info.beverageType == "cleaning" || info.beverageType == "descale") {
             QVariantMap profile;
             profile["name"] = info.filename;
             profile["title"] = info.title;
@@ -200,6 +201,55 @@ QVariantList MainController::cleaningProfiles() const {
             profile["source"] = static_cast<int>(info.source);
             result.append(profile);
         }
+    }
+
+    return result;
+}
+
+QVariantList MainController::downloadedProfiles() const {
+    QVariantList result;
+
+    for (const ProfileInfo& info : m_allProfiles) {
+        if (info.source == ProfileSource::Downloaded) {
+            QVariantMap profile;
+            profile["name"] = info.filename;
+            profile["title"] = info.title;
+            profile["beverageType"] = info.beverageType;
+            profile["source"] = static_cast<int>(info.source);
+            result.append(profile);
+        }
+    }
+
+    return result;
+}
+
+QVariantList MainController::userCreatedProfiles() const {
+    QVariantList result;
+
+    for (const ProfileInfo& info : m_allProfiles) {
+        if (info.source == ProfileSource::UserCreated) {
+            QVariantMap profile;
+            profile["name"] = info.filename;
+            profile["title"] = info.title;
+            profile["beverageType"] = info.beverageType;
+            profile["source"] = static_cast<int>(info.source);
+            result.append(profile);
+        }
+    }
+
+    return result;
+}
+
+QVariantList MainController::allProfilesList() const {
+    QVariantList result;
+
+    for (const ProfileInfo& info : m_allProfiles) {
+        QVariantMap profile;
+        profile["name"] = info.filename;
+        profile["title"] = info.title;
+        profile["beverageType"] = info.beverageType;
+        profile["source"] = static_cast<int>(info.source);
+        result.append(profile);
     }
 
     return result;

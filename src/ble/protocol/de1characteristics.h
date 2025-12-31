@@ -175,6 +175,15 @@ inline QString subStateToString(SubState subState) {
         case SubState::Pouring:         return "Pouring";
         case SubState::Ending:          return "Ending";
         case SubState::Steaming:        return "Steaming";
+        case SubState::DescaleInit:     return "DescaleInit";
+        case SubState::DescaleFillGroup:return "DescaleFillGroup";
+        case SubState::DescaleReturn:   return "DescaleReturn";
+        case SubState::DescaleGroup:    return "DescaleGroup";
+        case SubState::DescaleSteam:    return "DescaleSteam";
+        case SubState::CleanInit:       return "CleanInit";
+        case SubState::CleanFillGroup:  return "CleanFillGroup";
+        case SubState::CleanSoak:       return "CleanSoak";
+        case SubState::CleanGroup:      return "CleanGroup";
         case SubState::Refill:          return "Refill";
         case SubState::PausedSteam:     return "PausedSteam";
         case SubState::UserNotPresent:  return "UserNotPresent";

@@ -166,32 +166,61 @@ Page {
                         Keys.onEnterPressed: Keys.onReturnPressed(event)
                     }
 
-                    // Import button
-                    Button {
-                        id: importButton
-                        enabled: shareCodeInput.text.length === 4 && !MainController.visualizerImporter.importing
+                    // Import buttons row
+                    Row {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        width: Theme.scaled(200)
-                        height: Theme.scaled(50)
+                        spacing: Theme.spacingMedium
 
-                        // Translatable button texts
-                        Tr { id: trImporting; key: "visualizer.button.importing"; fallback: "Importing..."; visible: false }
-                        Tr { id: trImportProfile; key: "visualizer.button.import"; fallback: "Import Profile"; visible: false }
+                        // Import Profile button (requires 4-char code)
+                        Button {
+                            id: importButton
+                            enabled: shareCodeInput.text.length === 4 && !MainController.visualizerImporter.importing
+                            width: Theme.scaled(160)
+                            height: Theme.scaled(50)
 
-                        onClicked: {
-                            MainController.visualizerImporter.importFromShareCode(shareCodeInput.text)
+                            Tr { id: trImporting; key: "visualizer.button.importing"; fallback: "Importing..."; visible: false }
+                            Tr { id: trImportProfile; key: "visualizer.button.import"; fallback: "Import Profile"; visible: false }
+
+                            onClicked: {
+                                MainController.visualizerImporter.importFromShareCode(shareCodeInput.text)
+                            }
+
+                            background: Rectangle {
+                                radius: Theme.scaled(8)
+                                color: parent.enabled ? Theme.primaryColor : Theme.surfaceColor
+                            }
+                            contentItem: Text {
+                                text: MainController.visualizerImporter.importing ? trImporting.text : trImportProfile.text
+                                color: importButton.enabled ? "white" : Theme.textSecondaryColor
+                                font: Theme.bodyFont
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                            }
                         }
 
-                        background: Rectangle {
-                            radius: Theme.scaled(8)
-                            color: parent.enabled ? Theme.primaryColor : Theme.surfaceColor
-                        }
-                        contentItem: Text {
-                            text: MainController.visualizerImporter.importing ? trImporting.text : trImportProfile.text
-                            color: importButton.enabled ? "white" : Theme.textSecondaryColor
-                            font: Theme.bodyFont
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
+                        // Import Shared button (opens multi-import page)
+                        Button {
+                            id: importSharedButton
+                            height: Theme.scaled(50)
+
+                            onClicked: {
+                                pageStack.push(Qt.resolvedUrl("VisualizerMultiImportPage.qml"))
+                            }
+
+                            background: Rectangle {
+                                radius: Theme.scaled(8)
+                                color: Theme.primaryColor
+                                opacity: importSharedButton.pressed ? 0.8 : 1.0
+                            }
+                            contentItem: Text {
+                                text: "Import profiles I shared"
+                                color: "white"
+                                font: Theme.bodyFont
+                                horizontalAlignment: Text.AlignHCenter
+                                verticalAlignment: Text.AlignVCenter
+                                leftPadding: Theme.scaled(16)
+                                rightPadding: Theme.scaled(16)
+                            }
                         }
                     }
 

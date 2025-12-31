@@ -35,7 +35,9 @@ public:
         Steaming,
         HotWater,
         Flushing,
-        Refill
+        Refill,
+        Descaling,           // Machine is running descale routine
+        Cleaning             // Machine is running clean routine
     };
     Q_ENUM(Phase)
 

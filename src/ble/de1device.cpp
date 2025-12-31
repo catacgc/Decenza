@@ -558,6 +558,14 @@ void DE1Device::startFlush() {
     requestState(DE1::State::HotWaterRinse);
 }
 
+void DE1Device::startDescale() {
+    requestState(DE1::State::Descale);
+}
+
+void DE1Device::startClean() {
+    requestState(DE1::State::Clean);
+}
+
 void DE1Device::stopOperation() {
     requestState(DE1::State::Idle);
 }

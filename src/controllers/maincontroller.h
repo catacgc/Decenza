@@ -42,6 +42,9 @@ class MainController : public QObject {
     Q_PROPERTY(QVariantList selectedProfiles READ selectedProfiles NOTIFY profilesChanged)
     Q_PROPERTY(QVariantList allBuiltInProfiles READ allBuiltInProfiles NOTIFY profilesChanged)
     Q_PROPERTY(QVariantList cleaningProfiles READ cleaningProfiles NOTIFY profilesChanged)
+    Q_PROPERTY(QVariantList downloadedProfiles READ downloadedProfiles NOTIFY profilesChanged)
+    Q_PROPERTY(QVariantList userCreatedProfiles READ userCreatedProfiles NOTIFY profilesChanged)
+    Q_PROPERTY(QVariantList allProfilesList READ allProfilesList NOTIFY profilesChanged)
     Q_PROPERTY(VisualizerUploader* visualizer READ visualizer CONSTANT)
     Q_PROPERTY(VisualizerImporter* visualizerImporter READ visualizerImporter CONSTANT)
     Q_PROPERTY(AIManager* aiManager READ aiManager CONSTANT)
@@ -65,6 +68,9 @@ public:
     QVariantList selectedProfiles() const;
     QVariantList allBuiltInProfiles() const;
     QVariantList cleaningProfiles() const;
+    QVariantList downloadedProfiles() const;
+    QVariantList userCreatedProfiles() const;
+    QVariantList allProfilesList() const;
     VisualizerUploader* visualizer() const { return m_visualizer; }
     VisualizerImporter* visualizerImporter() const { return m_visualizerImporter; }
     ProfileStorage* profileStorage() const { return m_profileStorage; }

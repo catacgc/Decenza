@@ -105,29 +105,26 @@ Button {
 
         accessibleName: control.text
         accessibleItem: control
-        supportLongPress: !control._inEditMode  // Disable long-press in edit mode
-        supportDoubleClick: !control._inEditMode  // Disable double-click in edit mode
+        supportLongPress: true
+        supportDoubleClick: true
 
         // Track pressed state for visual feedback
         onIsPressedChanged: control._isPressed = isPressed
 
         onAccessibleClicked: {
-            if (control._inEditMode) {
-                translationEditorPopup.open()
-            } else {
-                control.clicked()
-            }
+            control.clicked()
         }
         onAccessibleDoubleClicked: {
-            if (!control._inEditMode) {
+            if (control._inEditMode) {
+                // Double-click opens translation editor in edit mode
+                translationEditorPopup.open()
+            } else {
                 control.doubleClicked()
             }
         }
         onAccessibleLongPressed: {
-            if (!control._inEditMode) {
-                control._longPressTriggered = true
-                control.pressAndHold()
-            }
+            control._longPressTriggered = true
+            control.pressAndHold()
         }
     }
 

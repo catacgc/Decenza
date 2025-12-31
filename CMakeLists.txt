@@ -201,9 +201,19 @@ set(QML_FILES
     qml/pages/ScreensaverPage.qml
     qml/pages/FlushPage.qml
     qml/pages/VisualizerBrowserPage.qml
+    qml/pages/VisualizerMultiImportPage.qml
     qml/pages/ShotMetadataPage.qml
     qml/pages/AISettingsPage.qml
     qml/pages/DialingAssistantPage.qml
+    qml/pages/settings/SettingsBluetoothTab.qml
+    qml/pages/settings/SettingsPreferencesTab.qml
+    qml/pages/settings/SettingsScreensaverTab.qml
+    qml/pages/settings/SettingsVisualizerTab.qml
+    qml/pages/settings/SettingsAITab.qml
+    qml/pages/settings/SettingsAccessibilityTab.qml
+    qml/pages/settings/SettingsThemesTab.qml
+    qml/pages/settings/SettingsLanguageTab.qml
+    qml/pages/settings/SettingsDebugTab.qml
     qml/components/ActionButton.qml
     qml/components/CircularGauge.qml
     qml/components/ConnectionIndicator.qml

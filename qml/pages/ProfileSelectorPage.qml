@@ -42,7 +42,10 @@ Page {
                         model: [
                             TranslationManager.translate("profileselector.filter.selected", "Selected"),
                             TranslationManager.translate("profileselector.filter.cleaning", "Cleaning/Descale"),
-                            TranslationManager.translate("profileselector.filter.all", "All Decent Profiles")
+                            TranslationManager.translate("profileselector.filter.builtin", "Decent Built-in"),
+                            TranslationManager.translate("profileselector.filter.downloaded", "Downloaded"),
+                            TranslationManager.translate("profileselector.filter.user", "User Created"),
+                            TranslationManager.translate("profileselector.filter.all", "All Profiles")
                         ]
                         currentIndex: 0
 
@@ -119,7 +122,7 @@ Page {
                     Button {
                         visible: viewFilter.currentIndex === 1  // Cleaning/Descale view
                         text: TranslationManager.translate("profileselector.button.descaling_wizard", "Descaling Wizard")
-                        Layout.preferredHeight: Theme.scaled(36)
+                        Layout.preferredHeight: Theme.scaled(44)
                         onClicked: root.goToDescaling()
 
                         background: Rectangle {
@@ -141,7 +144,7 @@ Page {
 
                     Button {
                         text: TranslationManager.translate("profileselector.button.import_visualizer", "Import from Visualizer")
-                        Layout.preferredHeight: Theme.scaled(36)
+                        Layout.preferredHeight: Theme.scaled(44)
                         onClicked: root.goToVisualizerBrowser()
 
                         background: Rectangle {
@@ -169,13 +172,16 @@ Page {
                         switch (viewFilter.currentIndex) {
                             case 0: return MainController.selectedProfiles      // "Selected"
                             case 1: return MainController.cleaningProfiles      // "Cleaning/Descale"
-                            case 2: return MainController.allBuiltInProfiles    // "All Decent Profiles"
+                            case 2: return MainController.allBuiltInProfiles    // "Decent Built-in"
+                            case 3: return MainController.downloadedProfiles    // "Downloaded"
+                            case 4: return MainController.userCreatedProfiles   // "User Created"
+                            case 5: return MainController.allProfilesList       // "All Profiles"
                             default: return MainController.selectedProfiles
                         }
                     }
                     spacing: Theme.scaled(4)
 
-                    // Category for grouping in "All Decent Profiles" view
+                    // Category for grouping in "Decent Built-in" view
                     property string currentCategory: ""
 
                     // Helper to get display category from beverageType
@@ -264,10 +270,10 @@ Page {
                                 elide: Text.ElideRight
                             }
 
-                            // === "All Decent Profiles" view: Select/Unselect toggle ===
+                            // === "Decent Built-in" view: Select/Unselect toggle ===
                             RoundButton {
                                 id: selectToggleButton
-                                visible: viewFilter.currentIndex === 2  // Only in "All Decent Profiles"
+                                visible: viewFilter.currentIndex === 2  // Only in "Decent Built-in"
                                 Layout.preferredWidth: Theme.scaled(40)
                                 Layout.preferredHeight: Theme.scaled(40)
                                 Layout.alignment: Qt.AlignVCenter
@@ -443,6 +449,11 @@ Page {
                             z: -1
                             onClicked: {
                                 if (!modelData) return
+                                // Check if this is the descale wizard (special profile)
+                                if (modelData.name === "descale_wizard.json" || modelData.beverageType === "descale") {
+                                    root.goToDescaling()
+                                    return
+                                }
                                 MainController.loadProfile(modelData.name)
                             }
                         }

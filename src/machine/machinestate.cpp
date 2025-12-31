@@ -25,7 +25,9 @@ bool MachineState::isFlowing() const {
            m_phase == Phase::Pouring ||
            m_phase == Phase::Steaming ||
            m_phase == Phase::HotWater ||
-           m_phase == Phase::Flushing;
+           m_phase == Phase::Flushing ||
+           m_phase == Phase::Descaling ||
+           m_phase == Phase::Cleaning;
 }
 
 bool MachineState::isHeating() const {
@@ -156,6 +158,14 @@ void MachineState::updatePhase() {
             m_phase = Phase::Refill;
             break;
 
+        case DE1::State::Descale:
+            m_phase = Phase::Descaling;
+            break;
+
+        case DE1::State::Clean:
+            m_phase = Phase::Cleaning;
+            break;
+
         default:
             m_phase = Phase::Idle;
             break;
@@ -177,7 +187,9 @@ void MachineState::updatePhase() {
                           oldPhase == Phase::Pouring ||
                           oldPhase == Phase::Steaming ||
                           oldPhase == Phase::HotWater ||
-                          oldPhase == Phase::Flushing);
+                          oldPhase == Phase::Flushing ||
+                          oldPhase == Phase::Descaling ||
+                          oldPhase == Phase::Cleaning);
 
         if (isFlowing() && !wasFlowing) {
             startShotTimer();

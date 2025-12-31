@@ -1,0 +1,246 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import QtQuick.Window
+import DecenzaDE1
+import "../../components"
+
+Item {
+    id: debugTab
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 15
+
+        // Simulation section
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 180
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 12
+
+                Tr {
+                    key: "settings.debug.simulation"
+                    fallback: "Simulation"
+                    color: Theme.textColor
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+
+                Tr {
+                    Layout.fillWidth: true
+                    key: "settings.debug.simulationDesc"
+                    fallback: "Enable these options to test the app without hardware connected."
+                    color: Theme.textSecondaryColor
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 20
+
+                    Tr {
+                        key: "settings.debug.simulateMachine"
+                        fallback: "Simulate machine connection"
+                        color: Theme.textColor
+                        font.pixelSize: 14
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Switch {
+                        checked: DE1Device.simulationMode
+                        onToggled: {
+                            DE1Device.simulationMode = checked
+                            if (ScaleDevice) {
+                                ScaleDevice.simulationMode = checked
+                            }
+                        }
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 20
+
+                    Tr {
+                        key: "settings.debug.headlessMode"
+                        fallback: "Headless mode (no GHC)"
+                        color: Theme.textColor
+                        font.pixelSize: 14
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Switch {
+                        checked: DE1Device.isHeadless
+                        onToggled: {
+                            DE1Device.isHeadless = checked
+                        }
+                    }
+                }
+            }
+        }
+
+        // Battery Drainer section (Android only)
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 150
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            visible: Qt.platform.os === "android"
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 12
+
+                Tr {
+                    key: "settings.debug.batteryDrainTest"
+                    fallback: "Battery Drain Test"
+                    color: Theme.textColor
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+
+                Tr {
+                    Layout.fillWidth: true
+                    key: "settings.debug.batteryDrainTestDesc"
+                    fallback: "Drains battery by maxing CPU, GPU, screen brightness and flashlight. Useful for testing smart charging."
+                    color: Theme.textSecondaryColor
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 20
+
+                    Text {
+                        text: BatteryDrainer.running ? "Draining... Tap overlay to stop" : "Battery: " + BatteryManager.batteryPercent + "%"
+                        color: BatteryDrainer.running ? Theme.warningColor : Theme.textColor
+                        font.pixelSize: 14
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    AccessibleButton {
+                        text: BatteryDrainer.running ? "Stop" : "Start Drain"
+                        accessibleName: BatteryDrainer.running ? "Stop battery drain" : "Start battery drain test"
+                        onClicked: {
+                            if (BatteryDrainer.running) {
+                                BatteryDrainer.stop()
+                            } else {
+                                BatteryDrainer.start()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Window Resolution section (Windows/desktop only)
+        Rectangle {
+            id: resolutionSection
+            Layout.fillWidth: true
+            Layout.preferredHeight: 120
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            visible: Qt.platform.os === "windows"
+
+            // Resolution presets (Decent tablet first as default, landscape only)
+            property var resolutions: [
+                { name: "Decent Tablet", width: 1200, height: 800 },
+                { name: "Tablet 7\"", width: 1024, height: 600 },
+                { name: "Tablet 10\"", width: 1280, height: 800 },
+                { name: "iPad 10.2\"", width: 1080, height: 810 },
+                { name: "iPad Pro 11\"", width: 1194, height: 834 },
+                { name: "iPad Pro 12.9\"", width: 1366, height: 1024 },
+                { name: "Desktop HD", width: 1280, height: 720 },
+                { name: "Desktop Full HD", width: 1920, height: 1080 }
+            ]
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 12
+
+                Tr {
+                    key: "settings.debug.windowResolution"
+                    fallback: "Window Resolution"
+                    color: Theme.textColor
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 20
+
+                    Tr {
+                        key: "settings.debug.resizeWindow"
+                        fallback: "Resize window to test UI scaling"
+                        color: Theme.textSecondaryColor
+                        font.pixelSize: 12
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    ComboBox {
+                        id: resolutionCombo
+                        Layout.preferredWidth: 200
+                        model: resolutionSection.resolutions
+                        textRole: "name"
+                        displayText: Window.window ? (Window.window.width + " x " + Window.window.height) : "Select..."
+
+                        delegate: ItemDelegate {
+                            width: resolutionCombo.width
+                            contentItem: Text {
+                                text: modelData.name + " (" + modelData.width + "x" + modelData.height + ")"
+                                color: Theme.textColor
+                                font.pixelSize: 13
+                                verticalAlignment: Text.AlignVCenter
+                            }
+                            highlighted: resolutionCombo.highlightedIndex === index
+                            background: Rectangle {
+                                color: highlighted ? Theme.accentColor : Theme.surfaceColor
+                            }
+                        }
+
+                        background: Rectangle {
+                            color: Theme.backgroundColor
+                            border.color: Theme.textSecondaryColor
+                            border.width: 1
+                            radius: 4
+                        }
+
+                        contentItem: Text {
+                            text: resolutionCombo.displayText
+                            color: Theme.textColor
+                            font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter
+                            leftPadding: 8
+                        }
+
+                        onActivated: function(index) {
+                            var res = resolutionSection.resolutions[index]
+                            if (Window.window && res) {
+                                Window.window.width = res.width
+                                Window.window.height = res.height
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Spacer
+        Item { Layout.fillHeight: true }
+    }
+}

@@ -1,0 +1,209 @@
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Layouts
+import DecenzaDE1
+import "../../components"
+
+Item {
+    id: accessibilityTab
+
+    ColumnLayout {
+        anchors.fill: parent
+        spacing: 15
+
+        // Main accessibility settings card
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 380
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 12
+
+                Tr {
+                    key: "settings.accessibility.title"
+                    fallback: "Accessibility"
+                    color: Theme.textColor
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+
+                Tr {
+                    Layout.fillWidth: true
+                    key: "settings.accessibility.desc"
+                    fallback: "Screen reader support and audio feedback for blind and visually impaired users"
+                    color: Theme.textSecondaryColor
+                    font.pixelSize: 12
+                    wrapMode: Text.WordWrap
+                }
+
+                // Tip about backdoor activation
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: tipText.implicitHeight + 16
+                    radius: 6
+                    color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.15)
+                    border.color: Theme.primaryColor
+                    border.width: 1
+
+                    Tr {
+                        id: tipText
+                        anchors.fill: parent
+                        anchors.margins: 8
+                        key: "settings.accessibility.tip"
+                        fallback: "Tip: 4-finger tap anywhere to toggle accessibility on/off"
+                        color: Theme.primaryColor
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+
+                Item { height: 5 }
+
+                // Enable toggle
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+
+                    Tr {
+                        key: "settings.accessibility.enable"
+                        fallback: "Enable Accessibility"
+                        color: Theme.textColor
+                        font.pixelSize: 14
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Switch {
+                        checked: AccessibilityManager.enabled
+                        onCheckedChanged: AccessibilityManager.enabled = checked
+                    }
+                }
+
+                // TTS toggle
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+                    opacity: AccessibilityManager.enabled ? 1.0 : 0.5
+
+                    Tr {
+                        key: "settings.accessibility.voiceAnnouncements"
+                        fallback: "Voice Announcements"
+                        color: Theme.textColor
+                        font.pixelSize: 14
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Switch {
+                        checked: AccessibilityManager.ttsEnabled
+                        enabled: AccessibilityManager.enabled
+                        onCheckedChanged: {
+                            if (AccessibilityManager.enabled) {
+                                if (checked) {
+                                    // Enable first, then announce
+                                    AccessibilityManager.ttsEnabled = true
+                                    AccessibilityManager.announce("Voice announcements enabled", true)
+                                } else {
+                                    // Announce first, then disable
+                                    AccessibilityManager.announce("Voice announcements disabled", true)
+                                    AccessibilityManager.ttsEnabled = false
+                                }
+                            } else {
+                                AccessibilityManager.ttsEnabled = checked
+                            }
+                        }
+                    }
+                }
+
+                // Tick sound toggle
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+                    opacity: AccessibilityManager.enabled ? 1.0 : 0.5
+
+                    ColumnLayout {
+                        spacing: 2
+                        Tr {
+                            key: "settings.accessibility.frameTick"
+                            fallback: "Frame Tick Sound"
+                            color: Theme.textColor
+                            font.pixelSize: 14
+                        }
+                        Tr {
+                            key: "settings.accessibility.frameTickDesc"
+                            fallback: "Play a tick when extraction frames change"
+                            color: Theme.textSecondaryColor
+                            font.pixelSize: 11
+                        }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    Switch {
+                        checked: AccessibilityManager.tickEnabled
+                        enabled: AccessibilityManager.enabled
+                        onCheckedChanged: {
+                            AccessibilityManager.tickEnabled = checked
+                            if (AccessibilityManager.enabled) {
+                                AccessibilityManager.announce(checked ? "Frame tick sound enabled" : "Frame tick sound disabled", true)
+                            }
+                        }
+                    }
+                }
+
+                // Tick sound picker and volume
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+                    opacity: (AccessibilityManager.enabled && AccessibilityManager.tickEnabled) ? 1.0 : 0.5
+
+                    Tr {
+                        key: "settings.accessibility.tickSound"
+                        fallback: "Tick Sound"
+                        color: Theme.textColor
+                        font.pixelSize: 14
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    ValueInput {
+                        value: AccessibilityManager.tickSoundIndex
+                        from: 1
+                        to: 4
+                        stepSize: 1
+                        suffix: ""
+                        displayText: "Sound " + value
+                        accessibleName: "Select tick sound, 1 to 4. Current: " + value
+                        enabled: AccessibilityManager.enabled && AccessibilityManager.tickEnabled
+                        onValueModified: function(newValue) {
+                            AccessibilityManager.tickSoundIndex = newValue
+                        }
+                    }
+
+                    ValueInput {
+                        value: AccessibilityManager.tickVolume
+                        from: 10
+                        to: 100
+                        stepSize: 10
+                        suffix: "%"
+                        accessibleName: "Tick volume. Current: " + value + " percent"
+                        enabled: AccessibilityManager.enabled && AccessibilityManager.tickEnabled
+                        onValueModified: function(newValue) {
+                            AccessibilityManager.tickVolume = newValue
+                        }
+                    }
+                }
+
+                Item { Layout.fillHeight: true }
+            }
+        }
+
+        // Spacer
+        Item { Layout.fillHeight: true }
+    }
+}
