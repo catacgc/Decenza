@@ -25,6 +25,12 @@ class TranslationManager : public QObject {
     Q_PROPERTY(bool downloading READ isDownloading NOTIFY downloadingChanged)
     Q_PROPERTY(QString lastError READ lastError NOTIFY lastErrorChanged)
 
+    // AI translation status
+    Q_PROPERTY(bool autoTranslating READ isAutoTranslating NOTIFY autoTranslatingChanged)
+    Q_PROPERTY(int autoTranslateProgress READ autoTranslateProgress NOTIFY autoTranslateProgressChanged)
+    Q_PROPERTY(int autoTranslateTotal READ autoTranslateTotal NOTIFY autoTranslateProgressChanged)
+    Q_PROPERTY(QString lastTranslatedText READ lastTranslatedText NOTIFY lastTranslatedTextChanged)
+
     // Version counter - increments when translations change, used for QML reactivity
     Q_PROPERTY(int translationVersion READ translationVersion NOTIFY translationsChanged)
 
@@ -42,6 +48,10 @@ public:
     bool isDownloading() const;
     QString lastError() const;
     int translationVersion() const { return m_translationVersion; }
+    bool isAutoTranslating() const { return m_autoTranslating; }
+    int autoTranslateProgress() const { return m_autoTranslateProgress; }
+    int autoTranslateTotal() const { return m_autoTranslateTotal; }
+    QString lastTranslatedText() const { return m_lastTranslatedText; }
 
     // Translation lookup (auto-registers strings)
     Q_INVOKABLE QString translate(const QString& key, const QString& fallback);
@@ -69,7 +79,25 @@ public:
 
     // Utility
     Q_INVOKABLE QVariantList getUntranslatedStrings() const;
+    Q_INVOKABLE QVariantList getAllStrings() const;
+    Q_INVOKABLE QVariantList getGroupedStrings() const;  // Groups by fallback text
+    Q_INVOKABLE QStringList getKeysForFallback(const QString& fallback) const;
+    Q_INVOKABLE void setGroupTranslation(const QString& fallback, const QString& translation);  // Sets for all keys with fallback
+    Q_INVOKABLE bool isGroupSplit(const QString& fallback) const;  // True if keys have different translations
+    Q_INVOKABLE void mergeGroupTranslation(const QString& key);  // Resets key to use group's common translation
     Q_INVOKABLE bool isRtlLanguage(const QString& langCode) const;
+    Q_INVOKABLE int uniqueStringCount() const;  // Count of unique fallback texts
+    Q_INVOKABLE int uniqueUntranslatedCount() const;  // Count of unique untranslated fallback texts
+
+    // AI auto-translation
+    Q_INVOKABLE void autoTranslate();
+    Q_INVOKABLE void cancelAutoTranslate();
+    Q_INVOKABLE bool canAutoTranslate() const;
+
+    // AI translation tracking
+    Q_INVOKABLE QString getAiTranslation(const QString& fallback) const;  // Get AI translation for fallback text
+    Q_INVOKABLE bool isAiGenerated(const QString& key) const;  // Check if translation is unmodified AI output
+    Q_INVOKABLE void copyAiToFinal(const QString& fallback);  // Copy AI translation to final for all keys
 
 signals:
     void currentLanguageChanged();
@@ -85,9 +113,15 @@ signals:
     void languageDownloaded(const QString& langCode, bool success, const QString& error);
     void languageListDownloaded(bool success);
 
+    void autoTranslatingChanged();
+    void autoTranslateProgressChanged();
+    void autoTranslateFinished(bool success, const QString& message);
+    void lastTranslatedTextChanged();
+
 private slots:
     void onLanguageListFetched(QNetworkReply* reply);
     void onLanguageFileFetched(QNetworkReply* reply);
+    void onAutoTranslateBatchReply(QNetworkReply* reply);
 
 private:
     void loadTranslations();
@@ -99,6 +133,13 @@ private:
     void recalculateUntranslatedCount();
     QString translationsDir() const;
     QString languageFilePath(const QString& langCode) const;
+
+    // AI translation helpers
+    void sendNextAutoTranslateBatch();
+    void parseAutoTranslateResponse(const QByteArray& data);
+    QString buildTranslationPrompt(const QVariantList& strings) const;
+    void loadAiTranslations();
+    void saveAiTranslations();
 
     Settings* m_settings;
     QNetworkAccessManager* m_networkManager;
@@ -129,6 +170,22 @@ private:
 
     // Dirty flag for batch saving string registry
     bool m_registryDirty = false;
+
+    // AI auto-translation state
+    bool m_autoTranslating = false;
+    bool m_autoTranslateCancelled = false;
+    int m_autoTranslateProgress = 0;
+    int m_autoTranslateTotal = 0;
+    QVariantList m_stringsToTranslate;
+    QString m_lastTranslatedText;
+    static constexpr int AUTO_TRANSLATE_BATCH_SIZE = 25;
+
+    // AI translations - stored per unique fallback text (not per key)
+    // m_aiTranslations[fallback] = AI-generated translation
+    QMap<QString, QString> m_aiTranslations;
+
+    // Set of keys whose current translation is unmodified AI output
+    QSet<QString> m_aiGenerated;
 
     static constexpr const char* GITHUB_RAW_BASE = "https://raw.githubusercontent.com/Kulitorum/de1-qt-translations/main";
     static constexpr const char* GITHUB_ISSUES_URL = "https://github.com/Kulitorum/de1-qt-translations/issues/new";

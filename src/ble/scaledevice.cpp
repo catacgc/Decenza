@@ -40,13 +40,24 @@ void ScaleDevice::setSimulationMode(bool enabled) {
 
 void ScaleDevice::disconnectFromScale() {
     if (m_service) {
-        delete m_service;
+        // Disconnect signals first to prevent callbacks during deletion
+        m_service->disconnect();
+        // Use deleteLater() for safe cleanup when called from signal handlers
+        m_service->deleteLater();
         m_service = nullptr;
     }
 
     if (m_controller) {
-        m_controller->disconnectFromDevice();
-        delete m_controller;
+        // Disconnect signals first to prevent callbacks during deletion
+        m_controller->disconnect();
+        // Only try to disconnect if controller is in a connected state
+        // Avoid calling methods on an errored controller (e.g., GATT error 133)
+        if (m_controller->state() == QLowEnergyController::ConnectedState ||
+            m_controller->state() == QLowEnergyController::DiscoveringState) {
+            m_controller->disconnectFromDevice();
+        }
+        // Use deleteLater() for safe cleanup when called from signal handlers
+        m_controller->deleteLater();
         m_controller = nullptr;
     }
 

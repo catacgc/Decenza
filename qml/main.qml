@@ -342,18 +342,25 @@ ApplicationWindow {
     }
 
     // Global error dialog for BLE issues
-    Dialog {
+    Popup {
         id: bleErrorDialog
         modal: true
+        dim: true
         anchors.centerIn: parent
+        padding: 24
 
         property string errorMessage: ""
         property bool isLocationError: false
 
-        // Translatable title
+        background: Rectangle {
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            border.width: 2
+            border.color: "white"
+        }
+
         Tr { id: trEnableLocation; key: "main.dialog.enableLocation.title"; fallback: "Enable Location"; visible: false }
         Tr { id: trErrorPrefix; key: "common.accessibility.errorPrefix"; fallback: "Error:"; visible: false }
-        title: trEnableLocation.text
 
         onOpened: {
             if (AccessibilityManager.enabled) {
@@ -361,14 +368,23 @@ ApplicationWindow {
             }
         }
 
-        Column {
+        contentItem: Column {
             spacing: Theme.spacingMedium
             width: Theme.dialogWidth
 
-            Label {
+            Text {
+                text: trEnableLocation.text
+                font: Theme.subtitleFont
+                color: Theme.textColor
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
+
+            Text {
                 text: bleErrorDialog.errorMessage
                 wrapMode: Text.Wrap
                 width: parent.width
+                font: Theme.bodyFont
+                color: Theme.textColor
             }
 
             AccessibleButton {
@@ -421,13 +437,22 @@ ApplicationWindow {
     }
 
     // FlowScale fallback dialog (no scale found at startup)
-    Dialog {
+    Popup {
         id: flowScaleDialog
         modal: true
+        dim: true
         anchors.centerIn: parent
+        padding: 24
+
+        background: Rectangle {
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            border.width: 2
+            border.color: "white"
+        }
 
         Tr { id: trNoScaleFoundTitle; key: "main.dialog.noScaleFound.title"; fallback: "No Scale Found"; visible: false }
-        title: trNoScaleFoundTitle.text
+        Tr { id: trNoScaleFoundAnnounce; key: "main.dialog.noScaleFound.announce"; fallback: "No Bluetooth scale detected. Using estimated weight from flow measurement."; visible: false }
 
         onOpened: {
             if (AccessibilityManager.enabled) {
@@ -435,18 +460,23 @@ ApplicationWindow {
             }
         }
 
-        Tr { id: trNoScaleFoundAnnounce; key: "main.dialog.noScaleFound.announce"; fallback: "No Bluetooth scale detected. Using estimated weight from flow measurement."; visible: false }
-
-        Column {
+        contentItem: Column {
             spacing: Theme.spacingMedium
             width: Theme.dialogWidth
+
+            Text {
+                text: trNoScaleFoundTitle.text
+                font: Theme.subtitleFont
+                color: Theme.textColor
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
 
             Tr {
                 key: "main.dialog.noScaleFound.message"
                 fallback: "No Bluetooth scale was detected.\n\nUsing estimated weight from DE1 flow measurement instead.\n\nYou can search for your scale in Settings → Bluetooth."
                 wrapMode: Text.Wrap
                 width: parent.width
-                font: Theme.labelFont
+                font: Theme.bodyFont
             }
 
             AccessibleButton {
@@ -461,13 +491,22 @@ ApplicationWindow {
     }
 
     // Scale disconnected dialog
-    Dialog {
+    Popup {
         id: scaleDisconnectedDialog
         modal: true
+        dim: true
         anchors.centerIn: parent
+        padding: 24
+
+        background: Rectangle {
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            border.width: 2
+            border.color: "white"
+        }
 
         Tr { id: trScaleDisconnectedTitle; key: "main.dialog.scaleDisconnected.title"; fallback: "Scale Disconnected"; visible: false }
-        title: trScaleDisconnectedTitle.text
+        Tr { id: trScaleDisconnectedAnnounce; key: "main.dialog.scaleDisconnected.announce"; fallback: "Warning: Scale disconnected"; visible: false }
 
         onOpened: {
             if (AccessibilityManager.enabled) {
@@ -475,18 +514,23 @@ ApplicationWindow {
             }
         }
 
-        Tr { id: trScaleDisconnectedAnnounce; key: "main.dialog.scaleDisconnected.announce"; fallback: "Warning: Scale disconnected"; visible: false }
-
-        Column {
+        contentItem: Column {
             spacing: Theme.spacingMedium
             width: Theme.dialogWidth
+
+            Text {
+                text: trScaleDisconnectedTitle.text
+                font: Theme.subtitleFont
+                color: Theme.textColor
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
 
             Tr {
                 key: "main.dialog.scaleDisconnected.message"
                 fallback: "Your Bluetooth scale has disconnected.\n\nUsing estimated weight from DE1 flow measurement until the scale reconnects.\n\nCheck that your scale is powered on and in range."
                 wrapMode: Text.Wrap
                 width: parent.width
-                font: Theme.labelFont
+                font: Theme.bodyFont
             }
 
             AccessibleButton {
@@ -501,14 +545,23 @@ ApplicationWindow {
     }
 
     // Water tank refill dialog
-    Dialog {
+    Popup {
         id: refillDialog
         modal: true
+        dim: true
         anchors.centerIn: parent
         closePolicy: Popup.NoAutoClose
+        padding: 24
+
+        background: Rectangle {
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            border.width: 2
+            border.color: "white"
+        }
 
         Tr { id: trRefillTitle; key: "main.dialog.refillWater.title"; fallback: "Refill Water Tank"; visible: false }
-        title: trRefillTitle.text
+        Tr { id: trRefillAnnounce; key: "main.dialog.refillWater.announce"; fallback: "Warning: Water tank needs refill"; visible: false }
 
         onOpened: {
             if (AccessibilityManager.enabled) {
@@ -516,11 +569,16 @@ ApplicationWindow {
             }
         }
 
-        Tr { id: trRefillAnnounce; key: "main.dialog.refillWater.announce"; fallback: "Warning: Water tank needs refill"; visible: false }
-
-        Column {
+        contentItem: Column {
             spacing: Theme.spacingMedium
             width: Theme.dialogWidth
+
+            Text {
+                text: trRefillTitle.text
+                font: Theme.subtitleFont
+                color: Theme.textColor
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
 
             Tr {
                 key: "main.dialog.refillWater.message"
@@ -636,18 +694,33 @@ ApplicationWindow {
     }
 
     // First-run welcome dialog
-    Dialog {
+    Popup {
         id: firstRunDialog
         modal: true
+        dim: true
         anchors.centerIn: parent
         closePolicy: Popup.NoAutoClose
+        padding: 24
+
+        background: Rectangle {
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            border.width: 2
+            border.color: "white"
+        }
 
         Tr { id: trWelcomeTitle; key: "main.dialog.welcome.title"; fallback: "Welcome to Decenza DE1"; visible: false }
-        title: trWelcomeTitle.text
 
-        Column {
+        contentItem: Column {
             spacing: Theme.spacingLarge
             width: Theme.dialogWidth
+
+            Text {
+                text: trWelcomeTitle.text
+                font: Theme.subtitleFont
+                color: Theme.textColor
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
 
             Tr {
                 key: "main.dialog.welcome.message"
@@ -673,18 +746,33 @@ ApplicationWindow {
     }
 
     // Storage setup dialog (Android 11+ - request MANAGE_EXTERNAL_STORAGE permission)
-    Dialog {
+    Popup {
         id: storageSetupDialog
         modal: true
+        dim: true
         anchors.centerIn: parent
         closePolicy: Popup.NoAutoClose
+        padding: 24
+
+        background: Rectangle {
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+            border.width: 2
+            border.color: "white"
+        }
 
         Tr { id: trStorageTitle; key: "main.dialog.storage.title"; fallback: "Save profiles to Documents?"; visible: false }
-        title: trStorageTitle.text
 
-        Column {
+        contentItem: Column {
             spacing: Theme.spacingLarge
             width: Theme.dialogWidth
+
+            Text {
+                text: trStorageTitle.text
+                font: Theme.subtitleFont
+                color: Theme.textColor
+                anchors.horizontalCenter: parent.horizontalCenter
+            }
 
             Tr {
                 key: "main.dialog.storage.message"

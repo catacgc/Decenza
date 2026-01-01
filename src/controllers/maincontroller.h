@@ -111,6 +111,9 @@ public slots:
     void setSteamFlowImmediate(int flow);
     void setSteamTimeoutImmediate(int timeout);
 
+    // Send steam temperature to machine without saving to settings (for enable/disable toggle)
+    Q_INVOKABLE void sendSteamTemperature(double temp);
+
     void onEspressoCycleStarted();
     void onShotEnded();
     void onScaleWeightChanged(double weight);  // Called by scale weight updates

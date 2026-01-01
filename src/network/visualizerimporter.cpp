@@ -499,17 +499,15 @@ void VisualizerImporter::onFetchFinished(QNetworkReply* reply) {
     if (isRenamedImport && !customName.isEmpty()) {
         profile.setTitle(customName);
 
-        // Save directly to storage/local with the new name
-        QString profilesPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/profiles";
-        QString filename = customName + ".json";
-        // Replace invalid filename chars
-        filename.replace(QRegularExpression(R"([<>:"/\\|?*])"), "_");
-        QString fullPath = profilesPath + "/" + filename;
+        // Save to downloaded folder (not ProfileStorage) so it's tagged correctly
+        QString downloadedPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/profiles/downloaded";
+        QDir().mkpath(downloadedPath);
 
-        QDir().mkpath(profilesPath);
+        QString filename = m_controller->titleToFilename(customName);
+        QString fullPath = downloadedPath + "/" + filename + ".json";
 
         if (profile.saveToFile(fullPath)) {
-            qDebug() << "Successfully imported renamed profile:" << customName;
+            qDebug() << "Successfully imported renamed profile to downloaded folder:" << customName;
             if (m_controller) {
                 m_controller->refreshProfiles();
             }
@@ -816,35 +814,8 @@ void VisualizerImporter::onProfileDetailsFetched(QNetworkReply* reply, int shotI
 int VisualizerImporter::saveImportedProfile(const Profile& profile) {
     QString filename = m_controller->titleToFilename(profile.title());
 
-    ProfileStorage* storage = m_controller->profileStorage();
-    bool exists = false;
-
-    if (storage && storage->isConfigured()) {
-        exists = storage->profileExists(filename);
-    }
-
-    if (!exists) {
-        QString localPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        localPath += "/profiles/downloaded/" + filename + ".json";
-        exists = QFile::exists(localPath);
-    }
-
-    if (exists) {
-        m_pendingProfile = profile;
-        m_pendingPath = filename;
-        qDebug() << "Duplicate profile found, waiting for user decision. Filename:" << filename;
-        emit duplicateFound(profile.title(), filename);
-        return 0;
-    }
-
-    if (storage && storage->isConfigured()) {
-        if (storage->writeProfile(filename, profile.toJsonString())) {
-            qDebug() << "Saved imported profile to ProfileStorage:" << filename;
-            m_controller->refreshProfiles();
-            return 1;
-        }
-    }
-
+    // Always save downloaded profiles to the dedicated downloaded folder
+    // (not ProfileStorage) so they're properly tagged as Downloaded source
     QString localPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     localPath += "/profiles/downloaded";
     QDir dir(localPath);
@@ -853,8 +824,18 @@ int VisualizerImporter::saveImportedProfile(const Profile& profile) {
     }
 
     QString fullPath = localPath + "/" + filename + ".json";
+
+    // Check for duplicates
+    if (QFile::exists(fullPath)) {
+        m_pendingProfile = profile;
+        m_pendingPath = filename;
+        qDebug() << "Duplicate profile found, waiting for user decision. Filename:" << filename;
+        emit duplicateFound(profile.title(), filename);
+        return 0;
+    }
+
     if (profile.saveToFile(fullPath)) {
-        qDebug() << "Saved imported profile to local file:" << fullPath;
+        qDebug() << "Saved imported profile to downloaded folder:" << fullPath;
         m_controller->refreshProfiles();
         return 1;
     }
@@ -870,26 +851,12 @@ void VisualizerImporter::saveOverwrite() {
         return;
     }
 
-    bool saved = false;
-    ProfileStorage* storage = m_controller->profileStorage();
+    // Always save to downloaded folder (not ProfileStorage)
+    QString localPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    localPath += "/profiles/downloaded/" + m_pendingPath + ".json";
 
-    if (storage && storage->isConfigured()) {
-        if (storage->writeProfile(m_pendingPath, m_pendingProfile.toJsonString())) {
-            qDebug() << "saveOverwrite: Successfully saved to ProfileStorage:" << m_pendingPath;
-            saved = true;
-        }
-    }
-
-    if (!saved) {
-        QString localPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        localPath += "/profiles/downloaded/" + m_pendingPath + ".json";
-        if (m_pendingProfile.saveToFile(localPath)) {
-            qDebug() << "saveOverwrite: Successfully saved to local:" << localPath;
-            saved = true;
-        }
-    }
-
-    if (saved) {
+    if (m_pendingProfile.saveToFile(localPath)) {
+        qDebug() << "saveOverwrite: Successfully saved to downloaded folder:" << localPath;
         m_controller->refreshProfiles();
         emit importSuccess(m_pendingProfile.title());
     } else {
@@ -908,35 +875,19 @@ void VisualizerImporter::saveAsNew() {
     }
 
     QString baseFilename = m_pendingPath;
-    ProfileStorage* storage = m_controller->profileStorage();
+    QString downloadedPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/profiles/downloaded";
 
+    // Find unique filename
     int counter = 1;
     QString newFilename;
     do {
         newFilename = baseFilename + "_" + QString::number(counter++);
-    } while ((storage && storage->profileExists(newFilename)) ||
-             QFile::exists(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) +
-                          "/profiles/downloaded/" + newFilename + ".json"));
+    } while (QFile::exists(downloadedPath + "/" + newFilename + ".json"));
 
-    bool saved = false;
-
-    if (storage && storage->isConfigured()) {
-        if (storage->writeProfile(newFilename, m_pendingProfile.toJsonString())) {
-            qDebug() << "saveAsNew: Successfully saved to ProfileStorage:" << newFilename;
-            saved = true;
-        }
-    }
-
-    if (!saved) {
-        QString localPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        localPath += "/profiles/downloaded/" + newFilename + ".json";
-        if (m_pendingProfile.saveToFile(localPath)) {
-            qDebug() << "saveAsNew: Successfully saved to local:" << localPath;
-            saved = true;
-        }
-    }
-
-    if (saved) {
+    // Always save to downloaded folder
+    QString fullPath = downloadedPath + "/" + newFilename + ".json";
+    if (m_pendingProfile.saveToFile(fullPath)) {
+        qDebug() << "saveAsNew: Successfully saved to downloaded folder:" << fullPath;
         m_controller->refreshProfiles();
         emit importSuccess(m_pendingProfile.title());
     } else {
@@ -962,13 +913,15 @@ void VisualizerImporter::saveWithNewName(const QString& newTitle) {
     m_pendingProfile.setTitle(newTitle);
 
     QString filename = m_controller->titleToFilename(newTitle);
-    ProfileStorage* storage = m_controller->profileStorage();
+    QString downloadedPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/profiles/downloaded";
+    QDir dir(downloadedPath);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
 
+    // Check for duplicates in downloaded folder only
     auto checkExists = [&](const QString& name) {
-        if (storage && storage->profileExists(name)) return true;
-        QString localPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        localPath += "/profiles/downloaded/" + name + ".json";
-        return QFile::exists(localPath);
+        return QFile::exists(downloadedPath + "/" + name + ".json");
     };
 
     if (checkExists(filename)) {
@@ -980,30 +933,10 @@ void VisualizerImporter::saveWithNewName(const QString& newTitle) {
         filename = newFilename;
     }
 
-    bool saved = false;
-
-    if (storage && storage->isConfigured()) {
-        if (storage->writeProfile(filename, m_pendingProfile.toJsonString())) {
-            qDebug() << "saveWithNewName: Successfully saved to ProfileStorage:" << filename;
-            saved = true;
-        }
-    }
-
-    if (!saved) {
-        QString localPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        localPath += "/profiles/downloaded";
-        QDir dir(localPath);
-        if (!dir.exists()) {
-            dir.mkpath(".");
-        }
-        QString fullPath = localPath + "/" + filename + ".json";
-        if (m_pendingProfile.saveToFile(fullPath)) {
-            qDebug() << "saveWithNewName: Successfully saved to local:" << fullPath;
-            saved = true;
-        }
-    }
-
-    if (saved) {
+    // Always save to downloaded folder
+    QString fullPath = downloadedPath + "/" + filename + ".json";
+    if (m_pendingProfile.saveToFile(fullPath)) {
+        qDebug() << "saveWithNewName: Successfully saved to downloaded folder:" << fullPath;
         m_controller->refreshProfiles();
         emit importSuccess(m_pendingProfile.title());
     } else {

@@ -10,7 +10,7 @@ Button {
     property color backgroundColor: Theme.primaryColor
     property int iconSize: Theme.scaled(48)
 
-    // Translation support - set these to enable edit mode clicking
+    // Translation support
     property string translationKey: ""
     property string translationFallback: ""
 
@@ -21,16 +21,8 @@ Button {
         return TranslationManager.translate(translationKey, translationFallback)
     }
 
-    // Note: pressAndHold() and doubleClicked() are inherited from Button/AbstractButton
-
-    // Track if long-press fired (to prevent click after hold)
-    property bool _longPressTriggered: false
+    // Track pressed state for visual feedback
     property bool _isPressed: false
-
-    // Check if in translation edit mode
-    readonly property bool _inEditMode: translationKey !== "" &&
-                                         typeof TranslationManager !== "undefined" &&
-                                         TranslationManager.editModeEnabled
 
     // Enable keyboard focus
     focusPolicy: Qt.StrongFocus
@@ -118,197 +110,20 @@ Button {
             control.doubleClicked()
         }
         onAccessibleLongPressed: {
-            if (control._inEditMode) {
-                // Long-press opens translation editor in edit mode
-                translationEditorPopup.open()
-            }
-            // No other long-press action - removed as unused
-        }
-    }
-
-    // Edit mode indicator overlay
-    Rectangle {
-        anchors.fill: parent
-        visible: control._inEditMode && !TranslationManager.hasTranslation(control.translationKey)
-        color: "transparent"
-        radius: Theme.buttonRadius
-        border.width: 2
-        border.color: Theme.warningColor
-        opacity: 0.7
-    }
-
-    // Translation editor popup
-    Popup {
-        id: translationEditorPopup
-        parent: Overlay.overlay
-        anchors.centerIn: parent
-        modal: true
-        dim: true
-        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
-
-        width: Math.min(450, (control.Window.window ? control.Window.window.width : 450) - 40)
-        padding: Theme.spacingMedium
-
-        background: Rectangle {
-            color: Theme.surfaceColor
-            radius: Theme.cardRadius
-            border.width: 1
-            border.color: Theme.borderColor
-        }
-
-        onOpened: {
-            popupTranslationInput.text = TranslationManager.translate(control.translationKey, "")
-            popupTranslationInput.forceActiveFocus()
-        }
-
-        contentItem: ColumnLayout {
-            spacing: Theme.spacingMedium
-
-            Text {
-                text: "Edit Translation"
-                font: Theme.titleFont
-                color: Theme.textColor
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
-
-                Text {
-                    text: "Key:"
-                    font: Theme.labelFont
-                    color: Theme.textSecondaryColor
-                }
-
-                Text {
-                    Layout.fillWidth: true
-                    text: control.translationKey
-                    font: Theme.labelFont
-                    color: Theme.textColor
-                    elide: Text.ElideMiddle
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
-
-                Text {
-                    text: "English (original):"
-                    font: Theme.labelFont
-                    color: Theme.textSecondaryColor
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    implicitHeight: popupEnglishText.height + 16
-                    color: Theme.backgroundColor
-                    radius: 4
-
-                    Text {
-                        id: popupEnglishText
-                        anchors.fill: parent
-                        anchors.margins: 8
-                        text: control.translationFallback
-                        font: Theme.bodyFont
-                        color: Theme.textColor
-                        wrapMode: Text.Wrap
-                    }
-                }
-            }
-
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
-
-                Text {
-                    text: "Translation (" + TranslationManager.getLanguageDisplayName(TranslationManager.currentLanguage) + "):"
-                    font: Theme.labelFont
-                    color: Theme.textSecondaryColor
-                }
-
-                StyledTextField {
-                    id: popupTranslationInput
-                    Layout.fillWidth: true
-                    placeholderText: "Enter translation..."
-
-                    Keys.onReturnPressed: popupSaveButton.clicked()
-                    Keys.onEnterPressed: popupSaveButton.clicked()
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingMedium
-
-                Item { Layout.fillWidth: true }
-
-                Button {
-                    text: "Cancel"
-                    onClicked: translationEditorPopup.close()
-
-                    background: Rectangle {
-                        implicitWidth: 80
-                        implicitHeight: Theme.touchTargetMin
-                        color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Theme.surfaceColor
-                        radius: Theme.buttonRadius
-                        border.width: 1
-                        border.color: Theme.borderColor
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: Theme.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-
-                Button {
-                    id: popupSaveButton
-                    text: "Save"
-                    onClicked: {
-                        if (popupTranslationInput.text.trim() !== "") {
-                            TranslationManager.setTranslation(control.translationKey, popupTranslationInput.text.trim())
-                        } else {
-                            TranslationManager.deleteTranslation(control.translationKey)
-                        }
-                        translationEditorPopup.close()
-                    }
-
-                    background: Rectangle {
-                        implicitWidth: 80
-                        implicitHeight: Theme.touchTargetMin
-                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                        radius: Theme.buttonRadius
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
+            control.pressAndHold()
         }
     }
 
     // Keyboard handling
     Keys.onReturnPressed: {
-        control._longPressTriggered = false
         control.clicked()
     }
 
     Keys.onEnterPressed: {
-        control._longPressTriggered = false
         control.clicked()
     }
 
     Keys.onSpacePressed: {
-        control._longPressTriggered = false
         control.clicked()
     }
 

@@ -209,6 +209,17 @@ void Settings::setSteamFlow(int flow) {
     }
 }
 
+bool Settings::steamDisabled() const {
+    return m_settings.value("steam/disabled", false).toBool();
+}
+
+void Settings::setSteamDisabled(bool disabled) {
+    if (steamDisabled() != disabled) {
+        m_settings.setValue("steam/disabled", disabled);
+        emit steamDisabledChanged();
+    }
+}
+
 // Steam pitcher presets
 QVariantList Settings::steamPitcherPresets() const {
     QByteArray data = m_settings.value("steam/pitcherPresets").toByteArray();

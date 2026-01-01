@@ -208,3 +208,109 @@ void BatteryManager::applySmartCharging() {
         emit isChargingChanged();
     }
 }
+
+bool BatteryManager::isBatteryOptimizationIgnored() const {
+#ifdef Q_OS_ANDROID
+    QJniObject context = QJniObject::callStaticObjectMethod(
+        "org/qtproject/qt/android/QtNative",
+        "getContext",
+        "()Landroid/content/Context;");
+
+    if (!context.isValid()) {
+        return true;  // Assume OK if we can't check
+    }
+
+    // Get PowerManager
+    QJniObject powerServiceName = QJniObject::getStaticObjectField(
+        "android/content/Context",
+        "POWER_SERVICE",
+        "Ljava/lang/String;");
+
+    QJniObject powerManager = context.callObjectMethod(
+        "getSystemService",
+        "(Ljava/lang/String;)Ljava/lang/Object;",
+        powerServiceName.object<jstring>());
+
+    if (!powerManager.isValid()) {
+        return true;
+    }
+
+    // Get package name
+    QJniObject packageName = context.callObjectMethod(
+        "getPackageName",
+        "()Ljava/lang/String;");
+
+    // Check if we're ignoring battery optimizations
+    jboolean isIgnoring = powerManager.callMethod<jboolean>(
+        "isIgnoringBatteryOptimizations",
+        "(Ljava/lang/String;)Z",
+        packageName.object<jstring>());
+
+    return isIgnoring;
+#else
+    return true;  // Non-Android platforms don't have this restriction
+#endif
+}
+
+void BatteryManager::requestIgnoreBatteryOptimization() {
+#ifdef Q_OS_ANDROID
+    if (isBatteryOptimizationIgnored()) {
+        return;  // Already whitelisted
+    }
+
+    QJniObject context = QJniObject::callStaticObjectMethod(
+        "org/qtproject/qt/android/QtNative",
+        "getContext",
+        "()Landroid/content/Context;");
+
+    if (!context.isValid()) {
+        return;
+    }
+
+    // Get package name
+    QJniObject packageName = context.callObjectMethod(
+        "getPackageName",
+        "()Ljava/lang/String;");
+
+    // Create intent to request ignoring battery optimizations
+    QJniObject actionString = QJniObject::getStaticObjectField(
+        "android/provider/Settings",
+        "ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "Ljava/lang/String;");
+
+    // Build URI: package:com.example.app
+    QString uriString = QString("package:%1").arg(packageName.toString());
+    QJniObject uri = QJniObject::callStaticObjectMethod(
+        "android/net/Uri",
+        "parse",
+        "(Ljava/lang/String;)Landroid/net/Uri;",
+        QJniObject::fromString(uriString).object<jstring>());
+
+    // Create intent
+    QJniObject intent("android/content/Intent",
+        "(Ljava/lang/String;Landroid/net/Uri;)V",
+        actionString.object<jstring>(),
+        uri.object());
+
+    // Add FLAG_ACTIVITY_NEW_TASK flag
+    jint flagNewTask = QJniObject::getStaticField<jint>(
+        "android/content/Intent",
+        "FLAG_ACTIVITY_NEW_TASK");
+    intent.callObjectMethod(
+        "addFlags",
+        "(I)Landroid/content/Intent;",
+        flagNewTask);
+
+    // Start activity
+    context.callMethod<void>(
+        "startActivity",
+        "(Landroid/content/Intent;)V",
+        intent.object());
+
+    // Emit signal after user potentially changes setting
+    // (Note: we can't know if user accepted, so we just emit after a delay)
+    QTimer::singleShot(1000, this, [this]() {
+        emit batteryOptimizationChanged();
+    });
+#endif
+}

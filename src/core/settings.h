@@ -26,6 +26,7 @@ class Settings : public QObject {
     Q_PROPERTY(double steamTemperature READ steamTemperature WRITE setSteamTemperature NOTIFY steamTemperatureChanged)
     Q_PROPERTY(int steamTimeout READ steamTimeout WRITE setSteamTimeout NOTIFY steamTimeoutChanged)
     Q_PROPERTY(int steamFlow READ steamFlow WRITE setSteamFlow NOTIFY steamFlowChanged)
+    Q_PROPERTY(bool steamDisabled READ steamDisabled WRITE setSteamDisabled NOTIFY steamDisabledChanged)
 
     // Steam pitcher presets
     Q_PROPERTY(QVariantList steamPitcherPresets READ steamPitcherPresets NOTIFY steamPitcherPresetsChanged)
@@ -127,6 +128,9 @@ public:
 
     int steamFlow() const;
     void setSteamFlow(int flow);
+
+    bool steamDisabled() const;
+    void setSteamDisabled(bool disabled);
 
     // Steam pitcher presets
     QVariantList steamPitcherPresets() const;
@@ -317,6 +321,7 @@ signals:
     void steamTemperatureChanged();
     void steamTimeoutChanged();
     void steamFlowChanged();
+    void steamDisabledChanged();
     void steamPitcherPresetsChanged();
     void selectedSteamPitcherChanged();
     void favoriteProfilesChanged();

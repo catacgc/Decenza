@@ -15,7 +15,7 @@ Item {
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.maximumWidth: Theme.settingsColumnMax
+            Layout.maximumWidth: 300
             color: Theme.surfaceColor
             radius: Theme.cardRadius
 
@@ -24,14 +24,12 @@ Item {
                 anchors.margins: Theme.spacingMedium
                 spacing: Theme.spacingMedium
 
-                // Header
                 Text {
                     text: "Languages"
-                    font: Theme.titleFont
+                    font: Theme.subtitleFont
                     color: Theme.textColor
                 }
 
-                // Language list
                 ListView {
                     id: languageList
                     Layout.fillWidth: true
@@ -41,35 +39,51 @@ Item {
 
                     delegate: ItemDelegate {
                         width: languageList.width
-                        height: Theme.touchTargetMin
+                        height: 44
                         highlighted: modelData === TranslationManager.currentLanguage
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: {
+                            var display = TranslationManager.getLanguageDisplayName(modelData)
+                            var nativeName = TranslationManager.getLanguageNativeName(modelData)
+                            var name = nativeName !== display ? display + ", " + nativeName : display
+                            if (highlighted) name += ", selected"
+                            return name
+                        }
+                        Accessible.description: "Select " + TranslationManager.getLanguageDisplayName(modelData) + " language"
 
                         background: Rectangle {
                             color: highlighted ? Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.2) : "transparent"
-                            radius: 4
+                            radius: Theme.buttonRadius
                         }
 
                         contentItem: RowLayout {
-                            spacing: Theme.spacingSmall
+                            spacing: 8
 
                             Text {
                                 Layout.fillWidth: true
-                                text: TranslationManager.getLanguageDisplayName(modelData) +
-                                      (TranslationManager.getLanguageNativeName(modelData) !== TranslationManager.getLanguageDisplayName(modelData) ?
-                                       " (" + TranslationManager.getLanguageNativeName(modelData) + ")" : "")
+                                text: {
+                                    var display = TranslationManager.getLanguageDisplayName(modelData)
+                                    var nativeName = TranslationManager.getLanguageNativeName(modelData)
+                                    return nativeName !== display ? display + " (" + nativeName + ")" : display
+                                }
                                 font: Theme.bodyFont
                                 color: highlighted ? Theme.primaryColor : Theme.textColor
                                 elide: Text.ElideRight
                             }
 
-                            // Progress indicator for non-English
+                            // Percentage for non-English languages
                             Text {
-                                visible: modelData !== "en" && modelData === TranslationManager.currentLanguage
+                                visible: modelData !== "en"
                                 text: {
-                                    var total = TranslationManager.totalStringCount
-                                    if (total === 0) return ""
-                                    var translated = total - TranslationManager.untranslatedCount
-                                    return Math.round((translated / total) * 100) + "%"
+                                    // This is approximate - would need per-language tracking for accuracy
+                                    if (modelData === TranslationManager.currentLanguage) {
+                                        var total = TranslationManager.totalStringCount
+                                        if (total === 0) return ""
+                                        var translated = total - TranslationManager.untranslatedCount
+                                        return Math.round((translated / total) * 100) + "%"
+                                    }
+                                    return ""
                                 }
                                 font: Theme.labelFont
                                 color: Theme.textSecondaryColor
@@ -80,56 +94,69 @@ Item {
                     }
                 }
 
-                // Add language button
-                Button {
+                // Add / Download buttons
+                RowLayout {
                     Layout.fillWidth: true
-                    text: "Add Language..."
-                    onClicked: addLanguageDialog.open()
+                    spacing: Theme.spacingSmall
 
-                    background: Rectangle {
-                        implicitHeight: Theme.touchTargetMin
-                        color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Theme.backgroundColor
-                        radius: Theme.buttonRadius
-                        border.width: 1
-                        border.color: Theme.borderColor
+                    Button {
+                        Layout.fillWidth: true
+                        text: "Add..."
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "Add language"
+                        Accessible.description: "Add a new language for translation"
+
+                        onClicked: pageStack.push("AddLanguagePage.qml")
+
+                        background: Rectangle {
+                            implicitHeight: 40
+                            color: parent.down ? Qt.darker(Theme.backgroundColor, 1.1) : Theme.backgroundColor
+                            radius: Theme.buttonRadius
+                            border.width: 1
+                            border.color: Theme.borderColor
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            font: Theme.bodyFont
+                            color: Theme.textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
                     }
 
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: Theme.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
+                    Button {
+                        Layout.fillWidth: true
+                        text: TranslationManager.downloading ? "..." : "Download"
+                        enabled: !TranslationManager.downloading
+
+                        Accessible.role: Accessible.Button
+                        Accessible.name: TranslationManager.downloading ? "Downloading" : "Download community translations"
+                        Accessible.description: "Download translations from the community"
+
+                        background: Rectangle {
+                            implicitHeight: 40
+                            color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+                            radius: Theme.buttonRadius
+                            opacity: parent.enabled ? 1.0 : 0.5
+                        }
+
+                        contentItem: Text {
+                            text: parent.text
+                            font: Theme.bodyFont
+                            color: "white"
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        onClicked: TranslationManager.downloadLanguageList()
                     }
-                }
-
-                // Download languages button
-                Button {
-                    Layout.fillWidth: true
-                    text: TranslationManager.downloading ? "Downloading..." : "Download Community Languages"
-                    enabled: !TranslationManager.downloading
-
-                    background: Rectangle {
-                        implicitHeight: Theme.touchTargetMin
-                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                        radius: Theme.buttonRadius
-                        opacity: parent.enabled ? 1.0 : 0.5
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
-                    onClicked: TranslationManager.downloadLanguageList()
                 }
             }
         }
 
-        // Right column: Translation tools
+        // Right column: Translation progress & actions
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -142,71 +169,49 @@ Item {
                 spacing: Theme.spacingMedium
 
                 Text {
-                    text: "Translation Tools"
-                    font: Theme.titleFont
+                    text: "Translation"
+                    font: Theme.subtitleFont
                     color: Theme.textColor
                 }
 
-                // Edit mode toggle
+                // Progress card (non-English only)
                 Rectangle {
                     Layout.fillWidth: true
-                    implicitHeight: editModeRow.implicitHeight + Theme.spacingMedium * 2
+                    implicitHeight: progressColumn.height + 24
                     color: Theme.backgroundColor
-                    radius: 4
-
-                    RowLayout {
-                        id: editModeRow
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Theme.spacingMedium
-
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            spacing: 4
-
-                            Text {
-                                text: "Edit Mode"
-                                font: Theme.subtitleFont
-                                color: Theme.textColor
-                            }
-
-                            Text {
-                                text: "Click any text in the app to translate it"
-                                font: Theme.labelFont
-                                color: Theme.textSecondaryColor
-                                wrapMode: Text.Wrap
-                                Layout.fillWidth: true
-                            }
-                        }
-
-                        Switch {
-                            checked: TranslationManager.editModeEnabled
-                            onCheckedChanged: TranslationManager.editModeEnabled = checked
-                        }
-                    }
-                }
-
-                // Translation status
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: translationStatusColumn.height + Theme.spacingMedium * 2
-                    color: Theme.backgroundColor
-                    radius: 4
+                    radius: Theme.buttonRadius
                     visible: TranslationManager.currentLanguage !== "en"
 
                     ColumnLayout {
-                        id: translationStatusColumn
+                        id: progressColumn
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        anchors.margins: Theme.spacingMedium
+                        anchors.margins: 12
                         spacing: 8
 
-                        Text {
-                            text: "Translation Status: " + TranslationManager.getLanguageDisplayName(TranslationManager.currentLanguage)
-                            font: Theme.subtitleFont
-                            color: Theme.textColor
+                        RowLayout {
+                            Layout.fillWidth: true
+
+                            Text {
+                                text: TranslationManager.getLanguageDisplayName(TranslationManager.currentLanguage)
+                                font.family: Theme.bodyFont.family
+                                font.pixelSize: Theme.bodyFont.pixelSize
+                                font.bold: true
+                                color: Theme.textColor
+                            }
+
+                            Item { Layout.fillWidth: true }
+
+                            Text {
+                                text: {
+                                    var total = TranslationManager.totalStringCount
+                                    var translated = total - TranslationManager.untranslatedCount
+                                    return translated + " / " + total
+                                }
+                                font: Theme.labelFont
+                                color: Theme.textSecondaryColor
+                            }
                         }
 
                         ProgressBar {
@@ -214,6 +219,14 @@ Item {
                             from: 0
                             to: Math.max(1, TranslationManager.totalStringCount)
                             value: TranslationManager.totalStringCount - TranslationManager.untranslatedCount
+
+                            Accessible.role: Accessible.ProgressBar
+                            Accessible.name: {
+                                var total = TranslationManager.totalStringCount
+                                var translated = total - TranslationManager.untranslatedCount
+                                var percent = Math.round((translated / Math.max(1, total)) * 100)
+                                return "Translation progress: " + percent + " percent, " + translated + " of " + total + " strings"
+                            }
 
                             background: Rectangle {
                                 implicitHeight: 8
@@ -232,121 +245,78 @@ Item {
                         }
 
                         Text {
-                            text: (TranslationManager.totalStringCount - TranslationManager.untranslatedCount) +
-                                  " of " + TranslationManager.totalStringCount + " strings translated"
+                            text: {
+                                var total = TranslationManager.totalStringCount
+                                var translated = total - TranslationManager.untranslatedCount
+                                var percent = Math.round((translated / Math.max(1, total)) * 100)
+                                if (percent === 100) return "Translation complete!"
+                                return TranslationManager.untranslatedCount + " strings need translation"
+                            }
                             font: Theme.labelFont
                             color: Theme.textSecondaryColor
                         }
                     }
                 }
 
-                // Current language info
+                // English info
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: langInfoColumn.height + Theme.spacingMedium * 2
+                    implicitHeight: 50
                     color: Theme.backgroundColor
-                    radius: 4
+                    radius: Theme.buttonRadius
                     visible: TranslationManager.currentLanguage === "en"
 
-                    ColumnLayout {
-                        id: langInfoColumn
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: Theme.spacingMedium
-                        spacing: 4
-
-                        Text {
-                            text: "English (Source Language)"
-                            font: Theme.subtitleFont
-                            color: Theme.textColor
-                        }
-
-                        Text {
-                            text: "Select a different language to start translating, or add a new language."
-                            font: Theme.labelFont
-                            color: Theme.textSecondaryColor
-                            wrapMode: Text.Wrap
-                            Layout.fillWidth: true
-                        }
+                    Text {
+                        anchors.centerIn: parent
+                        text: "English is the base language.\nYou can customize the default text below."
+                        font: Theme.bodyFont
+                        color: Theme.textSecondaryColor
+                        horizontalAlignment: Text.AlignHCenter
                     }
+                }
+
+                // Browse strings button
+                Button {
+                    Layout.fillWidth: true
+                    text: TranslationManager.currentLanguage === "en" ? "Browse & Customize Strings..." : "Browse & Translate Strings..."
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: TranslationManager.currentLanguage === "en" ? "Browse and customize strings" : "Browse and translate strings"
+                    Accessible.description: TranslationManager.currentLanguage === "en" ? "Open the string browser to customize English text" : "Open the translation browser to translate individual strings"
+
+                    background: Rectangle {
+                        implicitHeight: 48
+                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+                        radius: Theme.buttonRadius
+                    }
+
+                    contentItem: Text {
+                        text: parent.text
+                        font: Theme.bodyFont
+                        color: "white"
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                    }
+
+                    onClicked: pageStack.push("StringBrowserPage.qml")
                 }
 
                 Item { Layout.fillHeight: true }
 
-                // Export/Import buttons
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.spacingMedium
-
-                    Button {
-                        Layout.fillWidth: true
-                        text: "Export"
-                        enabled: TranslationManager.currentLanguage !== "en"
-
-                        background: Rectangle {
-                            implicitHeight: Theme.touchTargetMin
-                            color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Theme.backgroundColor
-                            radius: Theme.buttonRadius
-                            border.width: 1
-                            border.color: Theme.borderColor
-                            opacity: parent.enabled ? 1.0 : 0.5
-                        }
-
-                        contentItem: Text {
-                            text: parent.text
-                            font: Theme.bodyFont
-                            color: Theme.textColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            opacity: parent.enabled ? 1.0 : 0.5
-                        }
-
-                        onClicked: {
-                            // Export to downloads folder
-                            var filename = TranslationManager.currentLanguage + "_translation.json"
-                            TranslationManager.exportTranslation(filename)
-                        }
-                    }
-
-                    Button {
-                        Layout.fillWidth: true
-                        text: "Import"
-
-                        background: Rectangle {
-                            implicitHeight: Theme.touchTargetMin
-                            color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Theme.backgroundColor
-                            radius: Theme.buttonRadius
-                            border.width: 1
-                            border.color: Theme.borderColor
-                        }
-
-                        contentItem: Text {
-                            text: parent.text
-                            font: Theme.bodyFont
-                            color: Theme.textColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        onClicked: {
-                            // TODO: Open file picker
-                            console.log("Import not yet implemented - use file manager to copy JSON to app data folder")
-                        }
-                    }
-                }
-
-                // Submit to community button
+                // Submit to community button (not for English)
                 Button {
                     Layout.fillWidth: true
                     text: "Submit to Community"
-                    enabled: TranslationManager.currentLanguage !== "en"
+                    visible: TranslationManager.currentLanguage !== "en"
+
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "Submit to community"
+                    Accessible.description: "Share your translations with the community on GitHub"
 
                     background: Rectangle {
-                        implicitHeight: Theme.touchTargetMin
-                        color: parent.down ? Qt.darker(Theme.successColor, 1.2) : Theme.successColor
+                        implicitHeight: 48
+                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
                         radius: Theme.buttonRadius
-                        opacity: parent.enabled ? 1.0 : 0.5
                     }
 
                     contentItem: Text {
@@ -358,135 +328,6 @@ Item {
                     }
 
                     onClicked: TranslationManager.openGitHubSubmission()
-                }
-            }
-        }
-    }
-
-    // Add Language Dialog
-    Dialog {
-        id: addLanguageDialog
-        title: "Add New Language"
-        modal: true
-        anchors.centerIn: parent
-        width: Math.min(350, parent.width - 40)
-
-        background: Rectangle {
-            color: Theme.surfaceColor
-            radius: Theme.cardRadius
-            border.width: 1
-            border.color: Theme.borderColor
-        }
-
-        header: Rectangle {
-            color: "transparent"
-            height: 50
-            Text {
-                anchors.centerIn: parent
-                text: addLanguageDialog.title
-                font: Theme.titleFont
-                color: Theme.textColor
-            }
-        }
-
-        contentItem: ColumnLayout {
-            spacing: Theme.spacingMedium
-
-            Text {
-                text: "Language Code (e.g., de, fr, es):"
-                font: Theme.labelFont
-                color: Theme.textSecondaryColor
-            }
-
-            StyledTextField {
-                id: langCodeInput
-                Layout.fillWidth: true
-                placeholderText: "en"
-                maximumLength: 5
-            }
-
-            Text {
-                text: "Display Name (e.g., German, French):"
-                font: Theme.labelFont
-                color: Theme.textSecondaryColor
-            }
-
-            StyledTextField {
-                id: langNameInput
-                Layout.fillWidth: true
-                placeholderText: "English"
-            }
-
-            Text {
-                text: "Native Name (e.g., Deutsch, Francais):"
-                font: Theme.labelFont
-                color: Theme.textSecondaryColor
-            }
-
-            StyledTextField {
-                id: langNativeNameInput
-                Layout.fillWidth: true
-                placeholderText: "Optional"
-            }
-        }
-
-        footer: RowLayout {
-            spacing: Theme.spacingMedium
-
-            Item { Layout.fillWidth: true }
-
-            Button {
-                text: "Cancel"
-                onClicked: addLanguageDialog.close()
-
-                background: Rectangle {
-                    implicitWidth: 80
-                    implicitHeight: Theme.touchTargetMin
-                    color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Theme.surfaceColor
-                    radius: Theme.buttonRadius
-                    border.width: 1
-                    border.color: Theme.borderColor
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    font: Theme.bodyFont
-                    color: Theme.textColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
-
-            Button {
-                text: "Add"
-                enabled: langCodeInput.text.trim().length >= 2 && langNameInput.text.trim().length >= 2
-
-                background: Rectangle {
-                    implicitWidth: 80
-                    implicitHeight: Theme.touchTargetMin
-                    color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                    radius: Theme.buttonRadius
-                    opacity: parent.enabled ? 1.0 : 0.5
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    font: Theme.bodyFont
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                onClicked: {
-                    TranslationManager.addLanguage(
-                        langCodeInput.text.trim().toLowerCase(),
-                        langNameInput.text.trim(),
-                        langNativeNameInput.text.trim()
-                    )
-                    langCodeInput.text = ""
-                    langNameInput.text = ""
-                    langNativeNameInput.text = ""
-                    addLanguageDialog.close()
                 }
             }
         }

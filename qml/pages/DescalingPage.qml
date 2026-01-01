@@ -12,6 +12,9 @@ Page {
     Component.onCompleted: root.currentPageTitle = TranslationManager.translate("descaling.title", "Descaling")
     StackView.onActivated: root.currentPageTitle = TranslationManager.translate("descaling.title", "Descaling")
 
+    // Restore espresso profile when leaving descale page
+    Component.onDestruction: MainController.uploadCurrentProfile()
+
     property bool isDescaling: MachineState.phase === MachineStateType.Phase.Descaling
     property bool showRinseInstructions: false
 
@@ -61,111 +64,116 @@ Page {
             spacing: Theme.scaled(16)
 
             // === DESCALING IN PROGRESS VIEW ===
-            ColumnLayout {
+            Item {
                 visible: isDescaling
                 Layout.fillWidth: true
-                spacing: Theme.scaled(20)
+                Layout.fillHeight: true
 
-                Item { Layout.preferredHeight: Theme.scaled(40) }
+                ColumnLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.min(Theme.scaled(500), parent.width - Theme.scaled(40))
+                    spacing: Theme.scaled(20)
 
-                // Progress indicator
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.preferredWidth: Math.min(Theme.scaled(500), parent.width - Theme.scaled(40))
-                    Layout.preferredHeight: Theme.scaled(200)
-                    color: Theme.surfaceColor
-                    radius: Theme.cardRadius
+                    Item { Layout.preferredHeight: Theme.scaled(40) }
 
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        spacing: Theme.scaled(16)
+                    // Progress indicator
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: Theme.scaled(200)
+                        color: Theme.surfaceColor
+                        radius: Theme.cardRadius
 
-                        Tr {
-                            Layout.alignment: Qt.AlignHCenter
-                            key: "descaling.inprogress.title"
-                            fallback: "Descaling in Progress"
-                            font: Theme.titleFont
-                            color: Theme.textColor
-                        }
+                        ColumnLayout {
+                            anchors.centerIn: parent
+                            spacing: Theme.scaled(16)
 
-                        Text {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: getDescaleStepDescription(DE1Device.subState)
-                            font: Theme.bodyFont
-                            color: Theme.textSecondaryColor
-                        }
+                            Tr {
+                                Layout.alignment: Qt.AlignHCenter
+                                key: "descaling.inprogress.title"
+                                fallback: "Descaling in Progress"
+                                font: Theme.titleFont
+                                color: Theme.textColor
+                            }
 
-                        // Progress bar
-                        Rectangle {
-                            Layout.alignment: Qt.AlignHCenter
-                            Layout.preferredWidth: Theme.scaled(300)
-                            Layout.preferredHeight: Theme.scaled(12)
-                            radius: 6
-                            color: Theme.backgroundColor
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: getDescaleStepDescription(DE1Device.subState)
+                                font: Theme.bodyFont
+                                color: Theme.textSecondaryColor
+                            }
 
+                            // Progress bar
                             Rectangle {
-                                width: parent.width * getDescaleProgress(DE1Device.subState)
-                                height: parent.height
+                                Layout.alignment: Qt.AlignHCenter
+                                Layout.preferredWidth: Theme.scaled(300)
+                                Layout.preferredHeight: Theme.scaled(12)
                                 radius: 6
-                                color: Theme.primaryColor
+                                color: Theme.backgroundColor
 
-                                Behavior on width { NumberAnimation { duration: 300 } }
+                                Rectangle {
+                                    width: parent.width * getDescaleProgress(DE1Device.subState)
+                                    height: parent.height
+                                    radius: 6
+                                    color: Theme.primaryColor
+
+                                    Behavior on width { NumberAnimation { duration: 300 } }
+                                }
+                            }
+
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                text: Math.round(getDescaleProgress(DE1Device.subState) * 100) + "%"
+                                font: Theme.captionFont
+                                color: Theme.textSecondaryColor
                             }
                         }
-
-                        Text {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: Math.round(getDescaleProgress(DE1Device.subState) * 100) + "%"
-                            font: Theme.captionFont
-                            color: Theme.textSecondaryColor
-                        }
                     }
-                }
 
-                // Timer display
-                Text {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: MachineState.shotTime.toFixed(0) + "s"
-                    font: Theme.timerFont
-                    color: Theme.textColor
-                }
-
-                Tr {
-                    Layout.alignment: Qt.AlignHCenter
-                    key: "descaling.inprogress.dontstop"
-                    fallback: "Do not stop the machine during descaling"
-                    font: Theme.captionFont
-                    color: Theme.warningColor
-                }
-
-                Item { Layout.fillHeight: true }
-
-                // Stop button (emergency only, for headless machines)
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    Layout.preferredWidth: Theme.scaled(200)
-                    Layout.preferredHeight: Theme.scaled(50)
-                    visible: DE1Device.isHeadless
-                    radius: Theme.cardRadius
-                    color: stopArea.pressed ? Qt.darker(Theme.errorColor, 1.2) : Theme.errorColor
+                    // Timer display
+                    Text {
+                        Layout.alignment: Qt.AlignHCenter
+                        text: MachineState.shotTime.toFixed(0) + "s"
+                        font: Theme.timerFont
+                        color: Theme.textColor
+                    }
 
                     Tr {
-                        anchors.centerIn: parent
-                        key: "descaling.button.emergencystop"
-                        fallback: "Emergency Stop"
-                        color: "white"
-                        font.pixelSize: Theme.scaled(18)
-                        font.weight: Font.Bold
+                        Layout.alignment: Qt.AlignHCenter
+                        key: "descaling.inprogress.dontstop"
+                        fallback: "Do not stop the machine during descaling"
+                        font: Theme.captionFont
+                        color: Theme.warningColor
                     }
 
-                    MouseArea {
-                        id: stopArea
-                        anchors.fill: parent
-                        onClicked: DE1Device.stopOperation()
+                    Item { Layout.fillHeight: true }
+
+                    // Stop button (emergency only, for headless machines)
+                    Rectangle {
+                        Layout.alignment: Qt.AlignHCenter
+                        Layout.preferredWidth: Theme.scaled(200)
+                        Layout.preferredHeight: Theme.scaled(50)
+                        visible: DE1Device.isHeadless
+                        radius: Theme.cardRadius
+                        color: stopArea.pressed ? Qt.darker(Theme.errorColor, 1.2) : Theme.errorColor
+
+                        Tr {
+                            anchors.centerIn: parent
+                            key: "descaling.button.emergencystop"
+                            fallback: "Emergency Stop"
+                            color: "white"
+                            font.pixelSize: Theme.scaled(18)
+                            font.weight: Font.Bold
+                        }
+
+                        MouseArea {
+                            id: stopArea
+                            anchors.fill: parent
+                            onClicked: DE1Device.stopOperation()
+                        }
                     }
+
+                    Item { Layout.preferredHeight: Theme.scaled(20) }
                 }
-
-                Item { Layout.preferredHeight: Theme.scaled(20) }
             }
 
             // === RINSE INSTRUCTIONS VIEW ===
@@ -175,14 +183,17 @@ Page {
                 spacing: Theme.scaled(12)
 
                 Rectangle {
+                    id: rinseCard
                     Layout.fillWidth: true
-                    Layout.preferredHeight: rinseContent.implicitHeight + Theme.scaled(32)
+                    implicitHeight: rinseContent.implicitHeight + Theme.scaled(32)
                     color: Theme.surfaceColor
                     radius: Theme.cardRadius
 
                     ColumnLayout {
                         id: rinseContent
-                        anchors.fill: parent
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.top: parent.top
                         anchors.margins: Theme.scaled(16)
                         spacing: Theme.scaled(12)
 
@@ -218,6 +229,7 @@ Page {
                             font.bold: true
                             color: Theme.warningColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                         Tr {
@@ -227,6 +239,7 @@ Page {
                             font: Theme.subtitleFont
                             color: Theme.textColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                         Tr {
@@ -236,6 +249,7 @@ Page {
                             font: Theme.bodyFont
                             color: Theme.textSecondaryColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                         Tr {
@@ -245,6 +259,7 @@ Page {
                             font: Theme.subtitleFont
                             color: Theme.textColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                         Tr {
@@ -254,6 +269,7 @@ Page {
                             font: Theme.bodyFont
                             color: Theme.textSecondaryColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                         Tr {
@@ -263,6 +279,7 @@ Page {
                             font: Theme.subtitleFont
                             color: Theme.textColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                         Tr {
@@ -272,6 +289,7 @@ Page {
                             font: Theme.bodyFont
                             color: Theme.textSecondaryColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
 
                         Tr {
@@ -282,6 +300,7 @@ Page {
                             font.italic: true
                             color: Theme.textSecondaryColor
                             wrapMode: Text.WordWrap
+                            horizontalAlignment: Text.AlignHCenter
                         }
                     }
                 }
@@ -356,7 +375,7 @@ Page {
                         Tr {
                             Layout.fillWidth: true
                             key: "descaling.warning.steam"
-                            fallback: "\u2022 Disable steam heater first and wait until steam temp is below 60\u00b0C (can take 1 hour)"
+                            fallback: "• Disable steam heater and wait until steam temp is below 60°C (can take 1 hour)"
                             font: Theme.bodyFont
                             color: Theme.textColor
                             wrapMode: Text.WordWrap
@@ -382,95 +401,174 @@ Page {
                     }
                 }
 
-                // Solution preparation
-                Rectangle {
+                // Solution preparation + Steam heater (two columns)
+                RowLayout {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: solutionContent.implicitHeight + Theme.scaled(24)
-                    color: Theme.surfaceColor
-                    radius: Theme.cardRadius
+                    spacing: Theme.scaled(12)
 
-                    ColumnLayout {
-                        id: solutionContent
-                        anchors.fill: parent
-                        anchors.margins: Theme.scaled(12)
-                        spacing: Theme.scaled(8)
+                    // Left column: Solution recipe
+                    Rectangle {
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: solutionContent.implicitHeight + Theme.scaled(24)
+                        color: Theme.surfaceColor
+                        radius: Theme.cardRadius
 
-                        Tr {
-                            key: "descaling.solution.title"
-                            fallback: "Prepare 5% Citric Acid Solution"
-                            font: Theme.subtitleFont
-                            color: Theme.textColor
-                        }
+                        ColumnLayout {
+                            id: solutionContent
+                            anchors.fill: parent
+                            anchors.margins: Theme.scaled(12)
+                            spacing: Theme.scaled(8)
 
-                        Rectangle {
-                            Layout.fillWidth: true
-                            Layout.preferredHeight: Theme.scaled(60)
-                            color: Theme.backgroundColor
-                            radius: 8
+                            Tr {
+                                key: "descaling.solution.title"
+                                fallback: "Prepare 5% Citric Acid Solution"
+                                font: Theme.subtitleFont
+                                color: Theme.textColor
+                            }
 
-                            RowLayout {
-                                anchors.centerIn: parent
-                                spacing: Theme.scaled(30)
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Theme.scaled(60)
+                                color: Theme.backgroundColor
+                                radius: 8
 
-                                Column {
-                                    spacing: 4
-                                    Text {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: "1540 ml"
-                                        font: Theme.titleFont
-                                        color: Theme.flowColor
+                                RowLayout {
+                                    anchors.centerIn: parent
+                                    spacing: Theme.scaled(30)
+
+                                    Column {
+                                        spacing: 4
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: "1540 ml"
+                                            font: Theme.titleFont
+                                            color: Theme.flowColor
+                                        }
+                                        Tr {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            key: "descaling.solution.water"
+                                            fallback: "water (room temp)"
+                                            font: Theme.captionFont
+                                            color: Theme.textSecondaryColor
+                                        }
                                     }
-                                    Tr {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        key: "descaling.solution.water"
-                                        fallback: "water (room temp)"
-                                        font: Theme.captionFont
+
+                                    Text {
+                                        text: "+"
+                                        font: Theme.titleFont
                                         color: Theme.textSecondaryColor
                                     }
-                                }
 
-                                Text {
-                                    text: "+"
-                                    font: Theme.titleFont
-                                    color: Theme.textSecondaryColor
-                                }
-
-                                Column {
-                                    spacing: 4
-                                    Text {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        text: "80 g"
-                                        font: Theme.titleFont
-                                        color: Theme.pressureColor
-                                    }
-                                    Tr {
-                                        anchors.horizontalCenter: parent.horizontalCenter
-                                        key: "descaling.solution.citric"
-                                        fallback: "citric acid"
-                                        font: Theme.captionFont
-                                        color: Theme.textSecondaryColor
+                                    Column {
+                                        spacing: 4
+                                        Text {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            text: "80 g"
+                                            font: Theme.titleFont
+                                            color: Theme.pressureColor
+                                        }
+                                        Tr {
+                                            anchors.horizontalCenter: parent.horizontalCenter
+                                            key: "descaling.solution.citric"
+                                            fallback: "citric acid"
+                                            font: Theme.captionFont
+                                            color: Theme.textSecondaryColor
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        Tr {
-                            Layout.fillWidth: true
-                            key: "descaling.solution.note"
-                            fallback: "Mix until fully dissolved. Do NOT use hot water (80-100\u00b0C) - room temperature to warm (20-40\u00b0C) is best."
-                            font: Theme.captionFont
-                            color: Theme.textSecondaryColor
-                            wrapMode: Text.WordWrap
-                        }
+                            Tr {
+                                Layout.fillWidth: true
+                                key: "descaling.solution.note"
+                                fallback: "Mix until fully dissolved. Do NOT use hot water (80-100°C) - room temperature to warm (20-40°C) is best."
+                                font: Theme.captionFont
+                                color: Theme.textSecondaryColor
+                                wrapMode: Text.WordWrap
+                            }
 
-                        Tr {
-                            Layout.fillWidth: true
-                            key: "descaling.solution.oldmachine"
-                            fallback: "For v1.0/v1.1 machines: Never exceed 5% concentration (can damage old pressure sensor)."
-                            font.pixelSize: Theme.captionFont.pixelSize
-                            font.italic: true
-                            color: Theme.warningColor
-                            wrapMode: Text.WordWrap
+                            Tr {
+                                Layout.fillWidth: true
+                                key: "descaling.solution.oldmachine"
+                                fallback: "For v1.0/v1.1 machines: Never exceed 5% concentration (can damage old pressure sensor)."
+                                font.pixelSize: Theme.captionFont.pixelSize
+                                font.italic: true
+                                color: Theme.warningColor
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    // Right column: Steam heater control
+                    Rectangle {
+                        Layout.preferredWidth: Theme.scaled(160)
+                        Layout.fillHeight: true
+                        color: Theme.surfaceColor
+                        radius: Theme.cardRadius
+
+                        ColumnLayout {
+                            id: steamContent
+                            anchors.fill: parent
+                            anchors.margins: Theme.scaled(12)
+                            spacing: Theme.scaled(8)
+
+                            Tr {
+                                Layout.alignment: Qt.AlignHCenter
+                                key: "descaling.steam.title"
+                                fallback: "Steam Heater"
+                                font: Theme.subtitleFont
+                                color: Theme.textColor
+                            }
+
+                            Item { Layout.fillHeight: true }
+
+                            // Temperature readout
+                            Text {
+                                Layout.alignment: Qt.AlignHCenter
+                                property real temp: typeof DE1Device.steamTemperature === 'number' ? DE1Device.steamTemperature : 0
+                                text: temp.toFixed(0) + "°C"
+                                font.pixelSize: Theme.scaled(36)
+                                font.weight: Font.Bold
+                                color: temp >= 60 ? Theme.errorColor : Theme.primaryColor
+                            }
+
+                            Item { Layout.fillHeight: true }
+
+                            // Toggle button
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Theme.scaled(36)
+                                radius: Theme.cardRadius
+                                color: steamToggleArea.pressed
+                                    ? Qt.darker(Settings.steamDisabled ? Theme.primaryColor : Theme.errorColor, 1.2)
+                                    : (Settings.steamDisabled ? Theme.primaryColor : Theme.errorColor)
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: Settings.steamDisabled
+                                        ? TranslationManager.translate("descaling.steam.enable", "Enable")
+                                        : TranslationManager.translate("descaling.steam.disable", "Disable")
+                                    color: "white"
+                                    font.pixelSize: Theme.scaled(14)
+                                    font.weight: Font.Bold
+                                }
+
+                                MouseArea {
+                                    id: steamToggleArea
+                                    anchors.fill: parent
+                                    onClicked: {
+                                        if (Settings.steamDisabled) {
+                                            // Enable: restore saved temperature and clear disabled flag
+                                            Settings.steamDisabled = false
+                                            MainController.sendSteamTemperature(Settings.steamTemperature)
+                                        } else {
+                                            // Disable: set flag and send 0 temp (but keep saved temp in settings)
+                                            Settings.steamDisabled = true
+                                            MainController.sendSteamTemperature(0)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -498,7 +596,7 @@ Page {
                         Tr {
                             Layout.fillWidth: true
                             key: "descaling.steps.1"
-                            fallback: "1. Disable steam heater (Steam page) and wait for steam temp to drop below 60\u00b0C"
+                            fallback: "1. Disable steam heater and wait for steam temp to drop below 60°C"
                             font: Theme.bodyFont
                             color: Theme.textColor
                             wrapMode: Text.WordWrap

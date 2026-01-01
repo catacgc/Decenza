@@ -12,6 +12,7 @@ class BatteryManager : public QObject {
     Q_PROPERTY(int batteryPercent READ batteryPercent NOTIFY batteryPercentChanged)
     Q_PROPERTY(bool isCharging READ isCharging NOTIFY isChargingChanged)
     Q_PROPERTY(int chargingMode READ chargingMode WRITE setChargingMode NOTIFY chargingModeChanged)
+    Q_PROPERTY(bool batteryOptimizationIgnored READ isBatteryOptimizationIgnored NOTIFY batteryOptimizationChanged)
 
 public:
     // Charging modes (matching de1app)
@@ -30,15 +31,18 @@ public:
     int batteryPercent() const { return m_batteryPercent; }
     bool isCharging() const { return m_isCharging; }
     int chargingMode() const { return m_chargingMode; }
+    bool isBatteryOptimizationIgnored() const;
 
 public slots:
     void setChargingMode(int mode);
     void checkBattery();
+    Q_INVOKABLE void requestIgnoreBatteryOptimization();
 
 signals:
     void batteryPercentChanged();
     void isChargingChanged();
     void chargingModeChanged();
+    void batteryOptimizationChanged();
 
 private:
     int readPlatformBatteryPercent();

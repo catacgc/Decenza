@@ -9,6 +9,8 @@
 #include "../ai/aimanager.h"
 #include <QDir>
 #include <QFile>
+#include <QTextStream>
+#include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QStandardPaths>
@@ -124,6 +126,13 @@ QVariantList MainController::availableProfiles() const {
         profile["title"] = m_profileTitles.value(name, name);  // display title
         result.append(profile);
     }
+
+    // Sort by title alphabetically (case-insensitive)
+    std::sort(result.begin(), result.end(), [](const QVariant& a, const QVariant& b) {
+        return a.toMap()["title"].toString().compare(
+            b.toMap()["title"].toString(), Qt::CaseInsensitive) < 0;
+    });
+
     return result;
 }
 
@@ -185,6 +194,12 @@ QVariantList MainController::allBuiltInProfiles() const {
         }
     }
 
+    // Sort by title alphabetically (case-insensitive)
+    std::sort(result.begin(), result.end(), [](const QVariant& a, const QVariant& b) {
+        return a.toMap()["title"].toString().compare(
+            b.toMap()["title"].toString(), Qt::CaseInsensitive) < 0;
+    });
+
     return result;
 }
 
@@ -203,6 +218,12 @@ QVariantList MainController::cleaningProfiles() const {
         }
     }
 
+    // Sort by title alphabetically (case-insensitive)
+    std::sort(result.begin(), result.end(), [](const QVariant& a, const QVariant& b) {
+        return a.toMap()["title"].toString().compare(
+            b.toMap()["title"].toString(), Qt::CaseInsensitive) < 0;
+    });
+
     return result;
 }
 
@@ -219,6 +240,12 @@ QVariantList MainController::downloadedProfiles() const {
             result.append(profile);
         }
     }
+
+    // Sort by title alphabetically (case-insensitive)
+    std::sort(result.begin(), result.end(), [](const QVariant& a, const QVariant& b) {
+        return a.toMap()["title"].toString().compare(
+            b.toMap()["title"].toString(), Qt::CaseInsensitive) < 0;
+    });
 
     return result;
 }
@@ -237,6 +264,12 @@ QVariantList MainController::userCreatedProfiles() const {
         }
     }
 
+    // Sort by title alphabetically (case-insensitive)
+    std::sort(result.begin(), result.end(), [](const QVariant& a, const QVariant& b) {
+        return a.toMap()["title"].toString().compare(
+            b.toMap()["title"].toString(), Qt::CaseInsensitive) < 0;
+    });
+
     return result;
 }
 
@@ -251,6 +284,12 @@ QVariantList MainController::allProfilesList() const {
         profile["source"] = static_cast<int>(info.source);
         result.append(profile);
     }
+
+    // Sort by title alphabetically (case-insensitive)
+    std::sort(result.begin(), result.end(), [](const QVariant& a, const QVariant& b) {
+        return a.toMap()["title"].toString().compare(
+            b.toMap()["title"].toString(), Qt::CaseInsensitive) < 0;
+    });
 
     return result;
 }
@@ -559,10 +598,11 @@ void MainController::uploadProfile(const QVariantMap& profileData) {
         }
     }
 
-    // Update steps/frames
+    // Update steps/frames - build new list atomically to avoid any reference issues
     if (profileData.contains("steps")) {
-        m_currentProfile.steps().clear();
+        QList<ProfileFrame> newSteps;
         QVariantList steps = profileData["steps"].toList();
+        newSteps.reserve(steps.size());
         for (const QVariant& stepVar : steps) {
             QVariantMap step = stepVar.toMap();
             ProfileFrame frame;
@@ -583,7 +623,14 @@ void MainController::uploadProfile(const QVariantMap& profileData) {
             frame.exitFlowUnder = step["exit_flow_under"].toDouble();
             frame.maxFlowOrPressure = step["max_flow_or_pressure"].toDouble();
             frame.maxFlowOrPressureRange = step["max_flow_or_pressure_range"].toDouble();
-            m_currentProfile.addStep(frame);
+            newSteps.append(frame);
+        }
+        // Replace all steps atomically
+        m_currentProfile.setSteps(newSteps);
+
+        qDebug() << "uploadProfile: Updated" << newSteps.size() << "steps";
+        for (int i = 0; i < newSteps.size(); i++) {
+            qDebug() << "  Frame" << i << ":" << newSteps[i].name << "temp=" << newSteps[i].temperature;
         }
     }
 
@@ -762,9 +809,12 @@ bool MainController::profileExists(const QString& filename) const {
 void MainController::applySteamSettings() {
     if (!m_device || !m_device->isConnected() || !m_settings) return;
 
+    // Respect steamDisabled flag - send 0 if disabled, otherwise use saved temperature
+    double steamTemp = m_settings->steamDisabled() ? 0.0 : m_settings->steamTemperature();
+
     // Send shot settings (includes steam temp/timeout)
     m_device->setShotSettings(
-        m_settings->steamTemperature(),
+        steamTemp,
         m_settings->steamTimeout(),
         m_settings->waterTemperature(),
         m_settings->waterVolume(),
@@ -778,9 +828,12 @@ void MainController::applySteamSettings() {
 void MainController::applyHotWaterSettings() {
     if (!m_device || !m_device->isConnected() || !m_settings) return;
 
+    // Respect steamDisabled flag
+    double steamTemp = m_settings->steamDisabled() ? 0.0 : m_settings->steamTemperature();
+
     // Send shot settings (includes water temp/volume)
     m_device->setShotSettings(
-        m_settings->steamTemperature(),
+        steamTemp,
         m_settings->steamTimeout(),
         m_settings->waterTemperature(),
         m_settings->waterVolume(),
@@ -821,6 +874,11 @@ void MainController::setSteamTemperatureImmediate(double temp) {
 
     m_settings->setSteamTemperature(temp);
 
+    // Clear steamDisabled flag when user actively changes temperature
+    if (m_settings->steamDisabled()) {
+        m_settings->setSteamDisabled(false);
+    }
+
     // Send all shot settings with updated temperature
     m_device->setShotSettings(
         temp,
@@ -831,6 +889,51 @@ void MainController::setSteamTemperatureImmediate(double temp) {
     );
 
     qDebug() << "Steam temperature set to:" << temp;
+}
+
+void MainController::sendSteamTemperature(double temp) {
+    // File-based logging for debugging when not connected to console
+    auto logToFile = [](const QString& msg) {
+        QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/steam_debug.log";
+        QFile file(logPath);
+        if (file.open(QIODevice::Append | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << QDateTime::currentDateTime().toString("hh:mm:ss.zzz") << " " << msg << "\n";
+            file.close();
+        }
+    };
+
+    logToFile(QString("sendSteamTemperature called with temp=%1").arg(temp));
+
+    if (!m_device) {
+        logToFile("ERROR: No device");
+        return;
+    }
+    if (!m_device->isConnected()) {
+        logToFile("ERROR: Device not connected");
+        return;
+    }
+    if (!m_settings) {
+        logToFile("ERROR: No settings");
+        return;
+    }
+
+    logToFile(QString("Sending: steamTemp=%1 timeout=%2 waterTemp=%3 waterVol=%4")
+              .arg(temp)
+              .arg(m_settings->steamTimeout())
+              .arg(m_settings->waterTemperature())
+              .arg(m_settings->waterVolume()));
+
+    // Send to machine without saving to settings (for enable/disable toggle)
+    m_device->setShotSettings(
+        temp,
+        m_settings->steamTimeout(),
+        m_settings->waterTemperature(),
+        m_settings->waterVolume(),
+        93.0
+    );
+
+    logToFile("Command queued successfully");
 }
 
 void MainController::setSteamFlowImmediate(int flow) {

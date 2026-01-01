@@ -4,6 +4,9 @@
 #include <QBluetoothAddress>
 #include <QDateTime>
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
+#include <QStandardPaths>
 
 DE1Device::DE1Device(QObject* parent)
     : QObject(parent)
@@ -441,6 +444,20 @@ void DE1Device::parseShotSample(const QByteArray& data) {
     m_flow = sample.groupFlow;
     m_mixTemp = sample.mixTemp;
     m_headTemp = sample.headTemp;
+    m_steamTemp = sample.steamTemp;
+
+    // Log steam temp periodically for debugging
+    static int steamLogCounter = 0;
+    if (++steamLogCounter % 20 == 0) {  // Every ~4 seconds (samples come at ~5Hz)
+        QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/steam_debug.log";
+        QFile file(logPath);
+        if (file.open(QIODevice::Append | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << QDateTime::currentDateTime().toString("hh:mm:ss")
+                << " STEAM_TEMP=" << m_steamTemp << "\n";
+            file.close();
+        }
+    }
 
     emit shotSampleReceived(sample);
 }
@@ -589,6 +606,11 @@ void DE1Device::wakeUp() {
 }
 
 void DE1Device::uploadProfile(const Profile& profile) {
+    qDebug() << "uploadProfile: Uploading profile with" << profile.steps().size() << "frames";
+    for (int i = 0; i < profile.steps().size(); i++) {
+        qDebug() << "  BLE Frame" << i << ": temp=" << profile.steps()[i].temperature;
+    }
+
     // Queue header write
     QByteArray header = profile.toHeaderBytes();
     queueCommand([this, header]() {

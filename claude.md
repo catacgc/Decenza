@@ -80,6 +80,25 @@ Also: Steaming, HotWater, Flushing
 - Use `Theme.qml` singleton for all styling
 - Use `StyledTextField` instead of `TextField` to avoid Material floating label
 - `ActionButton` dims icon (50% opacity) and text (secondary color) when disabled
+- `native` is a reserved JavaScript keyword - use `nativeName` instead
+
+### QML Gotchas
+
+**Font property conflict**: Cannot use `font: Theme.bodyFont` and then override sub-properties like `font.bold: true`. QML treats this as assigning the property twice.
+```qml
+// BAD - causes "Property has already been assigned a value" error
+Text {
+    font: Theme.bodyFont
+    font.bold: true  // Error!
+}
+
+// GOOD - use individual properties
+Text {
+    font.family: Theme.bodyFont.family
+    font.pixelSize: Theme.bodyFont.pixelSize
+    font.bold: true
+}
+```
 
 ## Profile System
 

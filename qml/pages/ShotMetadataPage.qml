@@ -615,7 +615,7 @@ Page {
             Layout.preferredWidth: uploadText.width + 40
             Layout.preferredHeight: 44
             radius: 8
-            color: Theme.surfaceColor
+            color: uploadArea.pressed ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
 
             Accessible.role: Accessible.Button
             Accessible.name: TranslationManager.translate("shotmetadata.button.upload", "Upload to Visualizer")
@@ -626,7 +626,7 @@ Page {
                 anchors.centerIn: parent
                 key: "shotmetadata.button.upload"
                 fallback: "Upload to Visualizer"
-                color: Theme.textColor
+                color: "white"
                 font: Theme.bodyFont
             }
 

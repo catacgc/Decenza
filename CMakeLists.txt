@@ -214,6 +214,8 @@ set(QML_FILES
     qml/pages/settings/SettingsThemesTab.qml
     qml/pages/settings/SettingsLanguageTab.qml
     qml/pages/settings/SettingsDebugTab.qml
+    qml/pages/settings/AddLanguagePage.qml
+    qml/pages/settings/StringBrowserPage.qml
     qml/components/ActionButton.qml
     qml/components/CircularGauge.qml
     qml/components/ConnectionIndicator.qml

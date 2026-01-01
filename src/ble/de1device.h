@@ -39,6 +39,7 @@ class DE1Device : public QObject {
     Q_PROPERTY(double pressure READ pressure NOTIFY shotSampleReceived)
     Q_PROPERTY(double flow READ flow NOTIFY shotSampleReceived)
     Q_PROPERTY(double temperature READ temperature NOTIFY shotSampleReceived)
+    Q_PROPERTY(double steamTemperature READ steamTemperature NOTIFY shotSampleReceived)
     Q_PROPERTY(double waterLevel READ waterLevel NOTIFY waterLevelChanged)
     Q_PROPERTY(QString firmwareVersion READ firmwareVersion NOTIFY firmwareVersionChanged)
     Q_PROPERTY(bool usbChargerOn READ usbChargerOn NOTIFY usbChargerOnChanged)
@@ -62,6 +63,7 @@ public:
     double flow() const { return m_flow; }
     double temperature() const { return m_headTemp; }
     double mixTemperature() const { return m_mixTemp; }
+    double steamTemperature() const { return m_steamTemp; }
     double waterLevel() const { return m_waterLevel; }
     QString firmwareVersion() const { return m_firmwareVersion; }
     bool usbChargerOn() const { return m_usbChargerOn; }
@@ -157,6 +159,7 @@ private:
     double m_flow = 0.0;
     double m_mixTemp = 0.0;
     double m_headTemp = 0.0;
+    double m_steamTemp = 0.0;
     double m_waterLevel = 0.0;
     QString m_firmwareVersion;
 
