@@ -147,6 +147,9 @@ public:
     // Get database path
     QString databasePath() const { return m_dbPath; }
 
+    // Checkpoint WAL to main database file
+    void checkpoint();
+
 signals:
     void readyChanged();
     void totalShotsChanged();

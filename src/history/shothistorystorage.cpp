@@ -945,3 +945,16 @@ QString ShotHistoryStorage::exportDatabase()
         return QString();
     }
 }
+
+void ShotHistoryStorage::checkpoint()
+{
+    if (!m_db.isOpen()) return;
+
+    QSqlQuery query(m_db);
+    // TRUNCATE mode: checkpoint and truncate WAL file to zero bytes
+    if (query.exec("PRAGMA wal_checkpoint(TRUNCATE)")) {
+        qDebug() << "ShotHistoryStorage: WAL checkpoint completed";
+    } else {
+        qWarning() << "ShotHistoryStorage: WAL checkpoint failed:" << query.lastError().text();
+    }
+}

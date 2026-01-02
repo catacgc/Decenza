@@ -226,6 +226,8 @@ void ShotServer::handleRequest(QTcpSocket* socket, const QByteArray& request)
         }
     }
     else if (path == "/api/database" || path == "/database.db") {
+        // Checkpoint WAL to ensure all data is in main .db file before download
+        m_storage->checkpoint();
         QString dbPath = m_storage->databasePath();
         sendFile(socket, dbPath, "application/x-sqlite3");
     }
