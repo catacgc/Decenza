@@ -10,6 +10,24 @@ GHCSimulator::GHCSimulator(QObject* parent)
     setAllLeds(QColor(30, 30, 30));
 }
 
+void GHCSimulator::mainWindowActivated()
+{
+    // Prevent infinite loop: main activates -> raises GHC -> GHC activates -> raises main -> ...
+    if (m_isRaisingWindows) return;
+    m_isRaisingWindows = true;
+    emit raiseGhcWindow();
+    // Reset flag after a short delay to allow the raise to complete
+    QMetaObject::invokeMethod(this, [this]() { m_isRaisingWindows = false; }, Qt::QueuedConnection);
+}
+
+void GHCSimulator::ghcWindowActivated()
+{
+    if (m_isRaisingWindows) return;
+    m_isRaisingWindows = true;
+    emit raiseMainWindow();
+    QMetaObject::invokeMethod(this, [this]() { m_isRaisingWindows = false; }, Qt::QueuedConnection);
+}
+
 void GHCSimulator::setDE1Device(DE1Device* device)
 {
     if (m_device) {
@@ -251,27 +269,40 @@ void GHCSimulator::updateEspressoLeds(double pressure, double flow)
         m_leds[i] = QColor(30, 30, 30);
     }
 
-    // Calculate how many LEDs to light for pressure (green) and flow (blue)
-    // LEDs light up clockwise from 12:00 (LED 0)
-    int pressureLeds = qBound(0, static_cast<int>((pressure / MAX_PRESSURE) * LED_COUNT), LED_COUNT);
-    int flowLeds = qBound(0, static_cast<int>((flow / MAX_FLOW) * LED_COUNT), LED_COUNT);
+    // "Dot" style display like the real GHC - value shown as a position on the ring
+    // If value falls between LEDs, brightness is distributed proportionally
+    // e.g., value 4.5 shows LED 4 at 50% and LED 5 at 50%
 
-    // Light up LEDs for pressure (green) - clockwise from top
-    for (int i = 0; i < pressureLeds; ++i) {
-        // Green component based on pressure
-        m_leds[i].setGreen(qMin(255, m_leds[i].green() + 200));
+    // Pressure position (0-12 bar maps to 0-12 LEDs)
+    double pressurePos = qBound(0.0, (pressure / MAX_PRESSURE) * LED_COUNT, static_cast<double>(LED_COUNT - 1));
+    int pressureLed1 = static_cast<int>(pressurePos);
+    int pressureLed2 = (pressureLed1 + 1) % LED_COUNT;
+    double pressureFrac = pressurePos - pressureLed1;
+
+    // Flow position (0-6 ml/s maps to 0-12 LEDs)
+    double flowPos = qBound(0.0, (flow / MAX_FLOW) * LED_COUNT, static_cast<double>(LED_COUNT - 1));
+    int flowLed1 = static_cast<int>(flowPos);
+    int flowLed2 = (flowLed1 + 1) % LED_COUNT;
+    double flowFrac = flowPos - flowLed1;
+
+    // Apply pressure (green) - distributed across adjacent LEDs
+    if (pressure > 0.1) {
+        int green1 = static_cast<int>(200 * (1.0 - pressureFrac));
+        int green2 = static_cast<int>(200 * pressureFrac);
+        m_leds[pressureLed1].setGreen(qMin(255, m_leds[pressureLed1].green() + green1));
+        if (green2 > 10) {
+            m_leds[pressureLed2].setGreen(qMin(255, m_leds[pressureLed2].green() + green2));
+        }
     }
 
-    // Light up LEDs for flow (blue) - also clockwise from top
-    // This creates a blended color where both pressure and flow are present
-    for (int i = 0; i < flowLeds; ++i) {
-        // Blue component based on flow
-        m_leds[i].setBlue(qMin(255, m_leds[i].blue() + 200));
-    }
-
-    // Ensure minimum brightness for lit LEDs
-    for (int i = 0; i < qMax(pressureLeds, flowLeds); ++i) {
-        if (m_leds[i].red() < 30) m_leds[i].setRed(30);
+    // Apply flow (blue) - distributed across adjacent LEDs
+    if (flow > 0.1) {
+        int blue1 = static_cast<int>(200 * (1.0 - flowFrac));
+        int blue2 = static_cast<int>(200 * flowFrac);
+        m_leds[flowLed1].setBlue(qMin(255, m_leds[flowLed1].blue() + blue1));
+        if (blue2 > 10) {
+            m_leds[flowLed2].setBlue(qMin(255, m_leds[flowLed2].blue() + blue2));
+        }
     }
 
     emit ledColorsChanged();

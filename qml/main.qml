@@ -78,14 +78,12 @@ ApplicationWindow {
         return closest
     }
 
-    // Handle app close: save geometry, put devices to sleep
+    // Handle app close: save position, put devices to sleep
     onClosing: function(close) {
-        // Save window geometry on desktop
+        // Save window position on desktop (not size - keep default to match real device)
         if (Qt.platform.os !== "android" && Qt.platform.os !== "ios") {
             Settings.setValue("mainWindow/x", root.x)
             Settings.setValue("mainWindow/y", root.y)
-            Settings.setValue("mainWindow/width", root.width)
-            Settings.setValue("mainWindow/height", root.height)
         }
 
         // Send scale sleep first (it's faster/simpler)
@@ -197,19 +195,30 @@ ApplicationWindow {
     // Update scale factor when window resizes
     onWidthChanged: updateScale()
     onHeightChanged: updateScale()
+    // Raise all application windows together when this window is activated
+    onActiveChanged: {
+        if (active && typeof GHCSimulator !== "undefined" && GHCSimulator) {
+            GHCSimulator.mainWindowActivated()
+        }
+    }
+
+    // Listen for GHC window activation to raise ourselves (simulator mode only)
+    Connections {
+        target: typeof GHCSimulator !== "undefined" ? GHCSimulator : null
+        function onRaiseMainWindow() {
+            root.raise()
+        }
+    }
+
     Component.onCompleted: {
-        // Restore window geometry on desktop
+        // Restore window position on desktop (not size - keep default to match real device)
         if (Qt.platform.os !== "android" && Qt.platform.os !== "ios") {
             var savedX = Settings.value("mainWindow/x", -1)
             var savedY = Settings.value("mainWindow/y", -1)
-            var savedW = Settings.value("mainWindow/width", 960)
-            var savedH = Settings.value("mainWindow/height", 600)
             if (savedX >= 0 && savedY >= 0) {
                 root.x = savedX
                 root.y = savedY
             }
-            root.width = savedW
-            root.height = savedH
         }
 
         updateScale()

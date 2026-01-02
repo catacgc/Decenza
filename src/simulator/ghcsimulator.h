@@ -44,6 +44,11 @@ public slots:
     void pressStop();
     void releaseStop();
 
+    // Window management - called when a window becomes active
+    // Uses a flag to prevent infinite loop when raising triggers activation
+    void mainWindowActivated();
+    void ghcWindowActivated();
+
     // Called when shot data arrives
     void onShotSample(double pressure, double flow);
 
@@ -55,6 +60,8 @@ signals:
     void ledColorsChanged();
     void stopPressedChanged();
     void activeFunctionChanged();
+    void raiseMainWindow();
+    void raiseGhcWindow();
 
 private:
     void setAllLeds(const QColor& color);
@@ -78,6 +85,7 @@ private:
     DE1Simulator* m_simulator = nullptr;
     bool m_stopPressed = false;
     ActiveFunction m_activeFunction = ActiveFunction::None;
+    bool m_isRaisingWindows = false;  // Guard to prevent raise loop
 
     // Pressure/flow scaling
     static constexpr double MAX_PRESSURE = 12.0;  // bar

@@ -123,6 +123,11 @@ private:
     double m_outputVolume = 0.0;    // Water that has exited puck (yield)
     double m_scaleWeight = 0.0;     // Simulated scale reading
 
+    // Valve and plumbing state
+    bool m_valveOpen = false;           // Group head valve (closed during preheat)
+    double m_plumbingVolume = 0.0;      // Water accumulated in hoses during preheat
+    double m_plumbingPressure = 0.0;    // Pressure built up in plumbing
+
     // Puck physics state
     double m_puckResistance = 4.0;
     double m_baseResistance = 4.0;  // Resistance before noise
@@ -144,7 +149,12 @@ private:
     // Based on research from Coffee ad Astra, Barista Hustle, and espresso physics papers
 
     // Timing
-    static constexpr double PREHEAT_DURATION = 3.0;       // Seconds to preheat group
+    static constexpr double PREHEAT_DURATION = 5.0;       // Seconds valve stays closed (builds pressure)
+
+    // Plumbing model (valve closed during preheat)
+    // Water compresses in hoses, building pressure before valve opens
+    static constexpr double PLUMBING_COMPLIANCE = 0.15;   // ml/bar - how much volume per bar of pressure
+    static constexpr double PREHEAT_PUMP_FLOW = 2.5;      // ml/s pump rate during preheat
 
     // Puck resistance model (Darcy's law based)
     // Calibrated so 18g dose at ~2.5 ml/s gives ~9 bar

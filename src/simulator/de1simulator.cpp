@@ -188,6 +188,11 @@ void DE1Simulator::startEspresso()
     m_targetPressure = 0.0;
     m_targetFlow = 0.0;
 
+    // Reset valve and plumbing state
+    m_valveOpen = false;
+    m_plumbingVolume = 0.0;
+    m_plumbingPressure = 0.0;
+
     // Reset puck state
     m_puckResistance = BASELINE_RESISTANCE;
     m_baseResistance = BASELINE_RESISTANCE;
@@ -337,33 +342,48 @@ void DE1Simulator::executeFrame()
     double shotTime = m_shotTimer.elapsed() / 1000.0;
     double dt = TICK_INTERVAL_MS / 1000.0;
 
-    // ========== PREHEAT PHASE ==========
+    // ========== PREHEAT PHASE (valve closed, building pressure in plumbing) ==========
     if (m_subState == DE1::SubState::Heating || m_subState == DE1::SubState::Stabilising) {
         double targetTemp = m_profile.steps().first().temperature;
 
         // Heat up with realistic thermal response
         double tempDiff = targetTemp - m_groupTemp;
         if (tempDiff > 0) {
-            // Heating - faster with hot water flowing
             double heatRate = TEMP_RISE_RATE * (1.0 + 0.3 * fractalNoise(shotTime * 0.3, 2));
             m_groupTemp += qMin(tempDiff, heatRate * dt);
         }
         m_mixTemp = m_groupTemp - 1.0 - fractalNoise(shotTime * 0.5, 2) * 0.5;
 
-        // Build initial pressure with lag
-        m_targetPressure = 2.5;
-        double pressureDiff = m_targetPressure - m_pressure;
-        m_pressure += pressureDiff * (dt / PRESSURE_INERTIA) + fractalNoise(shotTime * 3.0, 2) * 0.1;
-        m_pressure = qBound(0.0, m_pressure, 3.5);
+        // VALVE IS CLOSED - pump pushes water into plumbing, building pressure
+        // Pump flow fills the compliant plumbing volume
+        m_flow = PREHEAT_PUMP_FLOW * (1.0 + fractalNoise(shotTime * 2.0, 2) * 0.1);
+        m_plumbingVolume += m_flow * dt;
+
+        // Pressure builds based on accumulated volume and plumbing compliance
+        // P = V / compliance (like a spring: more water = more pressure)
+        m_plumbingPressure = m_plumbingVolume / PLUMBING_COMPLIANCE;
+
+        // Pump can only push so hard - pressure is limited
+        if (m_plumbingPressure > MAX_PRESSURE * 0.8) {
+            m_plumbingPressure = MAX_PRESSURE * 0.8;
+            m_flow = 0.0;  // Pump stalls when it can't push anymore
+        }
+
+        // Report the plumbing pressure as measured pressure
+        m_pressure = m_plumbingPressure + fractalNoise(shotTime * 3.0, 2) * 0.15;
+        m_pressure = qBound(0.0, m_pressure, MAX_PRESSURE);
 
         if (m_groupTemp >= targetTemp - 1.5) {
             setState(DE1::State::Espresso, DE1::SubState::Stabilising);
         }
 
+        // After preheat duration, open the valve
         if (shotTime >= PREHEAT_DURATION && m_groupTemp >= targetTemp - 2.0) {
+            m_valveOpen = true;
             m_frameStartTime = shotTime;
             m_waterInPuck = true;
-            qDebug() << "DE1Simulator: Preheat complete, water entering puck";
+            qDebug() << "DE1Simulator: Valve opening, pressure=" << m_plumbingPressure
+                     << "bar, releasing into puck";
 
             if (m_profile.preinfuseFrameCount() > 0) {
                 setState(DE1::State::Espresso, DE1::SubState::Preinfusion);

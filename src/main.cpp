@@ -207,6 +207,11 @@ int main(int argc, char *argv[])
     // FlowScale weight connection is handled by the fallback timer and scale disconnect logic
     // Don't connect here - only one scale should feed the graph at a time
 
+    // Create GHC Simulator for Windows debug builds (before engine load so it can be exposed to QML)
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
+    GHCSimulator ghcSimulator;
+#endif
+
     // Expose C++ objects to QML
     QQmlContext* context = engine.rootContext();
     context->setContextProperty("Settings", &settings);
@@ -228,6 +233,11 @@ int main(int argc, char *argv[])
     context->setContextProperty("IsDebugBuild", true);
 #else
     context->setContextProperty("IsDebugBuild", false);
+#endif
+
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
+    // Make GHCSimulator available to main window for window sync
+    context->setContextProperty("GHCSimulator", &ghcSimulator);
 #endif
 
     // Register types for QML (use different names to avoid conflict with context properties)
@@ -311,8 +321,7 @@ int main(int argc, char *argv[])
     QObject::connect(&de1Simulator, &DE1Simulator::scaleWeightChanged,
                      &simulatedScale, &SimulatedScale::setSimulatedWeight);
 
-    // Create GHC visual controller
-    GHCSimulator ghcSimulator;
+    // Configure GHC visual controller (created earlier for main window access)
     ghcSimulator.setDE1Device(&de1Device);
     ghcSimulator.setDE1Simulator(&de1Simulator);
 

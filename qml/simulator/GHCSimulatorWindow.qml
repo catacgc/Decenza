@@ -12,26 +12,35 @@ Window {
     visible: true
     color: "#1a1a1a"
 
-    // Restore window geometry on load
+    // Restore window position on load (not size - keep default to match real device)
     Component.onCompleted: {
         var savedX = Settings.value("ghcWindow/x", -1)
         var savedY = Settings.value("ghcWindow/y", -1)
-        var savedW = Settings.value("ghcWindow/width", 400)
-        var savedH = Settings.value("ghcWindow/height", 470)
         if (savedX >= 0 && savedY >= 0) {
             ghcWindow.x = savedX
             ghcWindow.y = savedY
         }
-        ghcWindow.width = savedW
-        ghcWindow.height = savedH
     }
 
-    // Save window geometry on close
+    // Save window position on close
     onClosing: function(close) {
         Settings.setValue("ghcWindow/x", ghcWindow.x)
         Settings.setValue("ghcWindow/y", ghcWindow.y)
-        Settings.setValue("ghcWindow/width", ghcWindow.width)
-        Settings.setValue("ghcWindow/height", ghcWindow.height)
+    }
+
+    // Raise all application windows together when this window is activated
+    onActiveChanged: {
+        if (active) {
+            GHCSimulator.ghcWindowActivated()
+        }
+    }
+
+    // Listen for main window activation to raise ourselves
+    Connections {
+        target: GHCSimulator
+        function onRaiseGhcWindow() {
+            ghcWindow.raise()
+        }
     }
 
     // Scale factor based on window size
