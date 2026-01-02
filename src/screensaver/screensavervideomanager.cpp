@@ -83,10 +83,10 @@ ScreensaverVideoManager::~ScreensaverVideoManager()
 void ScreensaverVideoManager::setKeepScreenOn(bool on)
 {
 #ifdef Q_OS_ANDROID
-    // FLAG_KEEP_SCREEN_ON = 128 (WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-    constexpr int FLAG_KEEP_SCREEN_ON = 128;
-
     QNativeInterface::QAndroidApplication::runOnAndroidMainThread([on]() {
+        // FLAG_KEEP_SCREEN_ON = 128 (WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        constexpr int FLAG_KEEP_SCREEN_ON = 128;
+
         QJniObject activity = QNativeInterface::QAndroidApplication::context();
         if (!activity.isValid()) {
             qWarning() << "[Screensaver] Failed to get Android activity";
