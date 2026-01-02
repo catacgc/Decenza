@@ -141,6 +141,9 @@ public:
     // Export database to Downloads folder (for debugging)
     Q_INVOKABLE QString exportDatabase();
 
+    // Import database from file path (merge=true adds new entries, merge=false replaces all)
+    Q_INVOKABLE bool importDatabase(const QString& filePath, bool merge);
+
     // Get most recent shot ID (for linking after save)
     Q_INVOKABLE qint64 lastSavedShotId() const { return m_lastSavedShotId; }
 

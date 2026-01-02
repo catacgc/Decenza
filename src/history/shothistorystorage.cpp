@@ -958,3 +958,174 @@ void ShotHistoryStorage::checkpoint()
         qWarning() << "ShotHistoryStorage: WAL checkpoint failed:" << query.lastError().text();
     }
 }
+
+bool ShotHistoryStorage::importDatabase(const QString& filePath, bool merge)
+{
+    if (!m_db.isOpen()) {
+        emit errorOccurred("Database not open");
+        return false;
+    }
+
+    // Clean up file path (remove file:// prefix if present)
+    QString cleanPath = filePath;
+    if (cleanPath.startsWith("file:///")) {
+        cleanPath = cleanPath.mid(8);  // Remove "file:///"
+#ifdef Q_OS_WIN
+        // On Windows, file:///C:/path becomes C:/path
+#else
+        cleanPath = "/" + cleanPath;  // On Unix, need leading /
+#endif
+    } else if (cleanPath.startsWith("file://")) {
+        cleanPath = cleanPath.mid(7);
+    }
+
+    qDebug() << "ShotHistoryStorage: Importing from" << cleanPath << (merge ? "(merge)" : "(replace)");
+
+    // Open source database
+    QSqlDatabase srcDb = QSqlDatabase::addDatabase("QSQLITE", "import_connection");
+    srcDb.setDatabaseName(cleanPath);
+
+    if (!srcDb.open()) {
+        QString error = "Failed to open import database: " + srcDb.lastError().text();
+        qWarning() << "ShotHistoryStorage:" << error;
+        emit errorOccurred(error);
+        QSqlDatabase::removeDatabase("import_connection");
+        return false;
+    }
+
+    // Verify source has shots table
+    QSqlQuery srcCheck(srcDb);
+    if (!srcCheck.exec("SELECT COUNT(*) FROM shots")) {
+        QString error = "Import file is not a valid shots database";
+        qWarning() << "ShotHistoryStorage:" << error;
+        emit errorOccurred(error);
+        srcDb.close();
+        QSqlDatabase::removeDatabase("import_connection");
+        return false;
+    }
+    srcCheck.next();
+    int sourceCount = srcCheck.value(0).toInt();
+    qDebug() << "ShotHistoryStorage: Source has" << sourceCount << "shots";
+
+    // Begin transaction on destination
+    m_db.transaction();
+
+    if (!merge) {
+        // Replace mode: delete all existing data
+        QSqlQuery delQuery(m_db);
+        delQuery.exec("DELETE FROM shot_phases");
+        delQuery.exec("DELETE FROM shot_samples");
+        delQuery.exec("DELETE FROM shots");
+        qDebug() << "ShotHistoryStorage: Cleared existing data for replace";
+    }
+
+    // Get existing UUIDs for merge mode
+    QSet<QString> existingUuids;
+    if (merge) {
+        QSqlQuery uuidQuery(m_db);
+        uuidQuery.exec("SELECT uuid FROM shots");
+        while (uuidQuery.next()) {
+            existingUuids.insert(uuidQuery.value(0).toString());
+        }
+        qDebug() << "ShotHistoryStorage: Found" << existingUuids.size() << "existing shots";
+    }
+
+    // Import shots
+    int imported = 0, skipped = 0;
+    QSqlQuery srcShots(srcDb);
+    srcShots.exec("SELECT * FROM shots");
+
+    while (srcShots.next()) {
+        QString uuid = srcShots.value("uuid").toString();
+
+        if (merge && existingUuids.contains(uuid)) {
+            skipped++;
+            continue;
+        }
+
+        // Insert shot
+        QSqlQuery insert(m_db);
+        insert.prepare(R"(
+            INSERT INTO shots (uuid, timestamp, profile_name, profile_json,
+                duration_seconds, final_weight, dose_weight,
+                bean_brand, bean_type, roast_date, roast_level,
+                grinder_model, grinder_setting, drink_tds, drink_ey,
+                enjoyment, espresso_notes, barista,
+                visualizer_id, visualizer_url, debug_log)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        )");
+
+        insert.addBindValue(uuid);
+        insert.addBindValue(srcShots.value("timestamp"));
+        insert.addBindValue(srcShots.value("profile_name"));
+        insert.addBindValue(srcShots.value("profile_json"));
+        insert.addBindValue(srcShots.value("duration_seconds"));
+        insert.addBindValue(srcShots.value("final_weight"));
+        insert.addBindValue(srcShots.value("dose_weight"));
+        insert.addBindValue(srcShots.value("bean_brand"));
+        insert.addBindValue(srcShots.value("bean_type"));
+        insert.addBindValue(srcShots.value("roast_date"));
+        insert.addBindValue(srcShots.value("roast_level"));
+        insert.addBindValue(srcShots.value("grinder_model"));
+        insert.addBindValue(srcShots.value("grinder_setting"));
+        insert.addBindValue(srcShots.value("drink_tds"));
+        insert.addBindValue(srcShots.value("drink_ey"));
+        insert.addBindValue(srcShots.value("enjoyment"));
+        insert.addBindValue(srcShots.value("espresso_notes"));
+        insert.addBindValue(srcShots.value("barista"));
+        insert.addBindValue(srcShots.value("visualizer_id"));
+        insert.addBindValue(srcShots.value("visualizer_url"));
+        insert.addBindValue(srcShots.value("debug_log"));
+
+        if (!insert.exec()) {
+            qWarning() << "ShotHistoryStorage: Failed to import shot:" << insert.lastError().text();
+            continue;
+        }
+
+        qint64 oldId = srcShots.value("id").toLongLong();
+        qint64 newId = insert.lastInsertId().toLongLong();
+
+        // Import samples for this shot
+        QSqlQuery srcSamples(srcDb);
+        srcSamples.prepare("SELECT sample_count, data_blob FROM shot_samples WHERE shot_id = ?");
+        srcSamples.addBindValue(oldId);
+        if (srcSamples.exec() && srcSamples.next()) {
+            QSqlQuery insertSample(m_db);
+            insertSample.prepare("INSERT INTO shot_samples (shot_id, sample_count, data_blob) VALUES (?, ?, ?)");
+            insertSample.addBindValue(newId);
+            insertSample.addBindValue(srcSamples.value(0));
+            insertSample.addBindValue(srcSamples.value(1));
+            insertSample.exec();
+        }
+
+        // Import phases for this shot
+        QSqlQuery srcPhases(srcDb);
+        srcPhases.prepare("SELECT time_offset, label, frame_number, is_flow_mode FROM shot_phases WHERE shot_id = ?");
+        srcPhases.addBindValue(oldId);
+        if (srcPhases.exec()) {
+            while (srcPhases.next()) {
+                QSqlQuery insertPhase(m_db);
+                insertPhase.prepare("INSERT INTO shot_phases (shot_id, time_offset, label, frame_number, is_flow_mode) VALUES (?, ?, ?, ?, ?)");
+                insertPhase.addBindValue(newId);
+                insertPhase.addBindValue(srcPhases.value(0));
+                insertPhase.addBindValue(srcPhases.value(1));
+                insertPhase.addBindValue(srcPhases.value(2));
+                insertPhase.addBindValue(srcPhases.value(3));
+                insertPhase.exec();
+            }
+        }
+
+        imported++;
+    }
+
+    m_db.commit();
+
+    // Clean up source connection
+    srcDb.close();
+    QSqlDatabase::removeDatabase("import_connection");
+
+    updateTotalShots();
+
+    qDebug() << "ShotHistoryStorage: Import complete -" << imported << "imported," << skipped << "skipped";
+    return true;
+}

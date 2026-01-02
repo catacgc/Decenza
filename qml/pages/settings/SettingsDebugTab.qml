@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
+import QtQuick.Dialogs
 import DecenzaDE1
 import "../../components"
 
@@ -235,6 +236,82 @@ Item {
                                 Window.window.height = res.height
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        // Database Import section
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: 160
+            color: Theme.surfaceColor
+            radius: Theme.cardRadius
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: 15
+                spacing: 12
+
+                Text {
+                    text: "Shot Database"
+                    color: Theme.textColor
+                    font.pixelSize: 16
+                    font.bold: true
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: "Import shots from another device. Merge adds new shots, Replace overwrites all data."
+                    color: Theme.textSecondaryColor
+                    font.pixelSize: 12
+                    wrapMode: Text.Wrap
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 15
+
+                    Text {
+                        text: "Current shots: " + (MainController.shotHistory ? MainController.shotHistory.totalShots : 0)
+                        color: Theme.textColor
+                        font.pixelSize: 14
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    AccessibleButton {
+                        text: "Merge..."
+                        accessibleName: "Import and merge database"
+                        onClicked: {
+                            importDialog.mergeMode = true
+                            importDialog.open()
+                        }
+                    }
+
+                    AccessibleButton {
+                        text: "Replace..."
+                        accessibleName: "Import and replace database"
+                        onClicked: {
+                            importDialog.mergeMode = false
+                            importDialog.open()
+                        }
+                    }
+                }
+            }
+        }
+
+        FileDialog {
+            id: importDialog
+            title: mergeMode ? "Select database to merge" : "Select database to replace with"
+            nameFilters: ["SQLite databases (*.db)", "All files (*)"]
+            property bool mergeMode: true
+
+            onAccepted: {
+                if (MainController.shotHistory) {
+                    var success = MainController.shotHistory.importDatabase(selectedFile, mergeMode)
+                    if (success) {
+                        console.log("Database import successful")
                     }
                 }
             }
