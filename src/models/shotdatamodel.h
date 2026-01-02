@@ -12,6 +12,7 @@ struct PhaseMarker {
     double time;
     QString label;
     int frameNumber;
+    bool isFlowMode = false;  // true = flow control, false = pressure control
 };
 
 class ShotDataModel : public QObject {
@@ -19,12 +20,14 @@ class ShotDataModel : public QObject {
 
     Q_PROPERTY(QVariantList phaseMarkers READ phaseMarkersVariant NOTIFY phaseMarkersChanged)
     Q_PROPERTY(double maxTime READ maxTime NOTIFY maxTimeChanged)
+    Q_PROPERTY(double rawTime READ rawTime NOTIFY rawTimeChanged)
 
 public:
     explicit ShotDataModel(QObject* parent = nullptr);
     ~ShotDataModel();
 
     double maxTime() const { return m_maxTime; }
+    double rawTime() const { return m_rawTime; }
     QVariantList phaseMarkersVariant() const;
 
     // Register chart series - C++ takes ownership of updating them
@@ -48,14 +51,15 @@ public slots:
     // Fast data ingestion - no chart updates, just vector append
     void addSample(double time, double pressure, double flow, double temperature,
                    double pressureGoal, double flowGoal, double temperatureGoal,
-                   int frameNumber = -1);
+                   int frameNumber = -1, bool isFlowMode = false);
     void addWeightSample(double time, double weight, double flowRate);
     void markExtractionStart(double time);
-    void addPhaseMarker(double time, const QString& label, int frameNumber = -1);
+    void addPhaseMarker(double time, const QString& label, int frameNumber = -1, bool isFlowMode = false);
 
 signals:
     void cleared();
     void maxTimeChanged();
+    void rawTimeChanged();
     void phaseMarkersChanged();
 
 private slots:
@@ -87,7 +91,10 @@ private:
     bool m_dirty = false;
 
     double m_maxTime = 5.0;
+    double m_rawTime = 0.0;
     int m_frameMarkerIndex = 0;
+    bool m_lastPumpModeIsFlow = false;  // Track for inserting breaks in goal curves
+    bool m_hasPumpModeData = false;     // True after first sample with pump mode
 
     // Phase markers for QML labels
     QList<PhaseMarker> m_phaseMarkers;

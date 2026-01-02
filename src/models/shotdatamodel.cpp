@@ -1,5 +1,6 @@
 #include "shotdatamodel.h"
 #include <QDebug>
+#include <QtGlobal>  // for qQNaN()
 
 ShotDataModel::ShotDataModel(QObject* parent)
     : QObject(parent)
@@ -93,11 +94,15 @@ void ShotDataModel::clear() {
     m_frameMarkerIndex = 0;
     m_phaseMarkers.clear();
     m_maxTime = 5.0;
+    m_rawTime = 0.0;
+    m_lastPumpModeIsFlow = false;
+    m_hasPumpModeData = false;
     m_dirty = false;
 
     emit cleared();
     emit phaseMarkersChanged();
     emit maxTimeChanged();
+    emit rawTimeChanged();
 
     // Restart timer
     m_flushTimer->start();
@@ -105,7 +110,7 @@ void ShotDataModel::clear() {
 
 void ShotDataModel::addSample(double time, double pressure, double flow, double temperature,
                               double pressureGoal, double flowGoal, double temperatureGoal,
-                              int frameNumber) {
+                              int frameNumber, bool isFlowMode) {
     Q_UNUSED(frameNumber);
 
     // Pure vector append - no signals, no chart updates
@@ -113,6 +118,21 @@ void ShotDataModel::addSample(double time, double pressure, double flow, double 
     m_flowPoints.append(QPointF(time, flow));
     m_temperaturePoints.append(QPointF(time, temperature));
 
+    // Insert NaN break point when pump mode changes (creates visual gap in goal curves)
+    if (m_hasPumpModeData && isFlowMode != m_lastPumpModeIsFlow) {
+        // Insert NaN to break the line at this point
+        if (isFlowMode) {
+            // Switching to flow mode: break pressure goal line
+            m_pressureGoalPoints.append(QPointF(time, qQNaN()));
+        } else {
+            // Switching to pressure mode: break flow goal line
+            m_flowGoalPoints.append(QPointF(time, qQNaN()));
+        }
+    }
+    m_lastPumpModeIsFlow = isFlowMode;
+    m_hasPumpModeData = true;
+
+    // Only add goal points for the active pump mode
     if (pressureGoal > 0) {
         m_pressureGoalPoints.append(QPointF(time, pressureGoal));
     }
@@ -121,10 +141,10 @@ void ShotDataModel::addSample(double time, double pressure, double flow, double 
     }
     m_temperatureGoalPoints.append(QPointF(time, temperatureGoal));
 
-    // Track max time for axis scaling
-    if (time > m_maxTime * 0.80) {
-        m_maxTime = qMax(time * 1.25, m_maxTime + 1);
-        emit maxTimeChanged();
+    // Update raw time - QML uses this to calculate axis max with pixel-based padding
+    if (time > m_rawTime) {
+        m_rawTime = time;
+        emit rawTimeChanged();
     }
 
     m_dirty = true;
@@ -162,13 +182,14 @@ void ShotDataModel::markExtractionStart(double time) {
     emit phaseMarkersChanged();
 }
 
-void ShotDataModel::addPhaseMarker(double time, const QString& label, int frameNumber) {
+void ShotDataModel::addPhaseMarker(double time, const QString& label, int frameNumber, bool isFlowMode) {
     m_pendingMarkers.append({time, label});
 
     PhaseMarker marker;
     marker.time = time;
     marker.label = label;
     marker.frameNumber = frameNumber;
+    marker.isFlowMode = isFlowMode;
     m_phaseMarkers.append(marker);
 
     m_dirty = true;
@@ -232,6 +253,7 @@ QVariantList ShotDataModel::phaseMarkersVariant() const {
         map["time"] = marker.time;
         map["label"] = marker.label;
         map["frameNumber"] = marker.frameNumber;
+        map["isFlowMode"] = marker.isFlowMode;
         result.append(map);
     }
     return result;

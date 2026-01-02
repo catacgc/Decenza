@@ -1276,16 +1276,17 @@ void MainController::generateFakeShotData() {
             weight = 36.0 + progress * 4.0;  // 36-40g
         }
 
-        // addSample(time, pressure, flow, temperature, pressureGoal, flowGoal, temperatureGoal, frameNumber)
-        m_shotDataModel->addSample(t, pressure, flow, temperature, pressureGoal, flowGoal, 92.0, frameNumber);
+        // addSample(time, pressure, flow, temperature, pressureGoal, flowGoal, temperatureGoal, frameNumber, isFlowMode)
+        // Simulation uses pressure mode (isFlowMode = false)
+        m_shotDataModel->addSample(t, pressure, flow, temperature, pressureGoal, flowGoal, 92.0, frameNumber, false);
         // addWeightSample(time, weight, flowRate)
         m_shotDataModel->addWeightSample(t, weight, flow);
     }
 
-    // Add phase markers
-    m_shotDataModel->addPhaseMarker(0.0, "Preinfusion", 0);
-    m_shotDataModel->addPhaseMarker(preinfusionEnd, "Extraction", 1);
-    m_shotDataModel->addPhaseMarker(steadyEnd, "Ending", 3);
+    // Add phase markers (simulation uses pressure mode)
+    m_shotDataModel->addPhaseMarker(0.0, "Preinfusion", 0, false);
+    m_shotDataModel->addPhaseMarker(preinfusionEnd, "Extraction", 1, false);
+    m_shotDataModel->addPhaseMarker(steadyEnd, "Ending", 3, false);
 
     // Set up pending shot state
     m_hasPendingShot = true;
@@ -1350,6 +1351,23 @@ void MainController::onShotSampleReceived(const ShotSample& sample) {
         m_shotDataModel->markExtractionStart(time);
     }
 
+    // Determine active pump mode for current frame (to show only active goal curve)
+    double pressureGoal = sample.setPressureGoal;
+    double flowGoal = sample.setFlowGoal;
+    bool isFlowMode = false;
+    {
+        int fi = sample.frameNumber;
+        const auto& steps = m_currentProfile.steps();
+        if (fi >= 0 && fi < steps.size()) {
+            isFlowMode = steps[fi].isFlowControl();
+            if (isFlowMode) {
+                pressureGoal = 0;  // Flow mode - hide pressure goal
+            } else {
+                flowGoal = 0;      // Pressure mode - hide flow goal
+            }
+        }
+    }
+
     // Detect frame changes and add markers with frame names from profile
     // Only track during actual extraction phases (not preheating - frame numbers are unreliable then)
     if (isExtracting && sample.frameNumber >= 0 && sample.frameNumber != m_lastFrameNumber) {
@@ -1367,7 +1385,7 @@ void MainController::onShotSampleReceived(const ShotSample& sample) {
             frameName = QString("F%1").arg(frameIndex);
         }
 
-        m_shotDataModel->addPhaseMarker(time, frameName, frameIndex);
+        m_shotDataModel->addPhaseMarker(time, frameName, frameIndex, isFlowMode);
         m_lastFrameNumber = sample.frameNumber;
         m_currentFrameName = frameName;  // Store for accessibility QML binding
 
@@ -1377,26 +1395,11 @@ void MainController::onShotSampleReceived(const ShotSample& sample) {
         emit frameChanged(frameIndex, frameName);
     }
 
-    // Determine active pump mode for current frame (to show only active goal curve)
-    double pressureGoal = sample.setPressureGoal;
-    double flowGoal = sample.setFlowGoal;
-    {
-        int fi = sample.frameNumber;
-        const auto& steps = m_currentProfile.steps();
-        if (fi >= 0 && fi < steps.size()) {
-            if (steps[fi].isFlowControl()) {
-                pressureGoal = 0;  // Flow mode - hide pressure goal
-            } else {
-                flowGoal = 0;      // Pressure mode - hide flow goal
-            }
-        }
-    }
-
     // Add sample data
     m_shotDataModel->addSample(time, sample.groupPressure,
                                sample.groupFlow, sample.headTemp,
                                pressureGoal, flowGoal, sample.setTempGoal,
-                               sample.frameNumber);
+                               sample.frameNumber, isFlowMode);
 
     // Detailed logging for development (reduce frequency)
     static int logCounter = 0;
