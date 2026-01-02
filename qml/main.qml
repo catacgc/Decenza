@@ -1202,28 +1202,6 @@ ApplicationWindow {
         }
     }
 
-    // Simulation mode indicator banner
-    Rectangle {
-        visible: DE1Device.simulationMode
-        anchors.bottom: parent.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 10
-        width: simLabel.implicitWidth + 20
-        height: simLabel.implicitHeight + 10
-        radius: 4
-        color: "#E65100"
-        z: 999
-
-        Tr {
-            id: simLabel
-            anchors.centerIn: parent
-            key: "main.label.simulationMode"
-            fallback: "SIMULATION MODE (Ctrl+D to toggle)"
-            color: "white"
-            font.pixelSize: 14
-            font.bold: true
-        }
-    }
 
     // 2-finger swipe detection for back gesture (accessibility)
     MultiPointTouchArea {

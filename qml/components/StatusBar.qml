@@ -12,9 +12,10 @@ Rectangle {
         spacing: Theme.spacingMedium
 
         // Page title (from root.currentPageTitle)
+        // Orange when in simulation mode to indicate simulated machine
         Text {
             text: root.currentPageTitle
-            color: Theme.textColor
+            color: DE1Device.simulationMode ? "#E65100" : Theme.textColor
             font.pixelSize: Theme.scaled(20)
             font.bold: true
             Layout.preferredWidth: implicitWidth
