@@ -11,8 +11,11 @@
 #include "protocol/de1characteristics.h"
 
 class Profile;
-class DE1Simulator;
 class Settings;
+
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
+class DE1Simulator;
+#endif
 
 struct ShotSample {
     qint64 timestamp = 0;
@@ -81,7 +84,9 @@ public:
     // For simulator integration - allows external code to set state and emit signals
     void setSimulatedState(DE1::State state, DE1::SubState subState);
     void emitSimulatedShotSample(const ShotSample& sample);
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
     void setSimulator(DE1Simulator* simulator) { m_simulator = simulator; }
+#endif
 
     // Settings for water level calibration persistence
     void setSettings(Settings* settings);
@@ -181,7 +186,9 @@ private:
     bool m_writePending = false;
     bool m_connecting = false;
     bool m_simulationMode = false;
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
     DE1Simulator* m_simulator = nullptr;  // For simulation mode
+#endif
     Settings* m_settings = nullptr;       // For water level calibration persistence
     bool m_usbChargerOn = true;  // Default on (safe default like de1app)
     bool m_isHeadless = false;   // True if app can start operations (GHC not installed or inactive)

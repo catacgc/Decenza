@@ -1,8 +1,11 @@
 #include "de1device.h"
 #include "protocol/binarycodec.h"
 #include "profile/profile.h"
-#include "../simulator/de1simulator.h"
 #include "../core/settings.h"
+
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
+#include "../simulator/de1simulator.h"
+#endif
 #include <QBluetoothAddress>
 #include <QDateTime>
 #include <QDebug>
@@ -625,6 +628,7 @@ void DE1Device::processCommandQueue() {
 
 // Machine control methods
 void DE1Device::requestState(DE1::State state) {
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
     // In simulation mode, relay to simulator
     if (m_simulationMode && m_simulator) {
         switch (state) {
@@ -657,6 +661,7 @@ void DE1Device::requestState(DE1::State state) {
         }
         return;
     }
+#endif
 
     QByteArray data(1, static_cast<char>(state));
     queueCommand([this, data]() {
@@ -697,11 +702,13 @@ void DE1Device::requestIdle() {
 }
 
 void DE1Device::goToSleep() {
+#if defined(Q_OS_WIN) && defined(QT_DEBUG)
     // In simulation mode, relay to simulator
     if (m_simulationMode && m_simulator) {
         m_simulator->goToSleep();
         return;
     }
+#endif
 
     // Clear pending commands - sleep takes priority
     m_commandQueue.clear();
