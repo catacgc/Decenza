@@ -1478,12 +1478,15 @@ void MainController::onShotSampleReceived(const ShotSample& sample) {
     // Detailed logging for development (reduce frequency)
     static int logCounter = 0;
     if (++logCounter % 10 == 0) {
+        const auto& weightData = m_shotDataModel->weightData();
+        double currentWeight = weightData.isEmpty() ? 0.0 : weightData.last().y();
         qDebug().nospace()
             << "SHOT [" << QString::number(time, 'f', 1) << "s] "
             << "F#" << sample.frameNumber << " "
             << "P:" << QString::number(sample.groupPressure, 'f', 2) << " "
             << "F:" << QString::number(sample.groupFlow, 'f', 2) << " "
-            << "T:" << QString::number(sample.headTemp, 'f', 1);
+            << "T:" << QString::number(sample.headTemp, 'f', 1) << " "
+            << "W:" << QString::number(currentWeight, 'f', 1);
     }
 }
 
