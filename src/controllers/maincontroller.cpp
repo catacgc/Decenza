@@ -1169,7 +1169,7 @@ void MainController::onShotEnded() {
         finalWeight = weightData.last().y() * 5.0;  // Undo the /5 scaling
     }
 
-    double doseWeight = m_settings->targetWeight();  // Use target weight as dose
+    double doseWeight = m_settings->dyeBeanWeight();  // Use DYE bean weight as dose
 
     // Stop debug logging and get the captured log
     QString debugLog;

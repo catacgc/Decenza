@@ -279,10 +279,160 @@ Page {
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
 
-                Loader {
+                ColumnLayout {
                     anchors.fill: parent
                     anchors.margins: Theme.scaled(15)
-                    sourceComponent: selectedStepIndex >= 0 ? stepEditorComponent : noSelectionComponent
+                    spacing: Theme.scaled(12)
+
+                    // Profile settings button
+                    AccessibleButton {
+                        Layout.fillWidth: true
+                        visible: profile !== null
+                        text: qsTr("Profile Settings") + (profile ? " (" + profile.target_weight.toFixed(0) + "g, " + (profile.steps.length > 0 ? profile.steps[0].temperature.toFixed(0) : "93") + "°C)" : "")
+                        accessibleName: qsTr("Open profile settings")
+                        onClicked: profileSettingsPopup.open()
+                        background: Rectangle {
+                            color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Qt.rgba(255, 255, 255, 0.05)
+                            radius: Theme.scaled(8)
+                            border.width: 1
+                            border.color: Theme.textSecondaryColor
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            font: Theme.captionFont
+                            color: Theme.textColor
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+
+                    // Frame editor
+                    Loader {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        sourceComponent: selectedStepIndex >= 0 ? stepEditorComponent : noSelectionComponent
+                    }
+                }
+            }
+        }
+    }
+
+    // Profile Settings Popup
+    Popup {
+        id: profileSettingsPopup
+        parent: Overlay.overlay
+        x: (parent.width - width) / 2
+        y: (parent.height - height) / 2
+        width: Theme.scaled(320)
+        modal: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+        background: Rectangle {
+            color: Theme.surfaceColor
+            radius: Theme.scaled(12)
+            border.width: 1
+            border.color: Theme.textSecondaryColor
+        }
+
+        ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: Theme.scaled(15)
+            spacing: Theme.scaled(15)
+
+            Text {
+                text: qsTr("Profile Settings")
+                font: Theme.titleFont
+                color: Theme.textColor
+            }
+
+            // Stop at weight
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.scaled(12)
+
+                Text {
+                    text: qsTr("Stop at")
+                    font: Theme.bodyFont
+                    color: Theme.textSecondaryColor
+                    Layout.preferredWidth: Theme.scaled(80)
+                }
+
+                ValueInput {
+                    id: targetWeightInput
+                    Layout.fillWidth: true
+                    from: 0
+                    to: 100
+                    value: {
+                        stepVersion  // Force re-evaluation on profile changes
+                        return profile ? profile.target_weight : 36
+                    }
+                    stepSize: 1
+                    suffix: "g"
+                    valueColor: Theme.weightColor
+                    accentColor: Theme.weightColor
+                    onValueModified: function(newValue) {
+                        if (profile) {
+                            profile.target_weight = newValue
+                            uploadProfile()
+                        }
+                    }
+                }
+            }
+
+            // Global temperature (applies to all frames)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.scaled(12)
+
+                Text {
+                    text: qsTr("All temps")
+                    font: Theme.bodyFont
+                    color: Theme.textSecondaryColor
+                    Layout.preferredWidth: Theme.scaled(80)
+                }
+
+                ValueInput {
+                    id: globalTempInput
+                    Layout.fillWidth: true
+                    from: 70
+                    to: 100
+                    value: {
+                        stepVersion  // Force re-evaluation on profile changes
+                        return profile && profile.steps.length > 0 ? profile.steps[0].temperature : 93
+                    }
+                    stepSize: 0.5
+                    suffix: "\u00B0C"
+                    valueColor: Theme.temperatureColor
+                    accentColor: Theme.temperatureGoalColor
+                    onValueModified: function(newValue) {
+                        if (profile && profile.steps.length > 0) {
+                            for (var i = 0; i < profile.steps.length; i++) {
+                                profile.steps[i].temperature = newValue
+                            }
+                            uploadProfile()
+                        }
+                    }
+                }
+            }
+
+            // Close button
+            AccessibleButton {
+                Layout.alignment: Qt.AlignRight
+                text: qsTr("Done")
+                accessibleName: qsTr("Close profile settings")
+                onClicked: profileSettingsPopup.close()
+                background: Rectangle {
+                    implicitWidth: Theme.scaled(80)
+                    implicitHeight: Theme.scaled(36)
+                    color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+                    radius: Theme.scaled(8)
+                }
+                contentItem: Text {
+                    text: parent.text
+                    font: Theme.bodyFont
+                    color: "white"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
                 }
             }
         }

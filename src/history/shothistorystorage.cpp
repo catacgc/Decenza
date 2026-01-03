@@ -573,7 +573,7 @@ QVariantList ShotHistoryStorage::getShotsFiltered(const QVariantMap& filterMap, 
 
         // Format date for display
         QDateTime dt = QDateTime::fromSecsSinceEpoch(query.value(2).toLongLong());
-        shot["dateTime"] = dt.toString("yyyy-MM-dd hh:mm");
+        shot["dateTime"] = dt.toString("yyyy-MM-dd HH:mm");
 
         results.append(shot);
     }

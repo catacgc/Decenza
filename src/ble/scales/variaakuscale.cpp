@@ -1,14 +1,23 @@
 #include "variaakuscale.h"
 #include "../protocol/de1characteristics.h"
 #include <QDebug>
-#include <QTimer>
 
 VariaAkuScale::VariaAkuScale(QObject* parent)
     : ScaleDevice(parent)
 {
+    // Create watchdog timer (fires if no updates received after enable)
+    m_watchdogTimer = new QTimer(this);
+    m_watchdogTimer->setSingleShot(true);
+    connect(m_watchdogTimer, &QTimer::timeout, this, &VariaAkuScale::onWatchdogTimeout);
+
+    // Create tickle timer (fires if updates stop arriving)
+    m_tickleTimer = new QTimer(this);
+    m_tickleTimer->setSingleShot(true);
+    connect(m_tickleTimer, &QTimer::timeout, this, &VariaAkuScale::onTickleTimeout);
 }
 
 VariaAkuScale::~VariaAkuScale() {
+    stopWatchdog();
     disconnectFromScale();
 }
 
@@ -37,6 +46,7 @@ void VariaAkuScale::onControllerConnected() {
 }
 
 void VariaAkuScale::onControllerDisconnected() {
+    stopWatchdog();
     setConnected(false);
 }
 
@@ -72,18 +82,88 @@ void VariaAkuScale::onServiceStateChanged(QLowEnergyService::ServiceState state)
                 return;
             }
 
-            // Subscribe to status notifications
-            if (m_statusChar.isValid()) {
-                QLowEnergyDescriptor notification = m_statusChar.descriptor(
-                    QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-                if (notification.isValid()) {
-                    m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-                }
-            }
+            // Enable notifications and start watchdog
+            enableNotifications();
+            startWatchdog();
 
             setConnected(true);
         });
     }
+}
+
+void VariaAkuScale::enableNotifications() {
+    if (!m_service || !m_statusChar.isValid()) {
+        return;
+    }
+
+    qDebug() << "Varia Aku: enabling weight notifications";
+
+    QLowEnergyDescriptor notification = m_statusChar.descriptor(
+        QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
+    if (notification.isValid()) {
+        m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
+    }
+}
+
+void VariaAkuScale::startWatchdog() {
+    m_watchdogRetries = 0;
+    m_updatesReceived = false;
+    m_watchdogTimer->start(WATCHDOG_TIMEOUT_MS);
+    qDebug() << "Varia Aku: watchdog started";
+}
+
+void VariaAkuScale::tickleWatchdog() {
+    // First update received - watchdog succeeded
+    if (!m_updatesReceived) {
+        m_updatesReceived = true;
+        m_watchdogTimer->stop();
+        qDebug() << "Varia Aku: first weight update received, watchdog stopped";
+    }
+
+    // Reset the tickle timer - if no updates for TICKLE_TIMEOUT_MS, log warning
+    m_tickleTimer->start(TICKLE_TIMEOUT_MS);
+}
+
+void VariaAkuScale::stopWatchdog() {
+    m_watchdogTimer->stop();
+    m_tickleTimer->stop();
+    m_updatesReceived = false;
+    m_watchdogRetries = 0;
+}
+
+void VariaAkuScale::onWatchdogTimeout() {
+    if (m_updatesReceived) {
+        return;  // Updates started arriving, no need to retry
+    }
+
+    m_watchdogRetries++;
+
+    if (m_watchdogRetries >= MAX_WATCHDOG_RETRIES) {
+        qWarning() << "Varia Aku: no weight updates after" << MAX_WATCHDOG_RETRIES
+                   << "retries, giving up";
+        emit errorOccurred("Varia Aku scale not sending weight updates");
+        return;
+    }
+
+    qDebug() << "Varia Aku: no weight updates, retry" << m_watchdogRetries
+             << "of" << MAX_WATCHDOG_RETRIES;
+
+    // Re-enable notifications
+    enableNotifications();
+
+    // Schedule next retry
+    m_watchdogTimer->start(WATCHDOG_TIMEOUT_MS);
+}
+
+void VariaAkuScale::onTickleTimeout() {
+    // No updates received for TICKLE_TIMEOUT_MS
+    qWarning() << "Varia Aku: no weight updates for" << TICKLE_TIMEOUT_MS << "ms";
+
+    // Try re-enabling notifications
+    m_updatesReceived = false;
+    m_watchdogRetries = 0;
+    enableNotifications();
+    m_watchdogTimer->start(WATCHDOG_TIMEOUT_MS);
 }
 
 void VariaAkuScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
@@ -98,6 +178,9 @@ void VariaAkuScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, c
 
             // Weight notification
             if (command == 0x01 && length == 0x03 && value.size() >= 7) {
+                // Tickle watchdog on every weight update
+                tickleWatchdog();
+
                 uint8_t w1 = d[3];
                 uint8_t w2 = d[4];
                 uint8_t w3 = d[5];

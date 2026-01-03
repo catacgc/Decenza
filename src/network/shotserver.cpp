@@ -376,11 +376,8 @@ QString ShotServer::generateShotListPage() const
     for (const QVariant& v : shots) {
         QVariantMap shot = v.toMap();
 
-        int rating = qRound(shot["enjoyment"].toDouble() / 20.0);
-        QString stars;
-        for (int i = 0; i < 5; i++) {
-            stars += (i < rating) ? "&#9733;" : "&#9734;";
-        }
+        int rating = qRound(shot["enjoyment"].toDouble());  // 0-100
+        QString ratingStr = QString::number(rating);
 
         double ratio = 0;
         if (shot["doseWeight"].toDouble() > 0) {
@@ -389,21 +386,25 @@ QString ShotServer::generateShotListPage() const
 
         rows += QString(R"HTML(
             <div class="shot-card" onclick="toggleSelect(%1, this)" data-id="%1">
-                <input type="checkbox" class="shot-checkbox" data-id="%1" onclick="event.stopPropagation(); toggleSelect(%1, this.parentElement)">
                 <a href="/shot/%1" onclick="event.stopPropagation()" style="text-decoration:none;color:inherit;display:block;">
                     <div class="shot-header">
                         <span class="shot-profile">%2</span>
-                        <span class="shot-date">%3</span>
+                        <div class="shot-header-right">
+                            <span class="shot-date">%3</span>
+                            <input type="checkbox" class="shot-checkbox" data-id="%1" onclick="event.stopPropagation(); toggleSelect(%1, this.closest('.shot-card'))">
+                        </div>
                     </div>
                     <div class="shot-metrics">
-                        <div class="shot-metric">
-                            <span class="metric-value">%4g</span>
-                            <span class="metric-label">in</span>
-                        </div>
-                        <div class="shot-arrow">&#8594;</div>
-                        <div class="shot-metric">
-                            <span class="metric-value">%5g</span>
-                            <span class="metric-label">out</span>
+                        <div class="dose-group">
+                            <div class="shot-metric">
+                                <span class="metric-value">%4g</span>
+                                <span class="metric-label">in</span>
+                            </div>
+                            <div class="shot-arrow">&#8594;</div>
+                            <div class="shot-metric">
+                                <span class="metric-value">%5g</span>
+                                <span class="metric-label">out</span>
+                            </div>
                         </div>
                         <div class="shot-metric">
                             <span class="metric-value">1:%6</span>
@@ -416,7 +417,7 @@ QString ShotServer::generateShotListPage() const
                     </div>
                     <div class="shot-footer">
                         <span class="shot-beans">%8 %9</span>
-                        <span class="shot-rating">%10</span>
+                        <span class="shot-rating">rating: %10</span>
                     </div>
                 </a>
             </div>
@@ -430,7 +431,7 @@ QString ShotServer::generateShotListPage() const
         .arg(shot["duration"].toDouble(), 0, 'f', 1)
         .arg(shot["beanBrand"].toString().toHtmlEscaped())
         .arg(shot["beanType"].toString().toHtmlEscaped())
-        .arg(stars);
+        .arg(ratingStr);
     }
 
     return QString(R"HTML(
@@ -504,8 +505,8 @@ QString ShotServer::generateShotListPage() const
         .shot-card {
             background: var(--surface);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1rem;
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
             text-decoration: none;
             color: inherit;
             transition: all 0.2s ease;
@@ -514,13 +515,16 @@ QString ShotServer::generateShotListPage() const
         .shot-card:hover {
             background: var(--surface-hover);
             border-color: var(--accent);
-            transform: translateY(-2px);
         }
         .shot-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 0.75rem;
+            align-items: center;
+        }
+        .shot-header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
         .shot-profile {
             font-weight: 600;
@@ -530,14 +534,20 @@ QString ShotServer::generateShotListPage() const
         .shot-date {
             font-size: 0.75rem;
             color: var(--text-secondary);
+            white-space: nowrap;
         }
         .shot-metrics {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            padding: 0.75rem 0;
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
+            justify-content: space-between;
+        }
+        .dose-group {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0 0.3rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
         }
         .shot-metric {
             display: flex;
@@ -563,7 +573,6 @@ QString ShotServer::generateShotListPage() const
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-top: 0.75rem;
         }
         .shot-beans {
             font-size: 0.8125rem;
@@ -592,6 +601,11 @@ QString ShotServer::generateShotListPage() const
             margin-bottom: 1.5rem;
             flex-wrap: wrap;
             align-items: center;
+        }
+        .search-help {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
         }
         .search-input {
             flex: 1;
@@ -644,28 +658,30 @@ QString ShotServer::generateShotListPage() const
         }
         .shot-card { position: relative; }
         .shot-checkbox {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
             width: 24px;
             height: 24px;
+            min-width: 24px;
             appearance: none;
+            -webkit-appearance: none;
             background: var(--bg);
             border: 2px solid var(--border);
             border-radius: 4px;
             cursor: pointer;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .shot-checkbox:checked {
             background: var(--accent);
             border-color: var(--accent);
         }
         .shot-checkbox:checked::after {
-            content: "\\2713";
+            content: "✓";
             color: var(--bg);
-            font-size: 16px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            line-height: 1;
         }
         .shot-card.selected { border-color: var(--accent); }
         .header-right { display: flex; align-items: center; gap: 1rem; }
@@ -732,6 +748,7 @@ QString ShotServer::generateShotListPage() const
         </div>
     </header>
     <main class="container">
+        <div class="search-help">Type to filter by profile name, bean brand/type, or notes. Click a card to view details, or check multiple cards to compare shots.</div>
         <div class="search-bar">
             <input type="text" class="search-input" id="searchInput" placeholder="Search by profile, beans, notes..." oninput="filterShots()">
         </div>
@@ -882,12 +899,30 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
         return "[" + items.join(",") + "]";
     };
 
+    // Convert goal data with nulls at gaps (where time jumps > 0.5s)
+    auto goalPointsToJson = [](const QVariantList& points) -> QString {
+        QStringList items;
+        double lastX = -999;
+        for (const QVariant& p : points) {
+            QVariantMap pt = p.toMap();
+            double x = pt["x"].toDouble();
+            double y = pt["y"].toDouble();
+            // Insert null to break line if there's a gap > 0.5 seconds
+            if (lastX >= 0 && (x - lastX) > 0.5) {
+                items << QString("{x:%1,y:null}").arg((lastX + x) / 2, 0, 'f', 2);
+            }
+            items << QString("{x:%1,y:%2}").arg(x, 0, 'f', 2).arg(y, 0, 'f', 2);
+            lastX = x;
+        }
+        return "[" + items.join(",") + "]";
+    };
+
     QString pressureData = pointsToJson(shot["pressure"].toList());
     QString flowData = pointsToJson(shot["flow"].toList());
     QString tempData = pointsToJson(shot["temperature"].toList());
     QString weightData = pointsToJson(shot["weight"].toList());
-    QString pressureGoalData = pointsToJson(shot["pressureGoal"].toList());
-    QString flowGoalData = pointsToJson(shot["flowGoal"].toList());
+    QString pressureGoalData = goalPointsToJson(shot["pressureGoal"].toList());
+    QString flowGoalData = goalPointsToJson(shot["flowGoal"].toList());
 
     return QString(R"HTML(
 <!DOCTYPE html>
@@ -1106,7 +1141,7 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
             .metrics-bar { justify-content: center; }
         }
     </style>
-</head>
+</head>)HTML" R"HTML(
 <body>
     <header class="header">
         <div class="header-content">
@@ -1219,10 +1254,75 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
         const pressureGoalData = %19;
         const flowGoalData = %20;
 
-        // Custom tooltip positioner - follows mouse
-        Chart.Tooltip.positioners.cursor = function(elements, eventPosition) {
-            return { x: eventPosition.x, y: eventPosition.y };
-        };
+        // Track mouse position for tooltip
+        var mouseX = 0, mouseY = 0;
+        document.addEventListener("mousemove", function(e) {
+            mouseX = e.pageX;
+            mouseY = e.pageY;
+        });
+
+        // Find closest data point to a given x value
+        function findClosestPoint(data, targetX) {
+            if (!data || data.length === 0) return null;
+            var closest = data[0];
+            var closestDist = Math.abs(data[0].x - targetX);
+            for (var i = 1; i < data.length; i++) {
+                var dist = Math.abs(data[i].x - targetX);
+                if (dist < closestDist) {
+                    closestDist = dist;
+                    closest = data[i];
+                }
+            }
+            return closest;
+        }
+
+        // External tooltip showing all curves
+        function externalTooltip(context) {
+            var tooltipEl = document.getElementById("chartTooltip");
+            if (!tooltipEl) {
+                tooltipEl = document.createElement("div");
+                tooltipEl.id = "chartTooltip";
+                tooltipEl.style.cssText = "position:absolute;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:10px 14px;pointer-events:none;font-size:13px;color:#e6edf3;z-index:100;";
+                document.body.appendChild(tooltipEl);
+            }
+
+            var tooltip = context.tooltip;
+            if (tooltip.opacity === 0) {
+                tooltipEl.style.opacity = 0;
+                return;
+            }
+
+            if (!tooltip.dataPoints || !tooltip.dataPoints.length) {
+                tooltipEl.style.opacity = 0;
+                return;
+            }
+
+            var targetX = tooltip.dataPoints[0].parsed.x;
+            var datasets = context.chart.data.datasets;
+            var lines = [];)HTML" R"HTML(
+
+            for (var i = 0; i < datasets.length; i++) {
+                var ds = datasets[i];
+                var meta = context.chart.getDatasetMeta(i);
+                if (meta.hidden) continue;
+
+                var pt = findClosestPoint(ds.data, targetX);
+                if (!pt || pt.y === null) continue;
+
+                var unit = "";
+                if (ds.label.includes("Pressure")) unit = " bar";
+                else if (ds.label.includes("Flow")) unit = " ml/s";
+                else if (ds.label.includes("Yield")) unit = " g";
+                else if (ds.label.includes("Temp")) unit = " °C";
+
+                lines.push('<div style="display:flex;align-items:center;gap:6px;"><span style="display:inline-block;width:12px;height:12px;background:' + ds.borderColor + ';border-radius:2px;"></span>' + ds.label + ': ' + pt.y.toFixed(1) + unit + '</div>');
+            }
+
+            tooltipEl.innerHTML = '<div style="font-weight:600;margin-bottom:6px;">' + targetX.toFixed(1) + 's</div>' + lines.join('');
+            tooltipEl.style.opacity = 1;
+            tooltipEl.style.left = (mouseX + 15) + "px";
+            tooltipEl.style.top = (mouseY - 10) + "px";
+        }
 
         const ctx = document.getElementById('shotChart').getContext('2d');
         const chart = new Chart(ctx, {
@@ -1277,7 +1377,8 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
                         borderDash: [5, 5],
                         pointRadius: 0,
                         tension: 0.1,
-                        yAxisID: 'y'
+                        yAxisID: 'y',
+                        spanGaps: false
                     },
                     {
                         label: 'Flow Goal',
@@ -1287,7 +1388,8 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
                         borderDash: [5, 5],
                         pointRadius: 0,
                         tension: 0.1,
-                        yAxisID: 'y'
+                        yAxisID: 'y',
+                        spanGaps: false
                     }
                 ]
             },
@@ -1302,29 +1404,8 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: '#161b22',
-                        borderColor: '#30363d',
-                        borderWidth: 1,
-                        titleColor: '#e6edf3',
-                        bodyColor: '#8b949e',
-                        padding: 12,
-                        displayColors: true,
-                        position: 'cursor',
-                        callbacks: {
-                            title: function(items) {
-                                return items[0].parsed.x.toFixed(1) + "s";
-                            },
-                            label: function(context) {
-                                var label = context.dataset.label || "";
-                                var value = context.parsed.y.toFixed(1);
-                                var unit = "";
-                                if (label.includes("Pressure")) unit = " bar";
-                                else if (label.includes("Flow")) unit = " ml/s";
-                                else if (label.includes("Yield")) unit = " g";
-                                else if (label.includes("Temp")) unit = " C";
-                                return label + ": " + value + unit;
-                            }
-                        }
+                        enabled: false,
+                        external: externalTooltip
                     }
                 },
                 scales: {
@@ -1840,7 +1921,7 @@ QString ShotServer::generateComparisonPage(const QList<qint64>& shotIds) const
             // Position tooltip near mouse cursor (offset to avoid covering cursor)
             tooltipEl.style.left = (mouseX + 15) + "px";
             tooltipEl.style.top = (mouseY - 10) + "px";
-        }
+        })HTML" R"HTML(
 
         var ctx = document.getElementById("compareChart").getContext("2d");
         var chart = new Chart(ctx, {
