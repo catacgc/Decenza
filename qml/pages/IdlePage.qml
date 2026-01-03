@@ -235,7 +235,10 @@ Page {
         Item {
             Layout.alignment: Qt.AlignHCenter
             Layout.preferredHeight: activePresetFunction !== "" ? activePresetRow.implicitHeight : 0
-            Layout.preferredWidth: Theme.scaled(900)
+            Layout.fillWidth: true
+            Layout.maximumWidth: Theme.scaled(900)
+            Layout.leftMargin: Theme.standardMargin
+            Layout.rightMargin: Theme.standardMargin
             clip: true
 
             // Get the currently active preset row

@@ -8,7 +8,7 @@ FocusScope {
     property var presets: []
     property int selectedIndex: -1
     property int focusedIndex: 0  // Currently focused pill for keyboard nav
-    property real maxWidth: Theme.scaled(825)  // Max width before wrapping
+    property real maxWidth: Math.min(Theme.scaled(825), parent ? parent.width - Theme.scaled(24) : Theme.scaled(825))  // Clamp to parent width with margins
 
     signal presetSelected(int index)
 
