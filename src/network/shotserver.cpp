@@ -5,6 +5,7 @@
 
 #include <QNetworkInterface>
 #include <QFile>
+#include <algorithm>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -370,7 +371,40 @@ QString ShotServer::generateIndexPage() const
 
 QString ShotServer::generateShotListPage() const
 {
-    QVariantList shots = m_storage->getShots(0, 100);
+    QVariantList shots = m_storage->getShots(0, 1000);  // Get more shots for filtering
+
+    // Collect unique values for filter dropdowns
+    QSet<QString> profilesSet, brandsSet, coffeesSet;
+    for (const QVariant& v : shots) {
+        QVariantMap shot = v.toMap();
+        QString profile = shot["profileName"].toString().trimmed();
+        QString brand = shot["beanBrand"].toString().trimmed();
+        QString coffee = shot["beanType"].toString().trimmed();
+        if (!profile.isEmpty()) profilesSet.insert(profile);
+        if (!brand.isEmpty()) brandsSet.insert(brand);
+        if (!coffee.isEmpty()) coffeesSet.insert(coffee);
+    }
+
+    // Convert to sorted lists for dropdowns
+    QStringList profiles = profilesSet.values();
+    QStringList brands = brandsSet.values();
+    QStringList coffees = coffeesSet.values();
+    std::sort(profiles.begin(), profiles.end(), [](const QString& a, const QString& b) { return a.toLower() < b.toLower(); });
+    std::sort(brands.begin(), brands.end(), [](const QString& a, const QString& b) { return a.toLower() < b.toLower(); });
+    std::sort(coffees.begin(), coffees.end(), [](const QString& a, const QString& b) { return a.toLower() < b.toLower(); });
+
+    // Generate filter options HTML
+    auto generateOptions = [](const QStringList& items) -> QString {
+        QString html;
+        for (const QString& item : items) {
+            html += QString("<option value=\"%1\">%1</option>").arg(item.toHtmlEscaped());
+        }
+        return html;
+    };
+
+    QString profileOptions = generateOptions(profiles);
+    QString brandOptions = generateOptions(brands);
+    QString coffeeOptions = generateOptions(coffees);
 
     QString rows;
     for (const QVariant& v : shots) {
@@ -384,25 +418,53 @@ QString ShotServer::generateShotListPage() const
             ratio = shot["finalWeight"].toDouble() / shot["doseWeight"].toDouble();
         }
 
+        QString profileName = shot["profileName"].toString();
+        QString beanBrand = shot["beanBrand"].toString();
+        QString beanType = shot["beanType"].toString();
+        QString dateTime = shot["dateTime"].toString();
+        double doseWeight = shot["doseWeight"].toDouble();
+        double finalWeight = shot["finalWeight"].toDouble();
+        double duration = shot["duration"].toDouble();
+
+        // Escape for JavaScript string (single quotes) and HTML attribute
+        auto escapeForJs = [](const QString& s) -> QString {
+            QString escaped = s;
+            escaped.replace("\\", "\\\\");
+            escaped.replace("'", "\\'");
+            escaped.replace("\"", "&quot;");
+            escaped.replace("<", "&lt;");
+            escaped.replace(">", "&gt;");
+            return escaped;
+        };
+
+        QString profileJs = escapeForJs(profileName);
+        QString brandJs = escapeForJs(beanBrand);
+        QString coffeeJs = escapeForJs(beanType);
+        QString profileHtml = profileName.toHtmlEscaped();
+        QString brandHtml = beanBrand.toHtmlEscaped();
+        QString coffeeHtml = beanType.toHtmlEscaped();
+
         rows += QString(R"HTML(
-            <div class="shot-card" onclick="toggleSelect(%1, this)" data-id="%1">
+            <div class="shot-card" onclick="toggleSelect(%1, this)" data-id="%1"
+                 data-profile="%2" data-brand="%3" data-coffee="%4" data-rating="%5"
+                 data-ratio="%6" data-duration="%7" data-date="%8" data-dose="%9" data-yield="%10">
                 <a href="/shot/%1" onclick="event.stopPropagation()" style="text-decoration:none;color:inherit;display:block;">
                     <div class="shot-header">
-                        <span class="shot-profile">%2</span>
+                        <span class="shot-profile clickable" onclick="event.preventDefault(); event.stopPropagation(); addFilter('profile', '%11')">%2</span>
                         <div class="shot-header-right">
-                            <span class="shot-date">%3</span>
+                            <span class="shot-date">%8</span>
                             <input type="checkbox" class="shot-checkbox" data-id="%1" onclick="event.stopPropagation(); toggleSelect(%1, this.closest('.shot-card'))">
                         </div>
                     </div>
                     <div class="shot-metrics">
                         <div class="dose-group">
                             <div class="shot-metric">
-                                <span class="metric-value">%4g</span>
+                                <span class="metric-value">%9g</span>
                                 <span class="metric-label">in</span>
                             </div>
                             <div class="shot-arrow">&#8594;</div>
                             <div class="shot-metric">
-                                <span class="metric-value">%5g</span>
+                                <span class="metric-value">%10g</span>
                                 <span class="metric-label">out</span>
                             </div>
                         </div>
@@ -416,22 +478,28 @@ QString ShotServer::generateShotListPage() const
                         </div>
                     </div>
                     <div class="shot-footer">
-                        <span class="shot-beans">%8 %9</span>
-                        <span class="shot-rating">rating: %10</span>
+                        <span class="shot-beans">
+                            <span class="clickable" onclick="event.preventDefault(); event.stopPropagation(); addFilter('brand', '%12')">%3</span>
+                            <span class="clickable" onclick="event.preventDefault(); event.stopPropagation(); addFilter('coffee', '%13')">%4</span>
+                        </span>
+                        <span class="shot-rating clickable" onclick="event.preventDefault(); event.stopPropagation(); addFilter('rating', '%5')">rating: %5</span>
                     </div>
                 </a>
             </div>
         )HTML")
-        .arg(shot["id"].toLongLong())
-        .arg(shot["profileName"].toString().toHtmlEscaped())
-        .arg(shot["dateTime"].toString())
-        .arg(shot["doseWeight"].toDouble(), 0, 'f', 1)
-        .arg(shot["finalWeight"].toDouble(), 0, 'f', 1)
-        .arg(ratio, 0, 'f', 1)
-        .arg(shot["duration"].toDouble(), 0, 'f', 1)
-        .arg(shot["beanBrand"].toString().toHtmlEscaped())
-        .arg(shot["beanType"].toString().toHtmlEscaped())
-        .arg(ratingStr);
+        .arg(shot["id"].toLongLong())       // %1
+        .arg(profileHtml)                   // %2
+        .arg(brandHtml)                     // %3
+        .arg(coffeeHtml)                    // %4
+        .arg(rating)                        // %5
+        .arg(ratio, 0, 'f', 1)              // %6
+        .arg(duration, 0, 'f', 1)           // %7
+        .arg(dateTime)                      // %8
+        .arg(doseWeight, 0, 'f', 1)         // %9
+        .arg(finalWeight, 0, 'f', 1)        // %10
+        .arg(profileJs)                     // %11
+        .arg(brandJs)                       // %12
+        .arg(coffeeJs);                     // %13
     }
 
     return QString(R"HTML(
@@ -723,9 +791,115 @@ QString ShotServer::generateShotListPage() const
         .menu-item:first-child { border-radius: 7px 7px 0 0; }
         .menu-item:last-child { border-radius: 0 0 7px 7px; }
         .menu-item:only-child { border-radius: 7px; }
+        .clickable { cursor: pointer; transition: color 0.2s; }
+        .clickable:hover { color: var(--accent) !important; text-decoration: underline; }
+        .collapsible-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+        .collapsible-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .collapsible-header:hover { background: var(--surface-hover); border-radius: 8px; }
+        .collapsible-header h3 { font-size: 0.9rem; font-weight: 600; color: var(--text); margin: 0; }
+        .collapsible-arrow { color: var(--text-secondary); transition: transform 0.2s; }
+        .collapsible-section.open .collapsible-arrow { transform: rotate(180deg); }
+        .collapsible-content {
+            display: none;
+            padding: 0 1rem 1rem;
+            border-top: 1px solid var(--border);
+        }
+        .collapsible-section.open .collapsible-content { display: block; }
+        .filter-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding-top: 0.75rem;
+        }
+        .filter-group { display: flex; flex-direction: column; gap: 0.25rem; min-width: 140px; }
+        .filter-label { font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+        .filter-select {
+            padding: 0.5rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.875rem;
+            cursor: pointer;
+            min-width: 120px;
+        }
+        .filter-select:focus { outline: none; border-color: var(--accent); }
+        .filter-select option { background: var(--surface); color: var(--text); }
+        .active-filters {
+            display: none;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        .active-filters.visible { display: flex; }
+        .active-filters-label { font-size: 0.8rem; color: var(--text-secondary); margin-right: 0.5rem; }
+        .filter-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.6rem;
+            background: var(--accent);
+            color: var(--bg);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .filter-tag-remove {
+            cursor: pointer;
+            font-size: 1rem;
+            line-height: 1;
+            opacity: 0.8;
+        }
+        .filter-tag-remove:hover { opacity: 1; }
+        .clear-all-btn {
+            padding: 0.3rem 0.6rem;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-left: auto;
+        }
+        .clear-all-btn:hover { background: var(--surface-hover); color: var(--text); }
+        .sort-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; padding-top: 0.75rem; align-items: flex-end; }
+        .sort-btn {
+            padding: 0.5rem 1rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sort-btn:hover { border-color: var(--accent); }
+        .sort-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+        .sort-btn .sort-dir { margin-left: 0.3rem; }
+        .filter-row { display: flex; flex-wrap: wrap; gap: 1rem; }
+        .visible-count { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
         @media (max-width: 600px) {
             .shot-grid { grid-template-columns: 1fr; }
             .container { padding: 1rem; padding-bottom: 5rem; }
+            .filter-controls, .sort-controls { flex-direction: column; }
+            .filter-group, .filter-select { width: 100%%; }
         }
     </style>
 </head>
@@ -750,10 +924,85 @@ QString ShotServer::generateShotListPage() const
         </div>
     </header>
     <main class="container">
-        <div class="search-help">Type to filter by profile name, bean brand/type, or notes. Click a card to view details, or check multiple cards to compare shots.</div>
-        <div class="search-bar">
-            <input type="text" class="search-input" id="searchInput" placeholder="Search by profile, beans, notes..." oninput="filterShots()">
+        <!-- Active Filters Display -->
+        <div class="active-filters" id="activeFilters">
+            <span class="active-filters-label">Filters:</span>
+            <div id="filterTags"></div>
+            <button class="clear-all-btn" onclick="clearAllFilters()">Clear All</button>
         </div>
+
+        <!-- Collapsible Filter Section -->
+        <div class="collapsible-section" id="filterSection">
+            <div class="collapsible-header" onclick="toggleSection('filterSection')">
+                <h3>&#128269; Filter</h3>
+                <span class="collapsible-arrow">&#9660;</span>
+            </div>
+            <div class="collapsible-content">
+                <div class="filter-controls">
+                    <div class="filter-group">
+                        <label class="filter-label">Profile</label>
+                        <select class="filter-select" id="filterProfile" onchange="onFilterChange()">
+                            <option value="">All Profiles</option>
+                            %3
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Roaster</label>
+                        <select class="filter-select" id="filterBrand" onchange="onFilterChange()">
+                            <option value="">All Roasters</option>
+                            %4
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Coffee</label>
+                        <select class="filter-select" id="filterCoffee" onchange="onFilterChange()">
+                            <option value="">All Coffees</option>
+                            %5
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label class="filter-label">Min Rating</label>
+                        <select class="filter-select" id="filterRating" onchange="onFilterChange()">
+                            <option value="">Any Rating</option>
+                            <option value="90">90+</option>
+                            <option value="80">80+</option>
+                            <option value="70">70+</option>
+                            <option value="60">60+</option>
+                            <option value="50">50+</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-controls" style="margin-top:0.5rem;">
+                    <div class="filter-group">
+                        <label class="filter-label">Text Search</label>
+                        <input type="text" class="filter-select" id="searchInput" placeholder="Search..." oninput="onFilterChange()" style="min-width:200px;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Collapsible Sort Section -->
+        <div class="collapsible-section" id="sortSection">
+            <div class="collapsible-header" onclick="toggleSection('sortSection')">
+                <h3>&#8645; Sort</h3>
+                <span class="collapsible-arrow">&#9660;</span>
+            </div>
+            <div class="collapsible-content">
+                <div class="sort-controls">
+                    <button class="sort-btn active" data-sort="date" data-dir="desc" onclick="setSort('date')">Date <span class="sort-dir">&#9660;</span></button>
+                    <button class="sort-btn" data-sort="profile" data-dir="asc" onclick="setSort('profile')">Profile <span class="sort-dir">&#9650;</span></button>
+                    <button class="sort-btn" data-sort="brand" data-dir="asc" onclick="setSort('brand')">Roaster <span class="sort-dir">&#9650;</span></button>
+                    <button class="sort-btn" data-sort="coffee" data-dir="asc" onclick="setSort('coffee')">Coffee <span class="sort-dir">&#9650;</span></button>
+                    <button class="sort-btn" data-sort="rating" data-dir="desc" onclick="setSort('rating')">Rating <span class="sort-dir">&#9660;</span></button>
+                    <button class="sort-btn" data-sort="ratio" data-dir="desc" onclick="setSort('ratio')">Ratio <span class="sort-dir">&#9660;</span></button>
+                    <button class="sort-btn" data-sort="duration" data-dir="asc" onclick="setSort('duration')">Duration <span class="sort-dir">&#9650;</span></button>
+                    <button class="sort-btn" data-sort="dose" data-dir="desc" onclick="setSort('dose')">Dose <span class="sort-dir">&#9660;</span></button>
+                    <button class="sort-btn" data-sort="yield" data-dir="desc" onclick="setSort('yield')">Yield <span class="sort-dir">&#9660;</span></button>
+                </div>
+            </div>
+        </div>
+
+        <div class="visible-count" id="visibleCount">Showing %1 shots</div>
         <div class="shot-grid" id="shotGrid">
             %2
         </div>
@@ -765,6 +1014,9 @@ QString ShotServer::generateShotListPage() const
     </div>
     <script>
         var selectedShots = [];
+        var currentSort = { field: 'date', dir: 'desc' };
+        var filters = { profile: '', brand: '', coffee: '', rating: '', search: '' };
+        var filterLabels = { profile: 'Profile', brand: 'Roaster', coffee: 'Coffee', rating: 'Rating' };
 
         function toggleSelect(id, card) {
             var idx = selectedShots.indexOf(id);
@@ -789,7 +1041,6 @@ QString ShotServer::generateShotListPage() const
             } else {
                 bar.classList.remove("visible");
             }
-            // Update checkboxes
             document.querySelectorAll(".shot-checkbox").forEach(function(cb) {
                 cb.checked = selectedShots.indexOf(parseInt(cb.dataset.id)) >= 0;
             });
@@ -807,29 +1058,178 @@ QString ShotServer::generateShotListPage() const
             }
         }
 
-        function filterShots() {
-            var query = document.getElementById("searchInput").value.toLowerCase();
-            document.querySelectorAll(".shot-card").forEach(function(card) {
-                var text = card.textContent.toLowerCase();
-                card.style.display = text.includes(query) ? "" : "none";
+        function toggleSection(id) {
+            document.getElementById(id).classList.toggle('open');
+        }
+
+        function addFilter(type, value) {
+            if (!value || value.trim() === '') return;
+            filters[type] = value;
+            var select = document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1));
+            if (select) select.value = value;
+            if (type === 'rating') {
+                var ratingSelect = document.getElementById('filterRating');
+                if (ratingSelect) {
+                    var opts = ratingSelect.options;
+                    for (var i = 0; i < opts.length; i++) {
+                        if (parseInt(opts[i].value) <= parseInt(value)) {
+                            ratingSelect.value = opts[i].value;
+                            filters.rating = opts[i].value;
+                            break;
+                        }
+                    }
+                }
+            }
+            updateActiveFilters();
+            filterAndSortShots();
+        }
+
+        function removeFilter(type) {
+            filters[type] = '';
+            var select = document.getElementById('filter' + type.charAt(0).toUpperCase() + type.slice(1));
+            if (select) select.value = '';
+            updateActiveFilters();
+            filterAndSortShots();
+        }
+
+        function clearAllFilters() {
+            filters = { profile: '', brand: '', coffee: '', rating: '', search: '' };
+            document.getElementById('filterProfile').value = '';
+            document.getElementById('filterBrand').value = '';
+            document.getElementById('filterCoffee').value = '';
+            document.getElementById('filterRating').value = '';
+            document.getElementById('searchInput').value = '';
+            updateActiveFilters();
+            filterAndSortShots();
+        }
+
+        function onFilterChange() {
+            filters.profile = document.getElementById('filterProfile').value;
+            filters.brand = document.getElementById('filterBrand').value;
+            filters.coffee = document.getElementById('filterCoffee').value;
+            filters.rating = document.getElementById('filterRating').value;
+            filters.search = document.getElementById('searchInput').value.toLowerCase();
+            updateActiveFilters();
+            filterAndSortShots();
+        }
+
+        function updateActiveFilters() {
+            var container = document.getElementById('activeFilters');
+            var tags = document.getElementById('filterTags');
+            tags.innerHTML = '';
+            var hasFilters = false;
+            for (var key in filters) {
+                if (key !== 'search' && filters[key]) {
+                    hasFilters = true;
+                    var label = filterLabels[key] || key;
+                    var displayVal = key === 'rating' ? filters[key] + '+' : filters[key];
+                    tags.innerHTML += '<span class="filter-tag">' + label + ': ' + displayVal +
+                        ' <span class="filter-tag-remove" onclick="removeFilter(\'' + key + '\')">&times;</span></span>';
+                }
+            }
+            container.classList.toggle('visible', hasFilters);
+        }
+
+        function filterAndSortShots() {
+            var cards = Array.from(document.querySelectorAll('.shot-card'));
+            var visibleCount = 0;
+
+            // Filter
+            cards.forEach(function(card) {
+                var show = true;
+                if (filters.profile && card.dataset.profile !== filters.profile) show = false;
+                if (filters.brand && card.dataset.brand !== filters.brand) show = false;
+                if (filters.coffee && card.dataset.coffee !== filters.coffee) show = false;
+                if (filters.rating && parseInt(card.dataset.rating) < parseInt(filters.rating)) show = false;
+                if (filters.search && !card.textContent.toLowerCase().includes(filters.search)) show = false;
+                card.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
             });
+
+            // Sort visible cards
+            var grid = document.getElementById('shotGrid');
+            var visibleCards = cards.filter(function(c) { return c.style.display !== 'none'; });
+
+            visibleCards.sort(function(a, b) {
+                var aVal, bVal;
+                var field = currentSort.field;
+                var dir = currentSort.dir === 'asc' ? 1 : -1;
+
+                if (field === 'date') {
+                    aVal = a.dataset.date || '';
+                    bVal = b.dataset.date || '';
+                    return dir * aVal.localeCompare(bVal);
+                } else if (field === 'profile') {
+                    aVal = (a.dataset.profile || '').toLowerCase();
+                    bVal = (b.dataset.profile || '').toLowerCase();
+                    return dir * aVal.localeCompare(bVal);
+                } else if (field === 'brand') {
+                    aVal = (a.dataset.brand || '').toLowerCase();
+                    bVal = (b.dataset.brand || '').toLowerCase();
+                    return dir * aVal.localeCompare(bVal);
+                } else if (field === 'coffee') {
+                    aVal = (a.dataset.coffee || '').toLowerCase();
+                    bVal = (b.dataset.coffee || '').toLowerCase();
+                    return dir * aVal.localeCompare(bVal);
+                } else if (field === 'rating') {
+                    aVal = parseFloat(a.dataset.rating) || 0;
+                    bVal = parseFloat(b.dataset.rating) || 0;
+                    return dir * (aVal - bVal);
+                } else if (field === 'ratio') {
+                    aVal = parseFloat(a.dataset.ratio) || 0;
+                    bVal = parseFloat(b.dataset.ratio) || 0;
+                    return dir * (aVal - bVal);
+                } else if (field === 'duration') {
+                    aVal = parseFloat(a.dataset.duration) || 0;
+                    bVal = parseFloat(b.dataset.duration) || 0;
+                    return dir * (aVal - bVal);
+                } else if (field === 'dose') {
+                    aVal = parseFloat(a.dataset.dose) || 0;
+                    bVal = parseFloat(b.dataset.dose) || 0;
+                    return dir * (aVal - bVal);
+                } else if (field === 'yield') {
+                    aVal = parseFloat(a.dataset.yield) || 0;
+                    bVal = parseFloat(b.dataset.yield) || 0;
+                    return dir * (aVal - bVal);
+                }
+                return 0;
+            });
+
+            visibleCards.forEach(function(card) { grid.appendChild(card); });
+            document.getElementById('visibleCount').textContent = 'Showing ' + visibleCount + ' shots';
+        }
+
+        function setSort(field) {
+            var btns = document.querySelectorAll('.sort-btn');
+            btns.forEach(function(btn) {
+                if (btn.dataset.sort === field) {
+                    if (btn.classList.contains('active')) {
+                        // Toggle direction
+                        var newDir = btn.dataset.dir === 'asc' ? 'desc' : 'asc';
+                        btn.dataset.dir = newDir;
+                        btn.querySelector('.sort-dir').innerHTML = newDir === 'asc' ? '&#9650;' : '&#9660;';
+                    }
+                    btn.classList.add('active');
+                    currentSort.field = field;
+                    currentSort.dir = btn.dataset.dir;
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            filterAndSortShots();
         }
 
         function toggleMenu() {
-            var menu = document.getElementById("menuDropdown");
-            menu.classList.toggle("open");
+            document.getElementById("menuDropdown").classList.toggle("open");
         }
 
-        // Close menu when clicking outside
         document.addEventListener("click", function(e) {
             var menu = document.getElementById("menuDropdown");
-            var btn = e.target.closest(".menu-btn");
-            if (!btn && menu.classList.contains("open")) {
+            if (!e.target.closest(".menu-btn") && menu.classList.contains("open")) {
                 menu.classList.remove("open");
             }
         });
 
-        // Power control
         var powerState = {awake: false, state: "Unknown"};
 
         function updatePowerButton() {
@@ -845,21 +1245,16 @@ QString ShotServer::generateShotListPage() const
 
         function fetchPowerState() {
             fetch("/api/power/status")
-                .then(r => r.json())
-                .then(data => {
-                    powerState = data;
-                    updatePowerButton();
-                })
-                .catch(() => {});
+                .then(function(r) { return r.json(); })
+                .then(function(data) { powerState = data; updatePowerButton(); })
+                .catch(function() {});
         }
 
         function togglePower() {
             var action = powerState.awake ? "sleep" : "wake";
             fetch("/api/power/" + action)
-                .then(r => r.json())
-                .then(() => {
-                    setTimeout(fetchPowerState, 1000);
-                });
+                .then(function(r) { return r.json(); })
+                .then(function() { setTimeout(fetchPowerState, 1000); });
         }
 
         fetchPowerState();
@@ -868,7 +1263,10 @@ QString ShotServer::generateShotListPage() const
 </body>
 </html>
 )HTML").arg(m_storage->totalShots())
-   .arg(rows.isEmpty() ? "<div class='empty-state'><h2>No shots yet</h2><p>Pull some espresso to see your history here</p></div>" : rows);
+   .arg(rows.isEmpty() ? "<div class='empty-state'><h2>No shots yet</h2><p>Pull some espresso to see your history here</p></div>" : rows)
+   .arg(profileOptions)
+   .arg(brandOptions)
+   .arg(coffeeOptions);
 }
 
 QString ShotServer::generateShotDetailPage(qint64 shotId) const
