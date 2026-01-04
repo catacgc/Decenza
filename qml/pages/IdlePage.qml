@@ -129,105 +129,151 @@ Page {
 
     // Main content area - centered, offset down to account for top status section
     ColumnLayout {
-        anchors.centerIn: parent
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: Theme.scaled(50)  // Push down to avoid status overlap
+        anchors.leftMargin: Theme.standardMargin
+        anchors.rightMargin: Theme.standardMargin
         spacing: Theme.scaled(20)
 
-        // Main action buttons row
-        RowLayout {
-            Layout.alignment: Qt.AlignHCenter
-            spacing: Theme.scaled(30)
+        // Card containing main action buttons
+        Rectangle {
+            id: mainButtonsCard
+            Layout.fillWidth: true
+            implicitHeight: mainButtonsRow.implicitHeight + Theme.scaled(20)
+            color: "transparent"
 
-            ActionButton {
-                id: espressoButton
-                translationKey: "idle.button.espresso"
-                translationFallback: "Espresso"
-                iconSource: "qrc:/icons/espresso.svg"
-                enabled: DE1Device.connected
-                onClicked: {
-                    activePresetFunction = (activePresetFunction === "espresso") ? "" : "espresso"
+            // Calculate button size to fit available width while maintaining aspect ratio
+            readonly property int buttonCount: 4 + (shotInfoButton.visible ? 1 : 0) + 1  // 4 main + shotInfo + history
+            readonly property real availableWidth: width - Theme.scaled(20) - (buttonCount - 1) * Theme.scaled(10)
+            readonly property real buttonWidth: Math.min(Theme.scaled(150), availableWidth / buttonCount)
+            readonly property real buttonHeight: buttonWidth * 0.8  // Maintain 150:120 aspect ratio
+
+            RowLayout {
+                id: mainButtonsRow
+                anchors.centerIn: parent
+                spacing: Theme.scaled(10)
+
+                ActionButton {
+                    id: espressoButton
+                    implicitWidth: mainButtonsCard.buttonWidth
+                    implicitHeight: mainButtonsCard.buttonHeight
+                    translationKey: "idle.button.espresso"
+                    translationFallback: "Espresso"
+                    iconSource: "qrc:/icons/espresso.svg"
+                    enabled: DE1Device.connected
+                    onClicked: {
+                        activePresetFunction = (activePresetFunction === "espresso") ? "" : "espresso"
+                    }
+                    onPressAndHold: root.goToProfileSelector()
+                    onDoubleClicked: root.goToProfileSelector()
+
+                    KeyNavigation.right: steamButton
+                    KeyNavigation.down: activePresetFunction === "espresso" ? espressoPresetRow : sleepButton
+
+                    Accessible.description: TranslationManager.translate("idle.accessible.espresso.description", "Start espresso. Double-tap to select profile. Long-press for settings.")
                 }
-                onPressAndHold: root.goToProfileSelector()
-                onDoubleClicked: root.goToProfileSelector()
 
-                KeyNavigation.right: shotInfoButton.visible ? shotInfoButton : steamButton
-                KeyNavigation.down: activePresetFunction === "espresso" ? espressoPresetRow : sleepButton
+                ActionButton {
+                    id: steamButton
+                    implicitWidth: mainButtonsCard.buttonWidth
+                    implicitHeight: mainButtonsCard.buttonHeight
+                    translationKey: "idle.button.steam"
+                    translationFallback: "Steam"
+                    iconSource: "qrc:/icons/steam.svg"
+                    enabled: DE1Device.connected
+                    onClicked: {
+                        activePresetFunction = (activePresetFunction === "steam") ? "" : "steam"
+                    }
+                    onPressAndHold: root.goToSteam()
+                    onDoubleClicked: root.goToSteam()
 
-                Accessible.description: TranslationManager.translate("idle.accessible.espresso.description", "Start espresso. Double-tap to select profile. Long-press for settings.")
-            }
+                    KeyNavigation.left: espressoButton
+                    KeyNavigation.right: hotWaterButton
+                    KeyNavigation.down: activePresetFunction === "steam" ? steamPresetRow : sleepButton
 
-            ActionButton {
-                id: shotInfoButton
-                translationKey: "idle.button.shotinfo"
-                translationFallback: "Shot Info"
-                iconSource: "qrc:/icons/edit.svg"
-                iconSize: Theme.scaled(43)
-                backgroundColor: Theme.primaryColor
-                visible: Settings.visualizerExtendedMetadata
-                enabled: DE1Device.connected
-                onClicked: root.goToShotMetadata(false)
-
-                KeyNavigation.left: espressoButton
-                KeyNavigation.right: steamButton
-                KeyNavigation.down: sleepButton
-
-                Accessible.description: TranslationManager.translate("idle.accessible.shotinfo.description", "Edit shot metadata for Visualizer uploads. Bean, grinder, and tasting notes.")
-            }
-
-            ActionButton {
-                id: steamButton
-                translationKey: "idle.button.steam"
-                translationFallback: "Steam"
-                iconSource: "qrc:/icons/steam.svg"
-                enabled: DE1Device.connected
-                onClicked: {
-                    activePresetFunction = (activePresetFunction === "steam") ? "" : "steam"
+                    Accessible.description: TranslationManager.translate("idle.accessible.steam.description", "Start steaming milk. Long-press to configure.")
                 }
-                onPressAndHold: root.goToSteam()
-                onDoubleClicked: root.goToSteam()
 
-                KeyNavigation.left: shotInfoButton.visible ? shotInfoButton : espressoButton
-                KeyNavigation.right: hotWaterButton
-                KeyNavigation.down: activePresetFunction === "steam" ? steamPresetRow : sleepButton
+                ActionButton {
+                    id: hotWaterButton
+                    implicitWidth: mainButtonsCard.buttonWidth
+                    implicitHeight: mainButtonsCard.buttonHeight
+                    translationKey: "idle.button.hotwater"
+                    translationFallback: "Hot Water"
+                    iconSource: "qrc:/icons/water.svg"
+                    enabled: DE1Device.connected
+                    onClicked: {
+                        activePresetFunction = (activePresetFunction === "hotwater") ? "" : "hotwater"
+                    }
+                    onPressAndHold: root.goToHotWater()
+                    onDoubleClicked: root.goToHotWater()
 
-                Accessible.description: TranslationManager.translate("idle.accessible.steam.description", "Start steaming milk. Long-press to configure.")
-            }
+                    KeyNavigation.left: steamButton
+                    KeyNavigation.right: flushButton
+                    KeyNavigation.down: activePresetFunction === "hotwater" ? hotWaterPresetRow : settingsButton
 
-            ActionButton {
-                id: hotWaterButton
-                translationKey: "idle.button.hotwater"
-                translationFallback: "Hot Water"
-                iconSource: "qrc:/icons/water.svg"
-                enabled: DE1Device.connected
-                onClicked: {
-                    activePresetFunction = (activePresetFunction === "hotwater") ? "" : "hotwater"
+                    Accessible.description: TranslationManager.translate("idle.accessible.hotwater.description", "Dispense hot water. Long-press to configure.")
                 }
-                onPressAndHold: root.goToHotWater()
-                onDoubleClicked: root.goToHotWater()
 
-                KeyNavigation.left: steamButton
-                KeyNavigation.right: flushButton
-                KeyNavigation.down: activePresetFunction === "hotwater" ? hotWaterPresetRow : settingsButton
+                ActionButton {
+                    id: flushButton
+                    implicitWidth: mainButtonsCard.buttonWidth
+                    implicitHeight: mainButtonsCard.buttonHeight
+                    translationKey: "idle.button.flush"
+                    translationFallback: "Flush"
+                    iconSource: "qrc:/icons/flush.svg"
+                    enabled: DE1Device.connected
+                    onClicked: {
+                        activePresetFunction = (activePresetFunction === "flush") ? "" : "flush"
+                    }
+                    onPressAndHold: root.goToFlush()
+                    onDoubleClicked: root.goToFlush()
 
-                Accessible.description: TranslationManager.translate("idle.accessible.hotwater.description", "Dispense hot water. Long-press to configure.")
-            }
+                    KeyNavigation.left: hotWaterButton
+                    KeyNavigation.right: shotInfoButton.visible ? shotInfoButton : historyButton
+                    KeyNavigation.down: activePresetFunction === "flush" ? flushPresetRow : settingsButton
 
-            ActionButton {
-                id: flushButton
-                translationKey: "idle.button.flush"
-                translationFallback: "Flush"
-                iconSource: "qrc:/icons/flush.svg"
-                enabled: DE1Device.connected
-                onClicked: {
-                    activePresetFunction = (activePresetFunction === "flush") ? "" : "flush"
+                    Accessible.description: TranslationManager.translate("idle.accessible.flush.description", "Flush the group head. Long-press to configure.")
                 }
-                onPressAndHold: root.goToFlush()
-                onDoubleClicked: root.goToFlush()
 
-                KeyNavigation.left: hotWaterButton
-                KeyNavigation.down: activePresetFunction === "flush" ? flushPresetRow : settingsButton
+                ActionButton {
+                    id: shotInfoButton
+                    implicitWidth: mainButtonsCard.buttonWidth
+                    implicitHeight: mainButtonsCard.buttonHeight
+                    translationKey: "idle.button.shotinfo"
+                    translationFallback: "Shot Info"
+                    iconSource: "qrc:/icons/edit.svg"
+                    iconSize: Theme.scaled(43)
+                    backgroundColor: Theme.primaryColor
+                    visible: Settings.visualizerExtendedMetadata
+                    enabled: DE1Device.connected
+                    onClicked: root.goToShotMetadata(false)
 
-                Accessible.description: TranslationManager.translate("idle.accessible.flush.description", "Flush the group head. Long-press to configure.")
+                    KeyNavigation.left: flushButton
+                    KeyNavigation.right: historyButton
+                    KeyNavigation.down: settingsButton
+
+                    Accessible.description: TranslationManager.translate("idle.accessible.shotinfo.description", "Edit shot metadata for Visualizer uploads. Bean, grinder, and tasting notes.")
+                }
+
+                ActionButton {
+                    id: historyButton
+                    implicitWidth: mainButtonsCard.buttonWidth
+                    implicitHeight: mainButtonsCard.buttonHeight
+                    translationKey: "idle.button.history"
+                    translationFallback: "History"
+                    iconSource: "qrc:/icons/espresso.svg"
+                    iconSize: Theme.scaled(43)
+                    backgroundColor: Theme.primaryColor
+                    onClicked: pageStack.push(Qt.resolvedUrl("ShotHistoryPage.qml"))
+
+                    KeyNavigation.left: shotInfoButton.visible ? shotInfoButton : flushButton
+                    KeyNavigation.down: settingsButton
+
+                    Accessible.description: TranslationManager.translate("idle.accessible.history.description", "View and compare past shots")
+                }
             }
         }
 
@@ -599,77 +645,6 @@ Page {
                     accessibleItem: sleepButton
                     onAccessibleClicked: sleepButton.doSleep()
                     onAccessibleLongPressed: Qt.quit()
-                }
-            }
-
-            Item { Layout.fillWidth: true }
-
-            // Shot History button
-            Item {
-                id: historyButton
-                Layout.fillHeight: true
-                Layout.preferredWidth: historyButtonBg.implicitWidth
-                Layout.topMargin: Theme.spacingSmall
-                Layout.bottomMargin: Theme.spacingSmall
-                activeFocusOnTab: true
-
-                Accessible.role: Accessible.Button
-                Accessible.name: "Shot History"
-                Accessible.description: "View and compare past shots"
-                Accessible.focusable: true
-
-                KeyNavigation.left: sleepButton
-                KeyNavigation.right: settingsButton
-
-                function openHistory() {
-                    pageStack.push(Qt.resolvedUrl("ShotHistoryPage.qml"))
-                }
-
-                Keys.onReturnPressed: openHistory()
-                Keys.onEnterPressed: openHistory()
-                Keys.onSpacePressed: openHistory()
-
-                Rectangle {
-                    id: historyButtonBg
-                    anchors.fill: parent
-                    implicitWidth: Theme.scaled(140)
-                    color: historyMouseArea.pressed ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                    radius: Theme.cardRadius
-                }
-
-                RowLayout {
-                    anchors.centerIn: parent
-                    spacing: Theme.spacingSmall
-                    Image {
-                        source: "qrc:/icons/espresso.svg"
-                        sourceSize.width: Theme.scaled(24)
-                        sourceSize.height: Theme.scaled(24)
-                        Layout.alignment: Qt.AlignVCenter
-                    }
-                    Tr {
-                        key: "idle.history"
-                        fallback: "History"
-                        font: Theme.bodyFont
-                        color: "white"
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-
-                MouseArea {
-                    id: historyMouseArea
-                    anchors.fill: parent
-                    onClicked: historyButton.openHistory()
-                }
-
-                // Focus indicator
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: -Theme.focusMargin
-                    visible: historyButton.activeFocus
-                    color: "transparent"
-                    border.width: Theme.focusBorderWidth
-                    border.color: Theme.focusColor
-                    radius: parent.radius + Theme.focusMargin
                 }
             }
 
