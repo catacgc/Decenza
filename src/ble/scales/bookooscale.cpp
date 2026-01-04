@@ -5,9 +5,12 @@
 BookooScale::BookooScale(QObject* parent)
     : ScaleDevice(parent)
 {
+    m_watchdogTimer.setSingleShot(true);
+    connect(&m_watchdogTimer, &QTimer::timeout, this, &BookooScale::onWatchdogTimeout);
 }
 
 BookooScale::~BookooScale() {
+    stopWatchdog();
     disconnectFromScale();
 }
 
@@ -36,11 +39,15 @@ void BookooScale::onControllerConnected() {
 }
 
 void BookooScale::onControllerDisconnected() {
+    stopWatchdog();
+    m_receivedData = false;
     setConnected(false);
 }
 
 void BookooScale::onControllerError(QLowEnergyController::Error error) {
     Q_UNUSED(error)
+    stopWatchdog();
+    m_receivedData = false;
     emit errorOccurred("Bookoo scale connection error");
     setConnected(false);
 }
@@ -53,6 +60,8 @@ void BookooScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
                     this, &BookooScale::onServiceStateChanged);
             connect(m_service, &QLowEnergyService::characteristicChanged,
                     this, &BookooScale::onCharacteristicChanged);
+            connect(m_service, &QLowEnergyService::descriptorWritten,
+                    this, &BookooScale::onDescriptorWritten);
             m_service->discoverDetails();
         }
     }
@@ -63,21 +72,52 @@ void BookooScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
         m_statusChar = m_service->characteristic(Scale::Bookoo::STATUS);
         m_cmdChar = m_service->characteristic(Scale::Bookoo::CMD);
 
-        // Subscribe to status notifications
-        if (m_statusChar.isValid()) {
-            QLowEnergyDescriptor notification = m_statusChar.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-            if (notification.isValid()) {
-                m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-            }
-        }
+        // Reset watchdog state for new connection
+        m_notificationRetries = 0;
+        m_receivedData = false;
 
-        setConnected(true);
+        // Delay notification subscription by 200ms (matches de1app behavior)
+        // This gives the BLE stack time to stabilize after service discovery
+        QTimer::singleShot(INITIAL_DELAY_MS, this, &BookooScale::enableNotifications);
     }
+}
+
+void BookooScale::enableNotifications() {
+    if (!m_service || !m_statusChar.isValid()) {
+        qWarning() << "Bookoo: Cannot enable notifications - service or characteristic invalid";
+        return;
+    }
+
+    qDebug() << "Bookoo: Enabling notifications (attempt" << (m_notificationRetries + 1) << ")";
+
+    // Subscribe to status notifications
+    QLowEnergyDescriptor notification = m_statusChar.descriptor(
+        QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
+    if (notification.isValid()) {
+        m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
+    }
+
+    // Start watchdog to retry if no data received
+    startWatchdog();
+}
+
+void BookooScale::onDescriptorWritten(const QLowEnergyDescriptor& descriptor, const QByteArray& value) {
+    Q_UNUSED(descriptor)
+    Q_UNUSED(value)
+    qDebug() << "Bookoo: Notification descriptor written successfully";
+    // Don't set connected here - wait for actual weight data
 }
 
 void BookooScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
     if (c.uuid() == Scale::Bookoo::STATUS) {
+        // First data received - we're truly connected now
+        if (!m_receivedData) {
+            m_receivedData = true;
+            stopWatchdog();
+            setConnected(true);
+            qDebug() << "Bookoo: First weight data received, connection confirmed";
+        }
+
         // Bookoo format: h1 h2 h3 h4 h5 h6 sign w1 w2 w3
         if (value.size() >= 10) {
             const uint8_t* d = reinterpret_cast<const uint8_t*>(value.constData());
@@ -116,4 +156,37 @@ void BookooScale::stopTimer() {
 
 void BookooScale::resetTimer() {
     sendCommand(QByteArray::fromHex("030A0600000C"));
+}
+
+void BookooScale::startWatchdog() {
+    m_watchdogTimer.start(WATCHDOG_INTERVAL_MS);
+}
+
+void BookooScale::stopWatchdog() {
+    m_watchdogTimer.stop();
+    m_notificationRetries = 0;
+}
+
+void BookooScale::onWatchdogTimeout() {
+    // If we've received data, the scale is working - no need to retry
+    if (m_receivedData) {
+        return;
+    }
+
+    m_notificationRetries++;
+
+    if (m_notificationRetries >= MAX_NOTIFICATION_RETRIES) {
+        qWarning() << "Bookoo: Failed to receive weight data after"
+                   << MAX_NOTIFICATION_RETRIES << "attempts, giving up";
+        emit errorOccurred("Bookoo scale not responding - no weight data received");
+        // Don't disconnect - the BLE connection might still be valid,
+        // but we couldn't get notifications working
+        return;
+    }
+
+    qDebug() << "Bookoo: No weight data received, retrying notification subscription"
+             << "(" << m_notificationRetries << "/" << MAX_NOTIFICATION_RETRIES << ")";
+
+    // Retry enabling notifications (matches de1app watchdog_first behavior)
+    enableNotifications();
 }
