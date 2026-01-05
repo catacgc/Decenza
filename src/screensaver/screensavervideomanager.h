@@ -108,6 +108,10 @@ class ScreensaverVideoManager : public QObject {
     Q_PROPERTY(bool flipClockUse24Hour READ flipClockUse24Hour WRITE setFlipClockUse24Hour NOTIFY flipClockUse24HourChanged)
     Q_PROPERTY(bool flipClockUse3D READ flipClockUse3D WRITE setFlipClockUse3D NOTIFY flipClockUse3DChanged)
 
+    // Rate limiting (after cache clear)
+    Q_PROPERTY(bool isRateLimited READ isRateLimited NOTIFY rateLimitedChanged)
+    Q_PROPERTY(int rateLimitMinutesRemaining READ rateLimitMinutesRemaining NOTIFY rateLimitedChanged)
+
 public:
     explicit ScreensaverVideoManager(Settings* settings, ProfileStorage* profileStorage, QObject* parent = nullptr);
     ~ScreensaverVideoManager();
@@ -154,6 +158,10 @@ public:
     bool flipClockUse24Hour() const { return m_flipClockUse24Hour; }
     bool flipClockUse3D() const { return m_flipClockUse3D; }
 
+    // Rate limiting
+    bool isRateLimited() const;
+    int rateLimitMinutesRemaining() const;
+
     // Property setters
     void setEnabled(bool enabled);
     void setCatalogUrl(const QString& url);
@@ -192,6 +200,7 @@ public slots:
 
     // Cache management
     void clearCache();
+    void clearCacheWithRateLimit();  // Clears cache and enables rate limiting
     void startBackgroundDownload();
     void stopBackgroundDownload();
 
@@ -231,6 +240,7 @@ signals:
     void pipesCameraSpeedChanged();
     void flipClockUse24HourChanged();
     void flipClockUse3DChanged();
+    void rateLimitedChanged();
 
 private slots:
     void onCategoriesReplyFinished();
@@ -334,6 +344,12 @@ private:
     double m_pipesCameraSpeed = 60.0;  // Seconds for full rotation (default 60s)
     bool m_flipClockUse24Hour = true;  // Default to 24-hour format
     bool m_flipClockUse3D = true;  // Default to 3D (perspective) mode
+
+    // Rate limiting (after cache clear to prevent S3 abuse)
+    QDateTime m_rateLimitedUntil;  // Rate limit active until this time
+    QDateTime m_lastDownloadTime;  // When the last video finished downloading
+    QTimer* m_rateLimitTimer = nullptr;  // Timer for delayed downloads
+    static constexpr int RATE_LIMIT_MINUTES = 3;  // Minutes between downloads when rate limited
 
     // Constants
     static const QString BASE_URL;

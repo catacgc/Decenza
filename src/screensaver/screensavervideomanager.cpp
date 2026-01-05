@@ -64,6 +64,21 @@ ScreensaverVideoManager::ScreensaverVideoManager(Settings* settings, ProfileStor
     m_flipClockUse24Hour = m_settings->value("screensaver/flipClockUse24Hour", true).toBool();
     m_flipClockUse3D = m_settings->value("screensaver/flipClockUse3D", true).toBool();
 
+    // Load rate limit state
+    QString rateLimitStr = m_settings->value("screensaver/rateLimitedUntil", "").toString();
+    if (!rateLimitStr.isEmpty()) {
+        m_rateLimitedUntil = QDateTime::fromString(rateLimitStr, Qt::ISODate);
+    }
+    QString lastDownloadStr = m_settings->value("screensaver/lastDownloadTime", "").toString();
+    if (!lastDownloadStr.isEmpty()) {
+        m_lastDownloadTime = QDateTime::fromString(lastDownloadStr, Qt::ISODate);
+    }
+
+    // Timer for rate-limited downloads
+    m_rateLimitTimer = new QTimer(this);
+    m_rateLimitTimer->setSingleShot(true);
+    connect(m_rateLimitTimer, &QTimer::timeout, this, &ScreensaverVideoManager::processDownloadQueue);
+
     // Load cache index and personal catalog
     loadCacheIndex();
     loadPersonalCatalog();
@@ -848,6 +863,51 @@ void ScreensaverVideoManager::clearCache()
     emit cacheUsedBytesChanged();
 }
 
+void ScreensaverVideoManager::clearCacheWithRateLimit()
+{
+    qDebug() << "[Screensaver] Clearing cache with rate limiting enabled";
+
+    clearCache();
+
+    // Enable rate limiting for 24 hours (enough time to download all videos slowly)
+    m_rateLimitedUntil = QDateTime::currentDateTimeUtc().addDays(1);
+    m_settings->setValue("screensaver/rateLimitedUntil", m_rateLimitedUntil.toString(Qt::ISODate));
+
+    // Clear last download time so first download can happen immediately
+    m_lastDownloadTime = QDateTime();
+    m_settings->setValue("screensaver/lastDownloadTime", "");
+
+    emit rateLimitedChanged();
+
+    qDebug() << "[Screensaver] Rate limiting enabled until" << m_rateLimitedUntil.toString();
+}
+
+bool ScreensaverVideoManager::isRateLimited() const
+{
+    if (!m_rateLimitedUntil.isValid()) {
+        return false;
+    }
+    return QDateTime::currentDateTimeUtc() < m_rateLimitedUntil;
+}
+
+int ScreensaverVideoManager::rateLimitMinutesRemaining() const
+{
+    if (!isRateLimited()) {
+        return 0;
+    }
+
+    // If we have a last download time, calculate time until next download is allowed
+    if (m_lastDownloadTime.isValid()) {
+        QDateTime nextAllowed = m_lastDownloadTime.addSecs(RATE_LIMIT_MINUTES * 60);
+        qint64 secsRemaining = QDateTime::currentDateTimeUtc().secsTo(nextAllowed);
+        if (secsRemaining > 0) {
+            return (secsRemaining + 59) / 60;  // Round up to minutes
+        }
+    }
+
+    return 0;  // Next download can happen now
+}
+
 // Download management
 void ScreensaverVideoManager::startBackgroundDownload()
 {
@@ -869,6 +929,11 @@ void ScreensaverVideoManager::startBackgroundDownload()
 void ScreensaverVideoManager::stopBackgroundDownload()
 {
     m_downloadQueue.clear();
+
+    // Stop rate limit timer
+    if (m_rateLimitTimer) {
+        m_rateLimitTimer->stop();
+    }
 
     if (m_downloadReply) {
         // Disconnect signals before aborting to prevent onDownloadFinished from being called
@@ -931,7 +996,22 @@ void ScreensaverVideoManager::processDownloadQueue()
 
     const VideoItem& item = m_catalog[m_currentDownloadIndex];
 
-    qDebug() << "[Screensaver] Downloading video" << item.id << ":" << item.author;
+    // Rate limiting only applies to videos, not images (images are small)
+    if (item.isVideo() && isRateLimited() && m_lastDownloadTime.isValid()) {
+        QDateTime nextAllowed = m_lastDownloadTime.addSecs(RATE_LIMIT_MINUTES * 60);
+        qint64 msRemaining = QDateTime::currentDateTimeUtc().msecsTo(nextAllowed);
+
+        if (msRemaining > 0) {
+            qDebug() << "[Screensaver] Rate limited for video, waiting" << (msRemaining / 1000 / 60) << "minutes";
+            // Put the item back at the front of the queue
+            m_downloadQueue.prepend(m_currentDownloadIndex);
+            m_rateLimitTimer->start(qMin(msRemaining, (qint64)60000));  // Check at least every minute
+            emit rateLimitedChanged();
+            return;
+        }
+    }
+
+    qDebug() << "[Screensaver] Downloading" << (item.isImage() ? "image" : "video") << item.id << ":" << item.author;
 
     QString url = buildVideoUrl(item);
     QString cachePath = getCachePath(item);
@@ -1062,6 +1142,13 @@ void ScreensaverVideoManager::onDownloadFinished()
 
     emit cacheUsedBytesChanged();
     emit videoReady(cachePath);
+
+    // Update rate limit tracking (only for videos, not images)
+    if (item.isVideo() && isRateLimited()) {
+        m_lastDownloadTime = QDateTime::currentDateTimeUtc();
+        m_settings->setValue("screensaver/lastDownloadTime", m_lastDownloadTime.toString(Qt::ISODate));
+        emit rateLimitedChanged();
+    }
 
     // Save cache index after each download so progress isn't lost when app is killed
     saveCacheIndex();

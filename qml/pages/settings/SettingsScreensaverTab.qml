@@ -7,6 +7,77 @@ import "../../components"
 Item {
     id: screensaverTab
 
+    // Track pending screensaver type change for dialog flow
+    property string pendingScreensaverType: ""
+
+    // Dialog to offer clearing video cache when switching away from videos
+    Dialog {
+        id: clearCacheDialog
+        title: TranslationManager.translate("settings.screensaver.clearCacheTitle", "Clear Video Cache?")
+        modal: true
+        anchors.centerIn: parent
+        width: Theme.scaled(400)
+        standardButtons: Dialog.NoButton
+
+        ColumnLayout {
+            width: parent.width
+            spacing: Theme.scaled(15)
+
+            Text {
+                Layout.fillWidth: true
+                text: TranslationManager.translate("settings.screensaver.clearCacheMessage",
+                    "You have %1 MB of cached videos. Would you like to delete them to free up space?").arg(
+                    (ScreensaverManager.cacheUsedBytes / 1024 / 1024).toFixed(0))
+                color: Theme.textColor
+                font.pixelSize: Theme.scaled(14)
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                Layout.fillWidth: true
+                text: TranslationManager.translate("settings.screensaver.clearCacheWarning",
+                    "Note: If you switch back to video screensaver later, videos will re-download slowly (one every 3 minutes) to conserve bandwidth. Images will download normally.")
+                color: Theme.warningColor
+                font.pixelSize: Theme.scaled(12)
+                wrapMode: Text.WordWrap
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.scaled(10)
+
+                Item { Layout.fillWidth: true }
+
+                AccessibleButton {
+                    text: TranslationManager.translate("settings.screensaver.keepCache", "Keep Videos")
+                    onClicked: {
+                        // Apply type change without clearing cache
+                        ScreensaverManager.screensaverType = screensaverTab.pendingScreensaverType
+                        clearCacheDialog.close()
+                    }
+                }
+
+                AccessibleButton {
+                    text: TranslationManager.translate("settings.screensaver.clearCache", "Delete Videos")
+                    highlighted: true
+                    onClicked: {
+                        // Clear cache with rate limiting, then apply type change
+                        ScreensaverManager.clearCacheWithRateLimit()
+                        ScreensaverManager.screensaverType = screensaverTab.pendingScreensaverType
+                        clearCacheDialog.close()
+                    }
+                }
+            }
+        }
+
+        onRejected: {
+            // User cancelled - revert combobox to current type
+            typeComboBox.currentIndex = ScreensaverManager.screensaverType === "videos" ? 1 :
+                                        ScreensaverManager.screensaverType === "pipes" ? 2 :
+                                        ScreensaverManager.screensaverType === "flipclock" ? 3 : 0
+        }
+    }
+
     RowLayout {
         anchors.fill: parent
         spacing: Theme.scaled(15)
@@ -133,7 +204,7 @@ Item {
                         id: typeComboBox
                         Layout.preferredWidth: Theme.scaled(180)
                         model: [
-                            TranslationManager.translate("settings.screensaver.type.disabled", "Disabled"),
+                            TranslationManager.translate("settings.screensaver.type.disabled", "Turn Screen Off"),
                             TranslationManager.translate("settings.screensaver.type.videos", "Videos & Images"),
                             TranslationManager.translate("settings.screensaver.type.pipes", "3D Pipes"),
                             TranslationManager.translate("settings.screensaver.type.flipclock", "Flip Clock")
@@ -143,7 +214,17 @@ Item {
                                       ScreensaverManager.screensaverType === "flipclock" ? 3 : 0
                         onActivated: {
                             var types = ["disabled", "videos", "pipes", "flipclock"]
-                            ScreensaverManager.screensaverType = types[currentIndex]
+                            var newType = types[currentIndex]
+
+                            // If switching away from videos and we have cached videos, offer to clear
+                            if (ScreensaverManager.screensaverType === "videos" &&
+                                newType !== "videos" &&
+                                ScreensaverManager.cacheUsedBytes > 0) {
+                                screensaverTab.pendingScreensaverType = newType
+                                clearCacheDialog.open()
+                            } else {
+                                ScreensaverManager.screensaverType = newType
+                            }
                         }
                     }
 
@@ -298,6 +379,26 @@ Item {
                         Text {
                             text: (ScreensaverManager.cacheUsedBytes / 1024 / 1024).toFixed(0) + " MB"
                             color: Theme.textColor
+                            font.pixelSize: Theme.scaled(16)
+                        }
+                    }
+
+                    // Rate limit indicator
+                    ColumnLayout {
+                        spacing: Theme.scaled(4)
+                        visible: ScreensaverManager.isRateLimited
+
+                        Text {
+                            text: TranslationManager.translate("settings.screensaver.rateLimited", "Slow Download")
+                            color: Theme.textSecondaryColor
+                            font.pixelSize: Theme.scaled(12)
+                        }
+
+                        Text {
+                            text: ScreensaverManager.rateLimitMinutesRemaining > 0
+                                ? TranslationManager.translate("settings.screensaver.nextIn", "Next in %1 min").arg(ScreensaverManager.rateLimitMinutesRemaining)
+                                : TranslationManager.translate("settings.screensaver.ready", "Ready")
+                            color: Theme.warningColor
                             font.pixelSize: Theme.scaled(16)
                         }
                     }
