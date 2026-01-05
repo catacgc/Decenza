@@ -124,31 +124,12 @@ void ScreensaverVideoManager::setKeepScreenOn(bool on)
 void ScreensaverVideoManager::turnScreenOff()
 {
 #ifdef Q_OS_ANDROID
-    // First, clear the keep screen on flag
+    // Clear the keep screen on flag to allow Android's system screen timeout
+    // to turn off the screen naturally. We don't set brightness to 0 because
+    // that keeps the screen technically "on" (just dark) and prevents the
+    // system from actually putting the device to sleep.
     setKeepScreenOn(false);
-
-    QNativeInterface::QAndroidApplication::runOnAndroidMainThread([]() {
-        QJniObject activity = QNativeInterface::QAndroidApplication::context();
-        if (!activity.isValid()) {
-            qWarning() << "[Screensaver] Failed to get Android activity for screen off";
-            return;
-        }
-
-        QJniObject window = activity.callObjectMethod(
-            "getWindow", "()Landroid/view/Window;");
-        if (window.isValid()) {
-            QJniObject layoutParams = window.callObjectMethod(
-                "getAttributes", "()Landroid/view/WindowManager$LayoutParams;");
-            if (layoutParams.isValid()) {
-                // Set screen brightness to minimum (0.0f)
-                layoutParams.setField<jfloat>("screenBrightness", 0.0f);
-                window.callMethod<void>("setAttributes",
-                    "(Landroid/view/WindowManager$LayoutParams;)V",
-                    layoutParams.object());
-                qDebug() << "[Screensaver] Screen brightness set to minimum";
-            }
-        }
-    });
+    qDebug() << "[Screensaver] Cleared keep-screen-on flag, allowing system timeout";
 #else
     qDebug() << "[Screensaver] Turn screen off not available on this platform";
 #endif
