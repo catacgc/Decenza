@@ -377,6 +377,26 @@ ApplicationWindow {
         replaceEnter: Transition {}
         replaceExit: Transition {}
 
+        // Windows-only: Ctrl+mousewheel to zoom current page
+        WheelHandler {
+            enabled: Qt.platform.os === "windows"
+            acceptedModifiers: Qt.ControlModifier
+            onWheel: function(event) {
+                var pageName = pageStack.currentItem ? (pageStack.currentItem.objectName || "") : ""
+                if (!pageName) return
+
+                var currentScale = Theme.pageScaleMultiplier
+                var delta = event.angleDelta.y > 0 ? 0.05 : -0.05
+                var newScale = Math.max(0.5, Math.min(2.0, currentScale + delta))
+
+                if (newScale !== currentScale) {
+                    Theme.pageScaleMultiplier = newScale
+                    Settings.setValue("pageScale/" + pageName, newScale)
+                    console.log("Ctrl+wheel zoom:", pageName, "scale =", newScale.toFixed(2))
+                }
+            }
+        }
+
         Component {
             id: idlePage
             IdlePage {}
