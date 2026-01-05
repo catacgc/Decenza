@@ -12,8 +12,8 @@ QList<ProfileFrame> RecipeGenerator::generateFrames(const RecipeParams& recipe) 
         frames.append(createBloomFrame(recipe));
     }
 
-    // Frame 2: Infuse - hold at soak pressure (if time > 0 or weight-based)
-    if (recipe.infuseTime > 0 || recipe.infuseByWeight) {
+    // Frame 2: Infuse - hold at soak pressure (if enabled)
+    if (recipe.infuseEnabled) {
         frames.append(createInfuseFrame(recipe));
     }
 

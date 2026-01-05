@@ -28,6 +28,7 @@ struct RecipeParams {
     double fillExitPressure = 3.0;      // Exit to infuse when pressure over (bar)
 
     // === Infuse Phase (Preinfusion/Soak) ===
+    bool infuseEnabled = true;          // Enable infuse phase
     double infusePressure = 3.0;        // Soak pressure (bar)
     double infuseTime = 20.0;           // Soak duration (seconds)
     bool infuseByWeight = false;        // Exit on weight instead of time

@@ -362,7 +362,22 @@ Page {
                             title: qsTr("Infuse")
                             Layout.fillWidth: true
 
+                            CheckBox {
+                                id: infuseEnabledCheck
+                                text: qsTr("Enable infuse/soak phase")
+                                checked: recipe.infuseEnabled !== false  // Default true
+                                onToggled: updateRecipe("infuseEnabled", checked)
+                                contentItem: Text {
+                                    text: parent.text
+                                    font: Theme.captionFont
+                                    color: Theme.textColor
+                                    leftPadding: parent.indicator.width + parent.spacing
+                                    verticalAlignment: Text.AlignVCenter
+                                }
+                            }
+
                             RecipeRow {
+                                visible: infuseEnabledCheck.checked
                                 label: qsTr("Pressure")
                                 ValueInput {
                                     Layout.fillWidth: true
@@ -379,7 +394,7 @@ Page {
 
                             RecipeRow {
                                 label: qsTr("Time")
-                                visible: !recipe.infuseByWeight
+                                visible: infuseEnabledCheck.checked && !recipe.infuseByWeight
                                 ValueInput {
                                     Layout.fillWidth: true
                                     value: recipe.infuseTime || 20
@@ -393,6 +408,7 @@ Page {
                             }
 
                             RowLayout {
+                                visible: infuseEnabledCheck.checked
                                 Layout.fillWidth: true
                                 spacing: Theme.scaled(8)
 
@@ -425,6 +441,7 @@ Page {
                             }
 
                             RecipeRow {
+                                visible: infuseEnabledCheck.checked
                                 label: qsTr("Volume")
                                 ValueInput {
                                     Layout.fillWidth: true
@@ -551,9 +568,15 @@ Page {
                                     }
                                 }
                             }
+                        }
+
+                        // === Ramp Phase ===
+                        RecipeSection {
+                            title: qsTr("Ramp")
+                            Layout.fillWidth: true
 
                             RecipeRow {
-                                label: qsTr("Ramp")
+                                label: qsTr("Time")
                                 ValueInput {
                                     Layout.fillWidth: true
                                     value: recipe.rampTime || 5
@@ -563,6 +586,14 @@ Page {
                                         updateRecipe("rampTime", newValue)
                                     }
                                 }
+                            }
+
+                            Text {
+                                text: qsTr("Smooth transition to pour (0 = instant)")
+                                font: Theme.captionFont
+                                color: Theme.textSecondaryColor
+                                wrapMode: Text.WordWrap
+                                Layout.fillWidth: true
                             }
                         }
 

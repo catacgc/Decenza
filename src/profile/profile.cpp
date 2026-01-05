@@ -382,7 +382,7 @@ void Profile::regenerateFromRecipe() {
     if (m_recipeParams.bloomEnabled && m_recipeParams.bloomTime > 0) {
         preinfuseCount++;
     }
-    if (m_recipeParams.infuseTime > 0 || m_recipeParams.infuseByWeight) {
+    if (m_recipeParams.infuseEnabled) {
         preinfuseCount++;
     }
     m_preinfuseFrameCount = preinfuseCount;
