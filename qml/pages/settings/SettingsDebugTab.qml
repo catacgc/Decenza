@@ -72,24 +72,6 @@ Item {
                         }
                     }
 
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.scaled(20)
-
-                        Tr {
-                            key: "settings.debug.headlessMode"
-                            fallback: "Headless mode (no GHC)"
-                            color: Theme.textColor
-                            font.pixelSize: Theme.scaled(14)
-                        }
-
-                        Item { Layout.fillWidth: true }
-
-                        StyledSwitch {
-                            checked: DE1Device.isHeadless
-                            onToggled: DE1Device.isHeadless = checked
-                        }
-                    }
                 }
             }
 

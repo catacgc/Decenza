@@ -98,15 +98,6 @@ void DE1Device::setSimulationMode(bool enabled) {
     emit connectedChanged();
 }
 
-void DE1Device::setIsHeadless(bool headless) {
-    if (m_isHeadless == headless) {
-        return;
-    }
-    m_isHeadless = headless;
-    qDebug() << "DE1Device: Headless mode" << (headless ? "ENABLED" : "DISABLED");
-    emit isHeadlessChanged();
-}
-
 void DE1Device::setSettings(Settings* settings) {
     m_settings = settings;
 }
@@ -363,6 +354,10 @@ void DE1Device::subscribeToNotifications() {
 }
 
 void DE1Device::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
+    // Log ALL characteristic changes for debugging
+    QString uuidShort = c.uuid().toString().mid(1, 8);  // Extract xxxx from {0000xxxx-...}
+    qDebug() << "DE1Device: Received from" << uuidShort << "data:" << value.toHex();
+
     if (c.uuid() == DE1::Characteristic::STATE_INFO) {
         parseStateInfo(value);
     } else if (c.uuid() == DE1::Characteristic::SHOT_SAMPLE) {
@@ -377,8 +372,9 @@ void DE1Device::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const
 }
 
 void DE1Device::onCharacteristicWritten(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    // Reduce log noise - only log non-routine writes
-    // qDebug() << "DE1Device::onCharacteristicWritten" << c.uuid().toString() << "data:" << value.toHex();
+    // Log all writes for debugging
+    QString uuidShort = c.uuid().toString().mid(1, 8);  // Extract xxxx from {0000xxxx-...}
+    qDebug() << "DE1Device: Write confirmed to" << uuidShort << "data:" << value.toHex();
     m_writePending = false;
     processCommandQueue();
 }
@@ -544,6 +540,20 @@ void DE1Device::parseVersion(const QByteArray& data) {
     sendInitialSettings();
 }
 
+void DE1Device::requestGHCStatus() {
+    // Request GHC_INFO via MMR read
+    QByteArray mmrRead(20, 0);
+    mmrRead[0] = 0x00;   // Len = 0 (read 4 bytes)
+    mmrRead[1] = 0x80;   // Address high byte
+    mmrRead[2] = 0x38;   // Address mid byte
+    mmrRead[3] = 0x1C;   // Address low byte (GHC info)
+
+    queueCommand([this, mmrRead]() {
+        qDebug() << "DE1Device: Requesting GHC_INFO...";
+        writeCharacteristic(DE1::Characteristic::READ_FROM_MMR, mmrRead);
+    });
+}
+
 void DE1Device::parseMMRResponse(const QByteArray& data) {
     // MMR response format:
     // Byte 0: Length
@@ -558,8 +568,16 @@ void DE1Device::parseMMRResponse(const QByteArray& data) {
                        (static_cast<uint32_t>(d[2]) << 8) |
                        static_cast<uint32_t>(d[3]);
 
+    // Log raw MMR response
+    qDebug() << "DE1Device: MMR response - address:" << QString("0x%1").arg(address, 6, 16, QChar('0'))
+             << "raw data:" << data.toHex();
+
     // Check if this is GHC_INFO response (address 0x80381C)
     if (address == 0x80381C) {
+        // Log raw GHC byte FIRST before any interpretation
+        uint8_t ghcStatus = d[4];
+        qDebug() << "DE1Device: GHC_INFO raw byte:" << ghcStatus << QString("(0x%1)").arg(ghcStatus, 2, 16, QChar('0'));
+
         // GHC_INFO bitmask from DE1:
         // 0 = not installed (headless) - app can start operations
         // 1 = GHC present but unused - app can start operations
@@ -568,7 +586,6 @@ void DE1Device::parseMMRResponse(const QByteArray& data) {
         // 4 = debug mode - app can start operations
         // Other values = GHC required - app CANNOT start
         // See de1app's ghc_required() in vars.tcl for reference
-        uint8_t ghcStatus = d[4];
 
         QString statusName;
         switch (ghcStatus) {
@@ -590,6 +607,7 @@ void DE1Device::parseMMRResponse(const QByteArray& data) {
 
         if (m_isHeadless != canStartFromApp) {
             m_isHeadless = canStartFromApp;
+            qDebug() << "DE1Device: isHeadless changed to" << m_isHeadless;
             emit isHeadlessChanged();
         }
     }
@@ -599,10 +617,12 @@ void DE1Device::writeCharacteristic(const QBluetoothUuid& uuid, const QByteArray
     if (!m_service || !m_characteristics.contains(uuid)) {
         // Silently ignore in simulation mode
         if (!m_simulationMode) {
-            qWarning() << "DE1Device: Cannot write - not connected";
+            qWarning() << "DE1Device: Cannot write - not connected or characteristic not found:" << uuid.toString();
         }
         return;
     }
+    QString uuidShort = uuid.toString().mid(1, 8);  // Extract xxxx from {0000xxxx-...}
+    qDebug() << "DE1Device: Writing to" << uuidShort << "data:" << data.toHex();
     m_writePending = true;
     m_service->writeCharacteristic(m_characteristics[uuid], data);
 }
@@ -623,6 +643,8 @@ void DE1Device::processCommandQueue() {
 
 // Machine control methods
 void DE1Device::requestState(DE1::State state) {
+    qDebug() << "DE1Device::requestState called with state:" << static_cast<int>(state);
+
 #if defined(Q_OS_WIN) && defined(QT_DEBUG)
     // In simulation mode, relay to simulator
     if (m_simulationMode && m_simulator) {
@@ -658,25 +680,61 @@ void DE1Device::requestState(DE1::State state) {
     }
 #endif
 
+    qDebug() << "DE1Device: Queueing state change command to" << static_cast<int>(state);
     QByteArray data(1, static_cast<char>(state));
     queueCommand([this, data]() {
+        qDebug() << "DE1Device: Executing queued state change command";
         writeCharacteristic(DE1::Characteristic::REQUESTED_STATE, data);
     });
 }
 
 void DE1Device::startEspresso() {
+    // Re-check GHC status right before starting
+    qDebug() << "DE1Device::startEspresso() - current m_isHeadless:" << m_isHeadless << "m_state:" << static_cast<int>(m_state);
+
+    // Set GHC_MODE to 1 (app controls) - this tells the machine we want to start from the app
+    // Address 0x803820, value 1 = app controls
+    qDebug() << "DE1Device: Setting GHC_MODE to 1 (app controls)";
+    writeMMR(DE1::MMR::GHC_MODE, 1);
+
+    // Like de1app: optionally go to Idle first to ensure machine is responsive
+    if (m_state != DE1::State::Idle) {
+        qDebug() << "DE1Device: Going to Idle before Espresso (current state:" << static_cast<int>(m_state) << ")";
+        requestState(DE1::State::Idle);
+    }
     requestState(DE1::State::Espresso);
 }
 
 void DE1Device::startSteam() {
+    qDebug() << "DE1Device: Setting GHC_MODE to 1 (app controls)";
+    writeMMR(DE1::MMR::GHC_MODE, 1);
+
+    if (m_state != DE1::State::Idle) {
+        qDebug() << "DE1Device: Going to Idle before Steam (current state:" << static_cast<int>(m_state) << ")";
+        requestState(DE1::State::Idle);
+    }
     requestState(DE1::State::Steam);
 }
 
 void DE1Device::startHotWater() {
+    qDebug() << "DE1Device: Setting GHC_MODE to 1 (app controls)";
+    writeMMR(DE1::MMR::GHC_MODE, 1);
+
+    if (m_state != DE1::State::Idle) {
+        qDebug() << "DE1Device: Going to Idle before HotWater (current state:" << static_cast<int>(m_state) << ")";
+        requestState(DE1::State::Idle);
+    }
     requestState(DE1::State::HotWater);
 }
 
 void DE1Device::startFlush() {
+    qDebug() << "DE1Device: Setting GHC_MODE to 1 (app controls)";
+    writeMMR(DE1::MMR::GHC_MODE, 1);
+
+    if (m_state != DE1::State::Idle) {
+        qDebug() << "DE1Device: Going to Idle before Flush (current state:" << static_cast<int>(m_state) << ")";
+        requestState(DE1::State::Idle);
+    }
     requestState(DE1::State::HotWaterRinse);
 }
 
@@ -739,6 +797,36 @@ void DE1Device::uploadProfile(const Profile& profile) {
     }
 
     // Signal completion after queue processes
+    queueCommand([this]() {
+        emit profileUploaded(true);
+    });
+}
+
+void DE1Device::uploadProfileAndStartEspresso(const Profile& profile) {
+    qDebug() << "uploadProfileAndStartEspresso: Uploading profile with" << profile.steps().size() << "frames, then starting espresso";
+
+    // Queue header write
+    QByteArray header = profile.toHeaderBytes();
+    queueCommand([this, header]() {
+        writeCharacteristic(DE1::Characteristic::HEADER_WRITE, header);
+    });
+
+    // Queue each frame
+    QList<QByteArray> frames = profile.toFrameBytes();
+    for (const QByteArray& frame : frames) {
+        queueCommand([this, frame]() {
+            writeCharacteristic(DE1::Characteristic::FRAME_WRITE, frame);
+        });
+    }
+
+    // Queue espresso start AFTER all profile frames - this ensures correct order
+    queueCommand([this]() {
+        qDebug() << "uploadProfileAndStartEspresso: Profile uploaded, now starting espresso";
+        writeCharacteristic(DE1::Characteristic::REQUESTED_STATE,
+                           QByteArray(1, static_cast<char>(DE1::State::Espresso)));
+    });
+
+    // Signal completion after espresso starts
     queueCommand([this]() {
         emit profileUploaded(true);
     });

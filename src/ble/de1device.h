@@ -49,7 +49,7 @@ class DE1Device : public QObject {
     Q_PROPERTY(double waterLevelMm READ waterLevelMm NOTIFY waterLevelChanged)
     Q_PROPERTY(QString firmwareVersion READ firmwareVersion NOTIFY firmwareVersionChanged)
     Q_PROPERTY(bool usbChargerOn READ usbChargerOn NOTIFY usbChargerOnChanged)
-    Q_PROPERTY(bool isHeadless READ isHeadless WRITE setIsHeadless NOTIFY isHeadlessChanged)
+    Q_PROPERTY(bool isHeadless READ isHeadless NOTIFY isHeadlessChanged)
 
 public:
     explicit DE1Device(QObject* parent = nullptr);
@@ -75,7 +75,6 @@ public:
     QString firmwareVersion() const { return m_firmwareVersion; }
     bool usbChargerOn() const { return m_usbChargerOn; }
     bool isHeadless() const { return m_isHeadless; }
-    void setIsHeadless(bool headless);
 
     // Simulation mode for GUI development without hardware
     bool simulationMode() const { return m_simulationMode; }
@@ -111,6 +110,7 @@ public slots:
 
     // Profile upload
     void uploadProfile(const Profile& profile);
+    void uploadProfileAndStartEspresso(const Profile& profile);  // Upload then start in correct order
 
     // Direct frame writing (for direct control mode)
     void writeHeader(const QByteArray& headerData);
@@ -162,6 +162,7 @@ private:
     void parseWaterLevel(const QByteArray& data);
     void parseVersion(const QByteArray& data);
     void parseMMRResponse(const QByteArray& data);
+    void requestGHCStatus();
 
     void writeCharacteristic(const QBluetoothUuid& uuid, const QByteArray& data);
     void queueCommand(std::function<void()> command);

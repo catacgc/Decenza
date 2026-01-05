@@ -316,6 +316,8 @@ Page {
                 KeyNavigation.down: sleepButton
 
                 onPresetSelected: function(index) {
+                    var wasAlreadySelected = (index === Settings.selectedSteamPitcher)
+                    console.log("[IdlePage] Steam pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
                     Settings.selectedSteamPitcher = index
                     var preset = Settings.getSteamPitcherPreset(index)
                     if (preset) {
@@ -323,10 +325,17 @@ Page {
                         Settings.steamFlow = preset.flow !== undefined ? preset.flow : 150
                     }
                     MainController.applySteamSettings()
-                    // Start steam immediately after selecting preset (headless machines only)
-                    if (DE1Device.isHeadless && MachineState.isReady) {
-                        DE1Device.startSteam()
+
+                    if (wasAlreadySelected) {
+                        // Tap on already-selected pill = start operation (settings already applied)
+                        if (MachineState.isReady) {
+                            console.log("[IdlePage] Starting steam...")
+                            DE1Device.startSteam()
+                        } else {
+                            console.log("[IdlePage] NOT starting steam - MachineState.isReady is false, phase:", MachineState.phase)
+                        }
                     }
+                    // Otherwise just select (settings applied above, ready for next tap)
                 }
 
                 Behavior on opacity { NumberAnimation { duration: 150 } }
@@ -344,15 +353,36 @@ Page {
                 KeyNavigation.up: espressoButton
                 KeyNavigation.down: sleepButton
 
+                // Pre-load the selected profile when pills become visible
+                onVisibleChanged: {
+                    if (visible) {
+                        var preset = Settings.getFavoriteProfile(Settings.selectedFavoriteProfile)
+                        if (preset && preset.filename) {
+                            MainController.loadProfile(preset.filename)
+                        }
+                    }
+                }
+
                 onPresetSelected: function(index) {
+                    var wasAlreadySelected = (index === Settings.selectedFavoriteProfile)
+                    console.log("[IdlePage] Espresso pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
                     Settings.selectedFavoriteProfile = index
                     var preset = Settings.getFavoriteProfile(index)
-                    if (preset && preset.filename) {
-                        MainController.loadProfile(preset.filename)
-                    }
-                    // Start espresso immediately after selecting preset (headless machines only)
-                    if (DE1Device.isHeadless && MachineState.isReady) {
-                        DE1Device.startEspresso()
+
+                    if (wasAlreadySelected) {
+                        // Tap on already-selected pill = start operation (profile already uploaded)
+                        if (MachineState.isReady) {
+                            console.log("[IdlePage] Starting espresso...")
+                            DE1Device.startEspresso()
+                        } else {
+                            console.log("[IdlePage] NOT starting espresso - MachineState.isReady is false, phase:", MachineState.phase)
+                        }
+                    } else {
+                        // Tap on different pill = select it and upload profile
+                        if (preset && preset.filename) {
+                            console.log("[IdlePage] Loading profile:", preset.filename)
+                            MainController.loadProfile(preset.filename)
+                        }
                     }
                 }
 
@@ -372,16 +402,25 @@ Page {
                 KeyNavigation.down: settingsButton
 
                 onPresetSelected: function(index) {
+                    var wasAlreadySelected = (index === Settings.selectedWaterVessel)
+                    console.log("[IdlePage] HotWater pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
                     Settings.selectedWaterVessel = index
                     var preset = Settings.getWaterVesselPreset(index)
                     if (preset) {
                         Settings.waterVolume = preset.volume
                     }
                     MainController.applyHotWaterSettings()
-                    // Start hot water immediately after selecting preset (headless machines only)
-                    if (DE1Device.isHeadless && MachineState.isReady) {
-                        DE1Device.startHotWater()
+
+                    if (wasAlreadySelected) {
+                        // Tap on already-selected pill = start operation (settings already applied)
+                        if (MachineState.isReady) {
+                            console.log("[IdlePage] Starting hot water...")
+                            DE1Device.startHotWater()
+                        } else {
+                            console.log("[IdlePage] NOT starting hot water - MachineState.isReady is false, phase:", MachineState.phase)
+                        }
                     }
+                    // Otherwise just select (settings applied above, ready for next tap)
                 }
 
                 Behavior on opacity { NumberAnimation { duration: 150 } }
@@ -400,6 +439,8 @@ Page {
                 KeyNavigation.down: settingsButton
 
                 onPresetSelected: function(index) {
+                    var wasAlreadySelected = (index === Settings.selectedFlushPreset)
+                    console.log("[IdlePage] Flush pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
                     Settings.selectedFlushPreset = index
                     var preset = Settings.getFlushPreset(index)
                     if (preset) {
@@ -407,10 +448,17 @@ Page {
                         Settings.flushSeconds = preset.seconds
                     }
                     MainController.applyFlushSettings()
-                    // Start flush immediately after selecting preset (headless machines only)
-                    if (DE1Device.isHeadless && MachineState.isReady) {
-                        DE1Device.startFlush()
+
+                    if (wasAlreadySelected) {
+                        // Tap on already-selected pill = start operation (settings already applied)
+                        if (MachineState.isReady) {
+                            console.log("[IdlePage] Starting flush...")
+                            DE1Device.startFlush()
+                        } else {
+                            console.log("[IdlePage] NOT starting flush - MachineState.isReady is false, phase:", MachineState.phase)
+                        }
                     }
+                    // Otherwise just select (settings applied above, ready for next tap)
                 }
 
                 Behavior on opacity { NumberAnimation { duration: 150 } }
