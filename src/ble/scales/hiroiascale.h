@@ -1,13 +1,13 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 
 class HiroiaScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit HiroiaScale(QObject* parent = nullptr);
+    explicit HiroiaScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~HiroiaScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -18,15 +18,17 @@ public slots:
     void tare() override;
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
 
 private:
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Hiroia Jimmy";
-    QLowEnergyCharacteristic m_cmdChar;
-    QLowEnergyCharacteristic m_statusChar;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 };

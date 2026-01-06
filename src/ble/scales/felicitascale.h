@@ -1,13 +1,13 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 
 class FelicitaScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit FelicitaScale(QObject* parent = nullptr);
+    explicit FelicitaScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~FelicitaScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -21,17 +21,20 @@ public slots:
     void resetTimer() override;
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
 
 private:
     void parseResponse(const QByteArray& data);
     void sendCommand(uint8_t cmd);
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Felicita";
-    QLowEnergyCharacteristic m_characteristic;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 };

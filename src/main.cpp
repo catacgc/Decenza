@@ -126,8 +126,10 @@ int main(int argc, char *argv[])
 
     // Auto-connect when DE1 is discovered
     QObject::connect(&bleManager, &BLEManager::de1Discovered,
-                     &de1Device, [&de1Device](const QBluetoothDeviceInfo& device) {
+                     &de1Device, [&de1Device, &bleManager](const QBluetoothDeviceInfo& device) {
         if (!de1Device.isConnected() && !de1Device.isConnecting()) {
+            // Stop scanning when we start connecting to DE1
+            bleManager.stopScan();
             de1Device.connectToDevice(device);
         }
     });
@@ -144,11 +146,15 @@ int main(int argc, char *argv[])
             return;
         }
 
+        // Stop scanning when we start connecting to a scale
+        bleManager.stopScan();
+
         // If we already have a scale object, check if it's the same type
         if (physicalScale) {
             // Compare types (case-insensitive) - if different, we need to create a new scale
             if (physicalScale->type().compare(type, Qt::CaseInsensitive) != 0) {
                 qDebug() << "Scale type changed from" << physicalScale->type() << "to" << type << "- creating new scale";
+                bleManager.setScaleDevice(nullptr);  // Clear BLEManager's reference before deleting
                 physicalScale.reset();  // Delete old scale, fall through to create new one
             } else {
                 flowScaleFallbackTimer.stop();  // Stop timer - we found a scale
@@ -217,6 +223,24 @@ int main(int argc, char *argv[])
 
         // Connect to the scale
         physicalScale->connectToDevice(device);
+    });
+
+    // Handle disconnect request when starting a new scan
+    QObject::connect(&bleManager, &BLEManager::disconnectScaleRequested,
+                     [&physicalScale, &flowScale, &machineState, &engine, &mainController, &bleManager]() {
+        if (physicalScale) {
+            qDebug() << "Disconnecting scale before scan";
+            // Switch to FlowScale first
+            machineState.setScale(&flowScale);
+            engine.rootContext()->setContextProperty("ScaleDevice", &flowScale);
+            // Disconnect FlowScale from graph during scan
+            QObject::disconnect(&flowScale, &ScaleDevice::weightChanged,
+                                &mainController, &MainController::onScaleWeightChanged);
+            // Clear BLEManager's reference before deleting
+            bleManager.setScaleDevice(nullptr);
+            // Now reset the physical scale
+            physicalScale.reset();
+        }
     });
 
     // Load saved scale address for direct wake connection

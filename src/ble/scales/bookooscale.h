@@ -1,13 +1,14 @@
 #pragma once
 
 #include "../scaledevice.h"
+#include "../transport/scalebletransport.h"
 #include <QLowEnergyCharacteristic>
 
 class BookooScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit BookooScale(QObject* parent = nullptr);
+    explicit BookooScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~BookooScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -21,17 +22,21 @@ public slots:
     void resetTimer() override;
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
+    void onNotificationsEnabled(const QBluetoothUuid& characteristicUuid);
 
 private:
     void sendCommand(const QByteArray& cmd);
+    void parseWeightData(const QByteArray& data);
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Bookoo";
-    QLowEnergyCharacteristic m_statusChar;
-    QLowEnergyCharacteristic m_cmdChar;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 };

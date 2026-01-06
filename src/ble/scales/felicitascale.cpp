@@ -1,82 +1,122 @@
 #include "felicitascale.h"
 #include "../protocol/de1characteristics.h"
 #include <QDebug>
+#include <QTimer>
 
-FelicitaScale::FelicitaScale(QObject* parent)
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define FELICITA_LOG(msg) do { \
+    QString _msg = QString("[BLE FelicitaScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
+
+FelicitaScale::FelicitaScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &FelicitaScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &FelicitaScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &FelicitaScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &FelicitaScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &FelicitaScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &FelicitaScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &FelicitaScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 }
 
 FelicitaScale::~FelicitaScale() {
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void FelicitaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &FelicitaScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &FelicitaScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &FelicitaScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &FelicitaScale::onServiceDiscovered);
+    FELICITA_LOG(QString("Connecting to %1 (%2)")
+                 .arg(device.name())
+                 .arg(device.address().toString()));
 
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void FelicitaScale::onControllerConnected() {
-    m_controller->discoverServices();
+void FelicitaScale::onTransportConnected() {
+    FELICITA_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void FelicitaScale::onControllerDisconnected() {
+void FelicitaScale::onTransportDisconnected() {
+    FELICITA_LOG("Transport disconnected");
     setConnected(false);
 }
 
-void FelicitaScale::onControllerError(QLowEnergyController::Error error) {
-    Q_UNUSED(error)
+void FelicitaScale::onTransportError(const QString& message) {
+    FELICITA_LOG(QString("Transport error: %1").arg(message));
     emit errorOccurred("Felicita scale connection error");
     setConnected(false);
 }
 
 void FelicitaScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
+    FELICITA_LOG(QString("Service discovered: %1").arg(uuid.toString()));
     if (uuid == Scale::Felicita::SERVICE) {
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &FelicitaScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &FelicitaScale::onCharacteristicChanged);
-            m_service->discoverDetails();
-        }
+        FELICITA_LOG("Found Felicita service");
+        m_serviceFound = true;
     }
 }
 
-void FelicitaScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        m_characteristic = m_service->characteristic(Scale::Felicita::CHARACTERISTIC);
-
-        // Subscribe to notifications
-        if (m_characteristic.isValid()) {
-            QLowEnergyDescriptor notification = m_characteristic.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-            if (notification.isValid()) {
-                m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-            }
-        }
-
-        setConnected(true);
+void FelicitaScale::onServicesDiscoveryFinished() {
+    FELICITA_LOG(QString("Service discovery finished, service found: %1").arg(m_serviceFound));
+    if (!m_serviceFound) {
+        FELICITA_LOG(QString("Felicita service %1 not found!").arg(Scale::Felicita::SERVICE.toString()));
+        emit errorOccurred("Felicita service not found");
+        return;
     }
+    m_transport->discoverCharacteristics(Scale::Felicita::SERVICE);
 }
 
-void FelicitaScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::Felicita::CHARACTERISTIC) {
+void FelicitaScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::Felicita::SERVICE) return;
+    if (m_characteristicsReady) {
+        FELICITA_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
+
+    FELICITA_LOG("Characteristics discovered");
+    m_characteristicsReady = true;
+    setConnected(true);
+
+    // de1app waits 2000ms before enabling Felicita notifications
+    FELICITA_LOG("Scheduling notification enable in 2000ms (de1app timing)");
+    QTimer::singleShot(2000, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        FELICITA_LOG("Enabling notifications (2000ms)");
+        m_transport->enableNotifications(Scale::Felicita::SERVICE, Scale::Felicita::CHARACTERISTIC);
+    });
+}
+
+void FelicitaScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid,
+                                            const QByteArray& value) {
+    if (characteristicUuid == Scale::Felicita::CHARACTERISTIC) {
         parseResponse(value);
     }
 }
@@ -117,11 +157,11 @@ void FelicitaScale::parseResponse(const QByteArray& data) {
 }
 
 void FelicitaScale::sendCommand(uint8_t cmd) {
-    if (!m_service || !m_characteristic.isValid()) return;
+    if (!m_transport || !m_characteristicsReady) return;
 
     QByteArray packet;
     packet.append(static_cast<char>(cmd));
-    m_service->writeCharacteristic(m_characteristic, packet);
+    m_transport->writeCharacteristic(Scale::Felicita::SERVICE, Scale::Felicita::CHARACTERISTIC, packet);
 }
 
 void FelicitaScale::tare() {

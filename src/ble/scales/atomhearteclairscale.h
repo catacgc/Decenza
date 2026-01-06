@@ -1,13 +1,13 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 
 class AtomheartEclairScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit AtomheartEclairScale(QObject* parent = nullptr);
+    explicit AtomheartEclairScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~AtomheartEclairScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -21,18 +21,20 @@ public slots:
     void resetTimer() override;
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
 
 private:
     void sendCommand(const QByteArray& cmd);
     bool validateXor(const QByteArray& data);
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Atomheart Eclair";
-    QLowEnergyCharacteristic m_statusChar;
-    QLowEnergyCharacteristic m_cmdChar;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 };

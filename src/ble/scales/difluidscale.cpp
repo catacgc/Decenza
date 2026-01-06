@@ -1,86 +1,127 @@
 #include "difluidscale.h"
 #include "../protocol/de1characteristics.h"
 #include <QDebug>
+#include <QTimer>
 
-DifluidScale::DifluidScale(QObject* parent)
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define DIFLUID_LOG(msg) do { \
+    QString _msg = QString("[BLE DifluidScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
+
+DifluidScale::DifluidScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &DifluidScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &DifluidScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &DifluidScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &DifluidScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &DifluidScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &DifluidScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &DifluidScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 }
 
 DifluidScale::~DifluidScale() {
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void DifluidScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &DifluidScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &DifluidScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &DifluidScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &DifluidScale::onServiceDiscovered);
+    DIFLUID_LOG(QString("Connecting to %1 (%2)")
+                .arg(device.name())
+                .arg(device.address().toString()));
 
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void DifluidScale::onControllerConnected() {
-    m_controller->discoverServices();
+void DifluidScale::onTransportConnected() {
+    DIFLUID_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void DifluidScale::onControllerDisconnected() {
+void DifluidScale::onTransportDisconnected() {
+    DIFLUID_LOG("Transport disconnected");
     setConnected(false);
 }
 
-void DifluidScale::onControllerError(QLowEnergyController::Error error) {
-    Q_UNUSED(error)
+void DifluidScale::onTransportError(const QString& message) {
+    DIFLUID_LOG(QString("Transport error: %1").arg(message));
     emit errorOccurred("Difluid scale connection error");
     setConnected(false);
 }
 
 void DifluidScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
+    DIFLUID_LOG(QString("Service discovered: %1").arg(uuid.toString()));
     if (uuid == Scale::DiFluid::SERVICE) {
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &DifluidScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &DifluidScale::onCharacteristicChanged);
-            m_service->discoverDetails();
-        }
+        DIFLUID_LOG("Found DiFluid service");
+        m_serviceFound = true;
     }
 }
 
-void DifluidScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        m_characteristic = m_service->characteristic(Scale::DiFluid::CHARACTERISTIC);
+void DifluidScale::onServicesDiscoveryFinished() {
+    DIFLUID_LOG(QString("Service discovery finished, service found: %1").arg(m_serviceFound));
+    if (!m_serviceFound) {
+        DIFLUID_LOG(QString("DiFluid service %1 not found!").arg(Scale::DiFluid::SERVICE.toString()));
+        emit errorOccurred("Difluid service not found");
+        return;
+    }
+    m_transport->discoverCharacteristics(Scale::DiFluid::SERVICE);
+}
 
-        // Subscribe to notifications
-        if (m_characteristic.isValid()) {
-            QLowEnergyDescriptor notification = m_characteristic.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-            if (notification.isValid()) {
-                m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-            }
-        }
+void DifluidScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::DiFluid::SERVICE) return;
+    if (m_characteristicsReady) {
+        DIFLUID_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
 
-        setConnected(true);
+    DIFLUID_LOG("Characteristics discovered");
+    m_characteristicsReady = true;
+    setConnected(true);
+
+    // de1app uses 100ms delay for Difluid
+    DIFLUID_LOG("Scheduling notification enable in 100ms (de1app timing)");
+    QTimer::singleShot(100, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        DIFLUID_LOG("Enabling notifications (100ms)");
+        m_transport->enableNotifications(Scale::DiFluid::SERVICE, Scale::DiFluid::CHARACTERISTIC);
 
         // Enable auto-notifications and set to grams
+        DIFLUID_LOG("Sending enable notifications and set grams commands");
         enableNotifications();
         setToGrams();
-    }
+    });
 }
 
-void DifluidScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::DiFluid::CHARACTERISTIC) {
+void DifluidScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid,
+                                           const QByteArray& value) {
+    if (characteristicUuid == Scale::DiFluid::CHARACTERISTIC) {
         // Difluid format: header bytes, then hex-encoded weight
         if (value.size() >= 19) {
             // Weight is in bytes 5-8 as hex-encoded integer
@@ -97,8 +138,8 @@ void DifluidScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, co
 }
 
 void DifluidScale::sendCommand(const QByteArray& cmd) {
-    if (!m_service || !m_characteristic.isValid()) return;
-    m_service->writeCharacteristic(m_characteristic, cmd);
+    if (!m_transport || !m_characteristicsReady) return;
+    m_transport->writeCharacteristic(Scale::DiFluid::SERVICE, Scale::DiFluid::CHARACTERISTIC, cmd);
 }
 
 void DifluidScale::enableNotifications() {

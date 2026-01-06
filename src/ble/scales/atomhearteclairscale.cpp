@@ -1,79 +1,117 @@
 #include "atomhearteclairscale.h"
 #include "../protocol/de1characteristics.h"
 #include <QDebug>
+#include <QTimer>
 
-AtomheartEclairScale::AtomheartEclairScale(QObject* parent)
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define ECLAIR_LOG(msg) do { \
+    QString _msg = QString("[BLE AtomheartEclairScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
+
+AtomheartEclairScale::AtomheartEclairScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &AtomheartEclairScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &AtomheartEclairScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &AtomheartEclairScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &AtomheartEclairScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &AtomheartEclairScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &AtomheartEclairScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &AtomheartEclairScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 }
 
 AtomheartEclairScale::~AtomheartEclairScale() {
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void AtomheartEclairScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &AtomheartEclairScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &AtomheartEclairScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &AtomheartEclairScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &AtomheartEclairScale::onServiceDiscovered);
+    ECLAIR_LOG(QString("Connecting to %1 (%2)")
+               .arg(device.name())
+               .arg(device.address().toString()));
 
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void AtomheartEclairScale::onControllerConnected() {
-    m_controller->discoverServices();
+void AtomheartEclairScale::onTransportConnected() {
+    ECLAIR_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void AtomheartEclairScale::onControllerDisconnected() {
+void AtomheartEclairScale::onTransportDisconnected() {
+    ECLAIR_LOG("Transport disconnected");
     setConnected(false);
 }
 
-void AtomheartEclairScale::onControllerError(QLowEnergyController::Error error) {
-    Q_UNUSED(error)
+void AtomheartEclairScale::onTransportError(const QString& message) {
+    ECLAIR_LOG(QString("Transport error: %1").arg(message));
     emit errorOccurred("Atomheart Eclair scale connection error");
     setConnected(false);
 }
 
 void AtomheartEclairScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
+    ECLAIR_LOG(QString("Service discovered: %1").arg(uuid.toString()));
     if (uuid == Scale::AtomheartEclair::SERVICE) {
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &AtomheartEclairScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &AtomheartEclairScale::onCharacteristicChanged);
-            m_service->discoverDetails();
-        }
+        ECLAIR_LOG("Found Atomheart Eclair service");
+        m_serviceFound = true;
     }
 }
 
-void AtomheartEclairScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        m_statusChar = m_service->characteristic(Scale::AtomheartEclair::STATUS);
-        m_cmdChar = m_service->characteristic(Scale::AtomheartEclair::CMD);
-
-        // Subscribe to status notifications
-        if (m_statusChar.isValid()) {
-            QLowEnergyDescriptor notification = m_statusChar.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-            if (notification.isValid()) {
-                m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-            }
-        }
-
-        setConnected(true);
+void AtomheartEclairScale::onServicesDiscoveryFinished() {
+    ECLAIR_LOG(QString("Service discovery finished, service found: %1").arg(m_serviceFound));
+    if (!m_serviceFound) {
+        ECLAIR_LOG(QString("Atomheart Eclair service %1 not found!").arg(Scale::AtomheartEclair::SERVICE.toString()));
+        emit errorOccurred("Atomheart Eclair service not found");
+        return;
     }
+    m_transport->discoverCharacteristics(Scale::AtomheartEclair::SERVICE);
+}
+
+void AtomheartEclairScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::AtomheartEclair::SERVICE) return;
+    if (m_characteristicsReady) {
+        ECLAIR_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
+
+    ECLAIR_LOG("Characteristics discovered");
+    m_characteristicsReady = true;
+    setConnected(true);
+
+    // de1app uses 200ms delay for Atomheart Eclair
+    ECLAIR_LOG("Scheduling notification enable in 200ms (de1app timing)");
+    QTimer::singleShot(200, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        ECLAIR_LOG("Enabling notifications (200ms)");
+        m_transport->enableNotifications(Scale::AtomheartEclair::SERVICE, Scale::AtomheartEclair::STATUS);
+    });
 }
 
 bool AtomheartEclairScale::validateXor(const QByteArray& data) {
@@ -90,8 +128,9 @@ bool AtomheartEclairScale::validateXor(const QByteArray& data) {
     return xorResult == d[data.size() - 1];
 }
 
-void AtomheartEclairScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::AtomheartEclair::STATUS) {
+void AtomheartEclairScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid,
+                                                    const QByteArray& value) {
+    if (characteristicUuid == Scale::AtomheartEclair::STATUS) {
         // Atomheart Eclair format: 'W' (0x57) header, 4-byte weight in milligrams, 4-byte timer, XOR byte
         if (value.size() >= 9) {
             const uint8_t* d = reinterpret_cast<const uint8_t*>(value.constData());
@@ -101,7 +140,7 @@ void AtomheartEclairScale::onCharacteristicChanged(const QLowEnergyCharacteristi
 
             // Validate XOR checksum
             if (!validateXor(value)) {
-                qDebug() << "Atomheart Eclair: XOR checksum failed";
+                ECLAIR_LOG("XOR checksum failed");
                 return;
             }
 
@@ -115,8 +154,8 @@ void AtomheartEclairScale::onCharacteristicChanged(const QLowEnergyCharacteristi
 }
 
 void AtomheartEclairScale::sendCommand(const QByteArray& cmd) {
-    if (!m_service || !m_cmdChar.isValid()) return;
-    m_service->writeCharacteristic(m_cmdChar, cmd);
+    if (!m_transport || !m_characteristicsReady) return;
+    m_transport->writeCharacteristic(Scale::AtomheartEclair::SERVICE, Scale::AtomheartEclair::CMD, cmd);
 }
 
 void AtomheartEclairScale::tare() {

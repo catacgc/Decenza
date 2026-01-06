@@ -1,14 +1,14 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 #include <QTimer>
 
 class SkaleScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit SkaleScale(QObject* parent = nullptr);
+    explicit SkaleScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~SkaleScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -20,7 +20,9 @@ public slots:
     void startTimer() override;
     void stopTimer() override;
     void resetTimer() override;
-    void sleep() override { disableLcd(); }
+    // Note: We intentionally DON'T disable the LCD on sleep() because
+    // Skale's LCD is the primary display and users want to see weight on it
+    void sleep() override { /* Do nothing - keep LCD on */ }
     void wake() override { enableLcd(); }
 
     // Skale-specific functions
@@ -29,18 +31,19 @@ public slots:
     void enableGrams();
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
 
 private:
     void sendCommand(uint8_t cmd);
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Skale";
-    QLowEnergyCharacteristic m_cmdChar;
-    QLowEnergyCharacteristic m_weightChar;
-    QLowEnergyCharacteristic m_buttonChar;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 };

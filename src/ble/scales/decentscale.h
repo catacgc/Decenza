@@ -1,14 +1,14 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 #include <QTimer>
 
 class DecentScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit DecentScale(QObject* parent = nullptr);
+    explicit DecentScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~DecentScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -25,19 +25,22 @@ public slots:
     void setLed(int r, int g, int b);
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
 
 private:
     void parseWeightData(const QByteArray& data);
     void sendCommand(const QByteArray& command);
+    void sendHeartbeat();
     uint8_t calculateXor(const QByteArray& data);
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Decent Scale";
-    QLowEnergyCharacteristic m_readChar;
-    QLowEnergyCharacteristic m_writeChar;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 };

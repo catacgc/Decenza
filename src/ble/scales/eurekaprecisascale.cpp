@@ -1,86 +1,126 @@
 #include "eurekaprecisascale.h"
 #include "../protocol/de1characteristics.h"
 #include <QDebug>
+#include <QTimer>
 
-EurekaPrecisaScale::EurekaPrecisaScale(QObject* parent)
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define EUREKA_LOG(msg) do { \
+    QString _msg = QString("[BLE EurekaPrecisaScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
+
+EurekaPrecisaScale::EurekaPrecisaScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &EurekaPrecisaScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &EurekaPrecisaScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &EurekaPrecisaScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &EurekaPrecisaScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &EurekaPrecisaScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &EurekaPrecisaScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &EurekaPrecisaScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 }
 
 EurekaPrecisaScale::~EurekaPrecisaScale() {
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void EurekaPrecisaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &EurekaPrecisaScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &EurekaPrecisaScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &EurekaPrecisaScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &EurekaPrecisaScale::onServiceDiscovered);
+    EUREKA_LOG(QString("Connecting to %1 (%2)")
+               .arg(device.name())
+               .arg(device.address().toString()));
 
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void EurekaPrecisaScale::onControllerConnected() {
-    m_controller->discoverServices();
+void EurekaPrecisaScale::onTransportConnected() {
+    EUREKA_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void EurekaPrecisaScale::onControllerDisconnected() {
+void EurekaPrecisaScale::onTransportDisconnected() {
+    EUREKA_LOG("Transport disconnected");
     setConnected(false);
 }
 
-void EurekaPrecisaScale::onControllerError(QLowEnergyController::Error error) {
-    Q_UNUSED(error)
+void EurekaPrecisaScale::onTransportError(const QString& message) {
+    EUREKA_LOG(QString("Transport error: %1").arg(message));
     emit errorOccurred("Eureka Precisa scale connection error");
     setConnected(false);
 }
 
 void EurekaPrecisaScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
+    EUREKA_LOG(QString("Service discovered: %1").arg(uuid.toString()));
     if (uuid == Scale::Generic::SERVICE) {
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &EurekaPrecisaScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &EurekaPrecisaScale::onCharacteristicChanged);
-            m_service->discoverDetails();
-        }
+        EUREKA_LOG("Found Generic service (used by Eureka Precisa)");
+        m_serviceFound = true;
     }
 }
 
-void EurekaPrecisaScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        m_statusChar = m_service->characteristic(Scale::Generic::STATUS);
-        m_cmdChar = m_service->characteristic(Scale::Generic::CMD);
+void EurekaPrecisaScale::onServicesDiscoveryFinished() {
+    EUREKA_LOG(QString("Service discovery finished, service found: %1").arg(m_serviceFound));
+    if (!m_serviceFound) {
+        EUREKA_LOG(QString("Eureka Precisa service %1 not found!").arg(Scale::Generic::SERVICE.toString()));
+        emit errorOccurred("Eureka Precisa service not found");
+        return;
+    }
+    m_transport->discoverCharacteristics(Scale::Generic::SERVICE);
+}
 
-        // Subscribe to status notifications
-        if (m_statusChar.isValid()) {
-            QLowEnergyDescriptor notification = m_statusChar.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-            if (notification.isValid()) {
-                m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-            }
-        }
+void EurekaPrecisaScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::Generic::SERVICE) return;
+    if (m_characteristicsReady) {
+        EUREKA_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
 
-        setConnected(true);
+    EUREKA_LOG("Characteristics discovered");
+    m_characteristicsReady = true;
+    setConnected(true);
+
+    // de1app uses 200ms delay for Eureka Precisa
+    EUREKA_LOG("Scheduling notification enable in 200ms (de1app timing)");
+    QTimer::singleShot(200, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        EUREKA_LOG("Enabling notifications (200ms)");
+        m_transport->enableNotifications(Scale::Generic::SERVICE, Scale::Generic::STATUS);
 
         // Set unit to grams
+        EUREKA_LOG("Setting unit to grams");
         setUnitToGrams();
-    }
+    });
 }
 
-void EurekaPrecisaScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::Generic::STATUS) {
+void EurekaPrecisaScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid,
+                                                  const QByteArray& value) {
+    if (characteristicUuid == Scale::Generic::STATUS) {
         // Eureka Precisa format: AA 09 41 timer_running timer sign weight(2 bytes)
         // Header check: h1=0xAA (170), h2=0x09, h3=0x41 (65)
         if (value.size() >= 9) {
@@ -106,8 +146,8 @@ void EurekaPrecisaScale::onCharacteristicChanged(const QLowEnergyCharacteristic&
 }
 
 void EurekaPrecisaScale::sendCommand(const QByteArray& cmd) {
-    if (!m_service || !m_cmdChar.isValid()) return;
-    m_service->writeCharacteristic(m_cmdChar, cmd);
+    if (!m_transport || !m_characteristicsReady) return;
+    m_transport->writeCharacteristic(Scale::Generic::SERVICE, Scale::Generic::CMD, cmd);
 }
 
 void EurekaPrecisaScale::tare() {

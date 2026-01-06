@@ -1,83 +1,122 @@
 #include "hiroiascale.h"
 #include "../protocol/de1characteristics.h"
 #include <QDebug>
+#include <QTimer>
 
-HiroiaScale::HiroiaScale(QObject* parent)
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define HIROIA_LOG(msg) do { \
+    QString _msg = QString("[BLE HiroiaScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
+
+HiroiaScale::HiroiaScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &HiroiaScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &HiroiaScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &HiroiaScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &HiroiaScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &HiroiaScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &HiroiaScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &HiroiaScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 }
 
 HiroiaScale::~HiroiaScale() {
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void HiroiaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &HiroiaScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &HiroiaScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &HiroiaScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &HiroiaScale::onServiceDiscovered);
+    HIROIA_LOG(QString("Connecting to %1 (%2)")
+               .arg(device.name())
+               .arg(device.address().toString()));
 
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void HiroiaScale::onControllerConnected() {
-    m_controller->discoverServices();
+void HiroiaScale::onTransportConnected() {
+    HIROIA_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void HiroiaScale::onControllerDisconnected() {
+void HiroiaScale::onTransportDisconnected() {
+    HIROIA_LOG("Transport disconnected");
     setConnected(false);
 }
 
-void HiroiaScale::onControllerError(QLowEnergyController::Error error) {
-    Q_UNUSED(error)
+void HiroiaScale::onTransportError(const QString& message) {
+    HIROIA_LOG(QString("Transport error: %1").arg(message));
     emit errorOccurred("Hiroia Jimmy scale connection error");
     setConnected(false);
 }
 
 void HiroiaScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
+    HIROIA_LOG(QString("Service discovered: %1").arg(uuid.toString()));
     if (uuid == Scale::HiroiaJimmy::SERVICE) {
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &HiroiaScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &HiroiaScale::onCharacteristicChanged);
-            m_service->discoverDetails();
-        }
+        HIROIA_LOG("Found Hiroia Jimmy service");
+        m_serviceFound = true;
     }
 }
 
-void HiroiaScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        m_cmdChar = m_service->characteristic(Scale::HiroiaJimmy::CMD);
-        m_statusChar = m_service->characteristic(Scale::HiroiaJimmy::STATUS);
-
-        // Subscribe to status notifications
-        if (m_statusChar.isValid()) {
-            QLowEnergyDescriptor notification = m_statusChar.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-            if (notification.isValid()) {
-                m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-            }
-        }
-
-        setConnected(true);
+void HiroiaScale::onServicesDiscoveryFinished() {
+    HIROIA_LOG(QString("Service discovery finished, service found: %1").arg(m_serviceFound));
+    if (!m_serviceFound) {
+        HIROIA_LOG(QString("Hiroia Jimmy service %1 not found!").arg(Scale::HiroiaJimmy::SERVICE.toString()));
+        emit errorOccurred("Hiroia Jimmy service not found");
+        return;
     }
+    m_transport->discoverCharacteristics(Scale::HiroiaJimmy::SERVICE);
 }
 
-void HiroiaScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::HiroiaJimmy::STATUS) {
+void HiroiaScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::HiroiaJimmy::SERVICE) return;
+    if (m_characteristicsReady) {
+        HIROIA_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
+
+    HIROIA_LOG("Characteristics discovered");
+    m_characteristicsReady = true;
+    setConnected(true);
+
+    // de1app uses 200ms delay before enabling Hiroia notifications
+    HIROIA_LOG("Scheduling notification enable in 200ms (de1app timing)");
+    QTimer::singleShot(200, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        HIROIA_LOG("Enabling notifications (200ms)");
+        m_transport->enableNotifications(Scale::HiroiaJimmy::SERVICE, Scale::HiroiaJimmy::STATUS);
+    });
+}
+
+void HiroiaScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid,
+                                          const QByteArray& value) {
+    if (characteristicUuid == Scale::HiroiaJimmy::STATUS) {
         // Hiroia format: 4 bytes header, then 4 bytes weight (unsigned, tenths of gram)
         if (value.size() >= 7) {
             // Append a zero byte to make it 8 bytes for easy parsing
@@ -104,8 +143,8 @@ void HiroiaScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, con
 }
 
 void HiroiaScale::tare() {
-    if (!m_service || !m_cmdChar.isValid()) return;
+    if (!m_transport || !m_characteristicsReady) return;
 
     QByteArray packet = QByteArray::fromHex("0700");
-    m_service->writeCharacteristic(m_cmdChar, packet);
+    m_transport->writeCharacteristic(Scale::HiroiaJimmy::SERVICE, Scale::HiroiaJimmy::CMD, packet);
 }

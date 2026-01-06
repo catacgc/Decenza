@@ -2,14 +2,38 @@
 #include "../protocol/de1characteristics.h"
 #include <QDebug>
 
-// Logging macros for easy filtering
-#define VARIA_LOG qDebug() << "[Varia]:"
-#define VARIA_WARN qWarning() << "[Varia]:"
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define VARIA_LOG(msg) do { \
+    QString _msg = QString("[BLE VariaAkuScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
 
-VariaAkuScale::VariaAkuScale(QObject* parent)
+VariaAkuScale::VariaAkuScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
-    VARIA_LOG << "Creating VariaAkuScale instance";
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &VariaAkuScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &VariaAkuScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &VariaAkuScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &VariaAkuScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &VariaAkuScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &VariaAkuScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &VariaAkuScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 
     // Create watchdog timer (fires if no updates received after enable)
     m_watchdogTimer = new QTimer(this);
@@ -20,205 +44,117 @@ VariaAkuScale::VariaAkuScale(QObject* parent)
     m_tickleTimer = new QTimer(this);
     m_tickleTimer->setSingleShot(true);
     connect(m_tickleTimer, &QTimer::timeout, this, &VariaAkuScale::onTickleTimeout);
-
-    VARIA_LOG << "Timers created - watchdog:" << WATCHDOG_TIMEOUT_MS << "ms, tickle:" << TICKLE_TIMEOUT_MS << "ms";
 }
 
 VariaAkuScale::~VariaAkuScale() {
-    VARIA_LOG << "Destroying VariaAkuScale instance";
     stopWatchdog();
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void VariaAkuScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    VARIA_LOG << "connectToDevice() called for:" << device.name();
-    VARIA_LOG << "  Address:" << device.address().toString();
-    VARIA_LOG << "  RSSI:" << device.rssi();
-
-    if (m_controller) {
-        VARIA_LOG << "  Existing controller found, disconnecting first";
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
-    VARIA_LOG << "  Created BLE controller";
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &VariaAkuScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &VariaAkuScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &VariaAkuScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &VariaAkuScale::onServiceDiscovered);
+    VARIA_LOG(QString("Connecting to %1 (%2)")
+              .arg(device.name())
+              .arg(device.address().toString()));
 
-    VARIA_LOG << "  Initiating BLE connection...";
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void VariaAkuScale::onControllerConnected() {
-    VARIA_LOG << "onControllerConnected() - BLE connection established";
-    VARIA_LOG << "  Starting service discovery...";
-    m_controller->discoverServices();
+void VariaAkuScale::onTransportConnected() {
+    VARIA_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void VariaAkuScale::onControllerDisconnected() {
-    VARIA_WARN << "onControllerDisconnected() - BLE connection lost!";
+void VariaAkuScale::onTransportDisconnected() {
+    VARIA_LOG("WARNING: Transport disconnected - BLE connection lost!");
     stopWatchdog();
     setConnected(false);
 }
 
-void VariaAkuScale::onControllerError(QLowEnergyController::Error error) {
-    VARIA_WARN << "onControllerError() - Error code:" << error;
-    switch (error) {
-        case QLowEnergyController::NoError:
-            VARIA_WARN << "  NoError (unexpected)";
-            break;
-        case QLowEnergyController::UnknownError:
-            VARIA_WARN << "  UnknownError";
-            break;
-        case QLowEnergyController::UnknownRemoteDeviceError:
-            VARIA_WARN << "  UnknownRemoteDeviceError - device not found";
-            break;
-        case QLowEnergyController::NetworkError:
-            VARIA_WARN << "  NetworkError - BLE adapter issue";
-            break;
-        case QLowEnergyController::InvalidBluetoothAdapterError:
-            VARIA_WARN << "  InvalidBluetoothAdapterError - no BLE adapter";
-            break;
-        case QLowEnergyController::ConnectionError:
-            VARIA_WARN << "  ConnectionError - connection failed or dropped";
-            break;
-        case QLowEnergyController::AdvertisingError:
-            VARIA_WARN << "  AdvertisingError";
-            break;
-        case QLowEnergyController::RemoteHostClosedError:
-            VARIA_WARN << "  RemoteHostClosedError - scale closed connection";
-            break;
-        case QLowEnergyController::AuthorizationError:
-            VARIA_WARN << "  AuthorizationError - pairing required?";
-            break;
-        case QLowEnergyController::MissingPermissionsError:
-            VARIA_WARN << "  MissingPermissionsError - check app permissions";
-            break;
-        case QLowEnergyController::RssiReadError:
-            VARIA_WARN << "  RssiReadError";
-            break;
-        default:
-            VARIA_WARN << "  Unknown error code:" << static_cast<int>(error);
-            break;
-    }
+void VariaAkuScale::onTransportError(const QString& message) {
+    VARIA_LOG(QString("WARNING: Transport error: %1").arg(message));
     emit errorOccurred("Varia Aku scale connection error");
     setConnected(false);
 }
 
 void VariaAkuScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
-    VARIA_LOG << "onServiceDiscovered() - UUID:" << uuid.toString();
+    VARIA_LOG(QString("Service discovered: %1").arg(uuid.toString()));
 
     if (uuid == Scale::VariaAku::SERVICE) {
-        VARIA_LOG << "  Found Varia service (FFF0)!";
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            VARIA_LOG << "  Service object created, connecting signals...";
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &VariaAkuScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &VariaAkuScale::onCharacteristicChanged);
-            connect(m_service, &QLowEnergyService::errorOccurred,
-                    this, &VariaAkuScale::onServiceError);
-            VARIA_LOG << "  Starting characteristic discovery...";
-            m_service->discoverDetails();
-        } else {
-            VARIA_WARN << "  Failed to create service object!";
-        }
-    } else {
-        VARIA_LOG << "  (not our service, ignoring)";
+        VARIA_LOG("Found Varia service (FFF0)");
+        m_serviceFound = true;
     }
 }
 
-void VariaAkuScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    VARIA_LOG << "onServiceStateChanged() - State:" << state;
+void VariaAkuScale::onServicesDiscoveryFinished() {
+    VARIA_LOG(QString("Service discovery finished, service found: %1").arg(m_serviceFound));
 
-    switch (state) {
-        case QLowEnergyService::InvalidService:
-            VARIA_WARN << "  InvalidService state";
-            break;
-        case QLowEnergyService::RemoteService:
-            VARIA_LOG << "  RemoteService - service discovered but details not yet loaded";
-            break;
-        case QLowEnergyService::RemoteServiceDiscovering:
-            VARIA_LOG << "  RemoteServiceDiscovering - loading characteristics...";
-            break;
-        case QLowEnergyService::RemoteServiceDiscovered:
-            VARIA_LOG << "  RemoteServiceDiscovered - characteristics loaded!";
-            break;
-        case QLowEnergyService::LocalService:
-            VARIA_LOG << "  LocalService (unexpected for peripheral)";
-            break;
-    }
-
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        m_statusChar = m_service->characteristic(Scale::VariaAku::STATUS);
-        m_cmdChar = m_service->characteristic(Scale::VariaAku::CMD);
-
-        VARIA_LOG << "  STATUS characteristic (FFF1) valid:" << m_statusChar.isValid();
-        VARIA_LOG << "  CMD characteristic (FFF2) valid:" << m_cmdChar.isValid();
-
-        if (m_statusChar.isValid()) {
-            VARIA_LOG << "  STATUS properties:" << m_statusChar.properties();
-        }
-        if (m_cmdChar.isValid()) {
-            VARIA_LOG << "  CMD properties:" << m_cmdChar.properties();
-        }
-
-        // Delay notification enable by 200ms (matching de1app pattern)
-        // The Varia Aku scale needs time to stabilize after service discovery
-        VARIA_LOG << "  Scheduling notification enable in 200ms...";
-        QTimer::singleShot(200, this, [this]() {
-            // Check if still connected (scale may have disconnected during delay)
-            if (!m_service || !m_controller) {
-                VARIA_WARN << "  Service/controller gone before notification enable!";
-                return;
-            }
-
-            VARIA_LOG << "  200ms delay complete, enabling notifications...";
-
-            // Enable notifications and start watchdog
-            enableNotifications();
-            startWatchdog();
-
-            setConnected(true);
-            VARIA_LOG << "  Scale marked as connected";
-        });
-    }
-}
-
-void VariaAkuScale::enableNotifications() {
-    if (!m_service || !m_statusChar.isValid()) {
-        VARIA_WARN << "enableNotifications() - service or characteristic invalid!";
-        VARIA_WARN << "  m_service:" << (m_service ? "valid" : "null");
-        VARIA_WARN << "  m_statusChar.isValid():" << m_statusChar.isValid();
+    if (!m_serviceFound) {
+        VARIA_LOG(QString("WARNING: Varia Aku service %1 not found!").arg(Scale::VariaAku::SERVICE.toString()));
+        emit errorOccurred("Varia Aku service not found");
         return;
     }
 
-    VARIA_LOG << "enableNotifications() - writing CCCD descriptor...";
+    m_transport->discoverCharacteristics(Scale::VariaAku::SERVICE);
+}
 
-    QLowEnergyDescriptor notification = m_statusChar.descriptor(
-        QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-    if (notification.isValid()) {
-        VARIA_LOG << "  CCCD descriptor found, writing 0x0100 (enable notifications)";
-        m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-    } else {
-        VARIA_WARN << "  CCCD descriptor NOT found! Cannot enable notifications.";
+void VariaAkuScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::VariaAku::SERVICE) return;
+    if (m_characteristicsReady) {
+        VARIA_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
     }
+
+    VARIA_LOG("Characteristics discovered");
+
+    m_characteristicsReady = true;
+
+    // Delay notification enable by 200ms (matching de1app pattern)
+    // The Varia Aku scale needs time to stabilize after service discovery
+    VARIA_LOG("Scheduling notification enable in 200ms...");
+    QTimer::singleShot(200, this, [this]() {
+        // Check if still connected (scale may have disconnected during delay)
+        if (!m_transport || !m_characteristicsReady) {
+            VARIA_LOG("WARNING: Transport gone before notification enable!");
+            return;
+        }
+
+        VARIA_LOG("200ms delay complete, enabling notifications...");
+
+        // Enable notifications and start watchdog
+        enableNotifications();
+        startWatchdog();
+
+        setConnected(true);
+        VARIA_LOG("Connected, waiting for weight data");
+    });
+}
+
+void VariaAkuScale::enableNotifications() {
+    if (!m_transport || !m_characteristicsReady) {
+        VARIA_LOG("WARNING: enableNotifications() - transport or characteristics not ready!");
+        return;
+    }
+
+    VARIA_LOG("Enabling notifications on STATUS characteristic");
+    m_transport->enableNotifications(Scale::VariaAku::SERVICE, Scale::VariaAku::STATUS);
 }
 
 void VariaAkuScale::startWatchdog() {
     m_watchdogRetries = 0;
     m_updatesReceived = false;
     m_watchdogTimer->start(WATCHDOG_TIMEOUT_MS);
-    VARIA_LOG << "startWatchdog() - waiting for first weight update (timeout:" << WATCHDOG_TIMEOUT_MS << "ms)";
+    VARIA_LOG(QString("Started watchdog, waiting for first weight update (timeout: %1ms)").arg(WATCHDOG_TIMEOUT_MS));
 }
 
 void VariaAkuScale::tickleWatchdog() {
@@ -226,7 +162,7 @@ void VariaAkuScale::tickleWatchdog() {
     if (!m_updatesReceived) {
         m_updatesReceived = true;
         m_watchdogTimer->stop();
-        VARIA_LOG << "tickleWatchdog() - FIRST weight update received! Watchdog stopped.";
+        VARIA_LOG("First weight update received! Watchdog stopped.");
     }
 
     // Reset the tickle timer - if no updates for TICKLE_TIMEOUT_MS, log warning
@@ -234,7 +170,6 @@ void VariaAkuScale::tickleWatchdog() {
 }
 
 void VariaAkuScale::stopWatchdog() {
-    VARIA_LOG << "stopWatchdog() - stopping all timers";
     m_watchdogTimer->stop();
     m_tickleTimer->stop();
     m_updatesReceived = false;
@@ -243,19 +178,18 @@ void VariaAkuScale::stopWatchdog() {
 
 void VariaAkuScale::onWatchdogTimeout() {
     if (m_updatesReceived) {
-        VARIA_LOG << "onWatchdogTimeout() - updates already received, ignoring";
         return;  // Updates started arriving, no need to retry
     }
 
     m_watchdogRetries++;
 
     if (m_watchdogRetries >= MAX_WATCHDOG_RETRIES) {
-        VARIA_WARN << "onWatchdogTimeout() - NO weight updates after" << MAX_WATCHDOG_RETRIES << "retries, GIVING UP";
+        VARIA_LOG(QString("WARNING: No weight updates after %1 retries, giving up").arg(MAX_WATCHDOG_RETRIES));
         emit errorOccurred("Varia Aku scale not sending weight updates");
         return;
     }
 
-    VARIA_WARN << "onWatchdogTimeout() - no weight updates, retry" << m_watchdogRetries << "of" << MAX_WATCHDOG_RETRIES;
+    VARIA_LOG(QString("WARNING: No weight updates, retry %1 of %2").arg(m_watchdogRetries).arg(MAX_WATCHDOG_RETRIES));
 
     // Re-enable notifications
     enableNotifications();
@@ -265,8 +199,7 @@ void VariaAkuScale::onWatchdogTimeout() {
 }
 
 void VariaAkuScale::onTickleTimeout() {
-    VARIA_WARN << "onTickleTimeout() - no weight updates for" << TICKLE_TIMEOUT_MS << "ms!";
-    VARIA_WARN << "  Scale may have stopped sending data. Re-enabling notifications...";
+    VARIA_LOG(QString("WARNING: No weight updates for %1ms! Re-enabling notifications...").arg(TICKLE_TIMEOUT_MS));
 
     // Try re-enabling notifications
     m_updatesReceived = false;
@@ -275,8 +208,8 @@ void VariaAkuScale::onTickleTimeout() {
     m_watchdogTimer->start(WATCHDOG_TIMEOUT_MS);
 }
 
-void VariaAkuScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::VariaAku::STATUS) {
+void VariaAkuScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value) {
+    if (characteristicUuid == Scale::VariaAku::STATUS) {
         // Varia Aku format: header command length payload xor
         // Weight notification: command 0x01, length 0x03, payload w1 w2 w3 xor
         if (value.size() >= 4) {
@@ -306,87 +239,27 @@ void VariaAkuScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, c
                     weight = -weight;
                 }
 
-                // Log every 50th weight update to avoid spam (roughly every 10 seconds at 5Hz)
-                static int weightLogCounter = 0;
-                if (++weightLogCounter >= 50) {
-                    VARIA_LOG << "Weight update:" << weight << "g (raw:" << value.toHex(' ') << ")";
-                    weightLogCounter = 0;
-                }
-
                 setWeight(weight);
             }
             // Battery notification
             else if (command == 0x85 && length == 0x01 && value.size() >= 5) {
                 uint8_t battery = d[3];
-                VARIA_LOG << "Battery update:" << battery << "%";
+                VARIA_LOG(QString("Battery update: %1%").arg(battery));
                 setBatteryLevel(battery);
             }
-            // Unknown command
-            else {
-                VARIA_LOG << "Unknown notification - cmd:" << Qt::hex << command
-                          << "len:" << length << "data:" << value.toHex(' ');
-            }
-        } else {
-            VARIA_WARN << "Notification too short:" << value.size() << "bytes, data:" << value.toHex(' ');
         }
-    } else {
-        VARIA_LOG << "Notification from unexpected characteristic:" << c.uuid().toString();
-    }
-}
-
-void VariaAkuScale::onServiceError(QLowEnergyService::ServiceError error) {
-    VARIA_WARN << "onServiceError() - Error code:" << error;
-    switch (error) {
-        case QLowEnergyService::NoError:
-            VARIA_WARN << "  NoError (unexpected)";
-            break;
-        case QLowEnergyService::OperationError:
-            VARIA_WARN << "  OperationError - operation attempted in wrong state";
-            break;
-        case QLowEnergyService::CharacteristicWriteError:
-            VARIA_WARN << "  CharacteristicWriteError - write to characteristic failed";
-            break;
-        case QLowEnergyService::DescriptorWriteError:
-            VARIA_WARN << "  DescriptorWriteError - write to descriptor failed";
-            break;
-        case QLowEnergyService::UnknownError:
-            VARIA_WARN << "  UnknownError";
-            break;
-        case QLowEnergyService::CharacteristicReadError:
-            VARIA_WARN << "  CharacteristicReadError";
-            break;
-        case QLowEnergyService::DescriptorReadError:
-            VARIA_WARN << "  DescriptorReadError";
-            break;
-        default:
-            VARIA_WARN << "  Unknown error code:" << static_cast<int>(error);
-            break;
-    }
-
-    if (error == QLowEnergyService::CharacteristicWriteError ||
-        error == QLowEnergyService::DescriptorWriteError) {
-        VARIA_LOG << "  Will retry enabling notifications in 500ms...";
-        // Try re-enabling notifications on write errors
-        QTimer::singleShot(500, this, [this]() {
-            if (m_service) {
-                VARIA_LOG << "  Retrying notification enable after error...";
-                enableNotifications();
-            }
-        });
     }
 }
 
 void VariaAkuScale::sendCommand(const QByteArray& cmd) {
-    if (!m_service || !m_cmdChar.isValid()) {
-        VARIA_WARN << "sendCommand() - cannot send, service or characteristic invalid";
+    if (!m_transport || !m_characteristicsReady) {
+        VARIA_LOG("WARNING: Cannot send command - transport or characteristics not ready");
         return;
     }
-    VARIA_LOG << "sendCommand() - sending:" << cmd.toHex(' ');
-    // Use WriteWithoutResponse like Beanconqueror does
-    m_service->writeCharacteristic(m_cmdChar, cmd, QLowEnergyService::WriteWithoutResponse);
+    m_transport->writeCharacteristic(Scale::VariaAku::SERVICE, Scale::VariaAku::CMD, cmd);
 }
 
 void VariaAkuScale::tare() {
-    VARIA_LOG << "tare() - sending tare command";
+    VARIA_LOG("Sending tare command");
     sendCommand(QByteArray::fromHex("FA82010182"));
 }

@@ -1,13 +1,13 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 
 class DifluidScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit DifluidScale(QObject* parent = nullptr);
+    explicit DifluidScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~DifluidScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -21,18 +21,21 @@ public slots:
     void resetTimer() override;
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
 
 private:
     void sendCommand(const QByteArray& cmd);
     void enableNotifications();
     void setToGrams();
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Difluid";
-    QLowEnergyCharacteristic m_characteristic;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 };

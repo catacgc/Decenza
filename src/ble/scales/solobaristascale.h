@@ -7,7 +7,7 @@ class SoloBarristaScale : public EurekaPrecisaScale {
     Q_OBJECT
 
 public:
-    explicit SoloBarristaScale(QObject* parent = nullptr);
+    explicit SoloBarristaScale(ScaleBleTransport* transport, QObject* parent = nullptr);
 
     QString name() const override { return m_scaleName; }
     QString type() const override { return "solo_barista"; }

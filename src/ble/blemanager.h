@@ -72,6 +72,7 @@ signals:
     void scaleDisconnected();  // Emitted when physical scale disconnects
     void scanStarted();  // Emitted when BLE scan actually begins
     void disabledChanged();
+    void disconnectScaleRequested();  // Emitted when starting scan, scale should disconnect
 
 private slots:
     void onDeviceDiscovered(const QBluetoothDeviceInfo& device);

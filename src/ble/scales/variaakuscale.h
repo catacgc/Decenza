@@ -1,14 +1,14 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 #include <QTimer>
 
 class VariaAkuScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit VariaAkuScale(QObject* parent = nullptr);
+    explicit VariaAkuScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~VariaAkuScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -19,13 +19,13 @@ public slots:
     void tare() override;
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onServiceError(QLowEnergyService::ServiceError error);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
     void onWatchdogTimeout();
     void onTickleTimeout();
 
@@ -36,9 +36,10 @@ private:
     void tickleWatchdog();
     void stopWatchdog();
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Varia Aku";
-    QLowEnergyCharacteristic m_statusChar;
-    QLowEnergyCharacteristic m_cmdChar;
+    bool m_serviceFound = false;
+    bool m_characteristicsReady = false;
 
     // Watchdog to re-enable notifications if they stop arriving
     QTimer* m_watchdogTimer = nullptr;

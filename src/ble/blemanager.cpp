@@ -370,6 +370,9 @@ void BLEManager::scanForScales() {
     m_scaleConnectionFailed = false;
     emit scaleConnectionFailedChanged();
 
+    // Disconnect any currently connected scale before scanning for new ones
+    emit disconnectScaleRequested();
+
     // If already scanning, we need to restart to include scales
     if (m_scanning) {
         stopScan();

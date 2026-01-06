@@ -9,6 +9,8 @@ Qt/C++ cross-platform controller for the Decent Espresso DE1 machine with BLE co
 - **WiFi debugging**: `192.168.1.207:5555` (reconnect: `adb connect 192.168.1.207:5555`)
 - **Qt version**: 6.8+
 - **C++ standard**: C++17
+- **de1app source**: `C:\code\de1app` (original Tcl/Tk DE1 app for reference)
+- **IMPORTANT**: Use relative paths (e.g., `src/main.cpp`) instead of absolute paths (e.g., `C:\CODE\de1-qt\src\main.cpp`) to avoid "Error: UNKNOWN: unknown error, open" when editing files
 
 ## Project Structure
 

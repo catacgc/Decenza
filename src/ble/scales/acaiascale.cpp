@@ -3,168 +3,170 @@
 #include <QDebug>
 #include <cmath>
 
-AcaiaScale::AcaiaScale(QObject* parent)
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define ACAIA_LOG(msg) do { \
+    QString _msg = QString("[BLE AcaiaScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
+
+AcaiaScale::AcaiaScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &AcaiaScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &AcaiaScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &AcaiaScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &AcaiaScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &AcaiaScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &AcaiaScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &AcaiaScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
+
     m_heartbeatTimer = new QTimer(this);
     connect(m_heartbeatTimer, &QTimer::timeout, this, &AcaiaScale::sendHeartbeat);
 }
 
 AcaiaScale::~AcaiaScale() {
     m_heartbeatTimer->stop();
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void AcaiaScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     // Reset state for new connection
     m_isPyxis = false;
-    m_protocolDetected = false;
+    m_pyxisServiceFound = false;
+    m_ipsServiceFound = false;
+    m_characteristicsReady = false;
     m_receivingNotifications = false;
     m_weightReceived = false;
-    m_ipsService = nullptr;
-    m_pyxisService = nullptr;
     m_buffer.clear();
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
-
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &AcaiaScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &AcaiaScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &AcaiaScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &AcaiaScale::onServiceDiscovered);
-    connect(m_controller, &QLowEnergyController::discoveryFinished,
-            this, &AcaiaScale::onServiceDiscoveryFinished);
-
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void AcaiaScale::onControllerConnected() {
-    qDebug() << "AcaiaScale: Controller connected, discovering services...";
-    m_controller->discoverServices();
+void AcaiaScale::onTransportConnected() {
+    ACAIA_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void AcaiaScale::onControllerDisconnected() {
-    qDebug() << "AcaiaScale: Disconnected";
+void AcaiaScale::onTransportDisconnected() {
+    ACAIA_LOG("Transport disconnected");
     m_heartbeatTimer->stop();
     m_weightReceived = false;
-    m_protocolDetected = false;
+    m_characteristicsReady = false;
     setConnected(false);
 }
 
-void AcaiaScale::onControllerError(QLowEnergyController::Error error) {
-    qWarning() << "AcaiaScale: Controller error:" << error;
+void AcaiaScale::onTransportError(const QString& message) {
+    ACAIA_LOG(QString("Transport error: %1").arg(message));
     m_heartbeatTimer->stop();
     emit errorOccurred("Acaia scale connection error");
     setConnected(false);
 }
 
 void AcaiaScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
-    qDebug() << "AcaiaScale: Service discovered:" << uuid.toString();
+    ACAIA_LOG(QString("Service discovered: %1").arg(uuid.toString()));
 
     // Check for Pyxis service (newer Lunar 2021, Pyxis, etc.)
     if (uuid == Scale::Acaia::SERVICE) {
-        qDebug() << "AcaiaScale: Found Pyxis service";
-        m_pyxisService = m_controller->createServiceObject(uuid, this);
+        ACAIA_LOG("Found Pyxis service");
+        m_pyxisServiceFound = true;
     }
     // Check for IPS service (older Lunar, Pearl)
     else if (uuid == Scale::AcaiaIPS::SERVICE) {
-        qDebug() << "AcaiaScale: Found IPS service";
-        m_ipsService = m_controller->createServiceObject(uuid, this);
+        ACAIA_LOG("Found IPS service");
+        m_ipsServiceFound = true;
     }
 }
 
-void AcaiaScale::onServiceDiscoveryFinished() {
-    qDebug() << "AcaiaScale: Service discovery finished";
+void AcaiaScale::onServicesDiscoveryFinished() {
+    ACAIA_LOG("Service discovery finished");
 
     // Prefer Pyxis protocol if available (newer scales, including Lunar 2021)
-    if (m_pyxisService) {
+    QBluetoothUuid serviceToUse;
+    if (m_pyxisServiceFound) {
         m_isPyxis = true;
-        m_service = m_pyxisService;
-        qDebug() << "AcaiaScale: Using Pyxis protocol";
-    } else if (m_ipsService) {
+        serviceToUse = Scale::Acaia::SERVICE;
+        ACAIA_LOG("Using Pyxis protocol");
+    } else if (m_ipsServiceFound) {
         m_isPyxis = false;
-        m_service = m_ipsService;
-        qDebug() << "AcaiaScale: Using IPS protocol";
+        serviceToUse = Scale::AcaiaIPS::SERVICE;
+        ACAIA_LOG("Using IPS protocol");
     } else {
-        qWarning() << "AcaiaScale: No compatible service found!";
+        ACAIA_LOG("WARNING: No compatible service found!");
         emit errorOccurred("No compatible Acaia service found");
         return;
     }
 
-    m_protocolDetected = true;
-
-    // Request larger MTU for Pyxis (de1app does this)
-    if (m_isPyxis) {
-#ifdef Q_OS_ANDROID
-        // Qt on Android supports MTU negotiation
-        // Note: Qt doesn't expose direct MTU setting, but Android handles this automatically
-        // The important thing is we detected the right protocol
-#endif
-    }
-
-    connect(m_service, &QLowEnergyService::stateChanged,
-            this, &AcaiaScale::onServiceStateChanged);
-    connect(m_service, &QLowEnergyService::characteristicChanged,
-            this, &AcaiaScale::onCharacteristicChanged);
-
-    m_service->discoverDetails();
+    m_transport->discoverCharacteristics(serviceToUse);
 }
 
-void AcaiaScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        qDebug() << "AcaiaScale: Service details discovered, protocol:" << (m_isPyxis ? "Pyxis" : "IPS");
+void AcaiaScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    // Only handle our selected service
+    if (m_isPyxis && serviceUuid != Scale::Acaia::SERVICE) return;
+    if (!m_isPyxis && serviceUuid != Scale::AcaiaIPS::SERVICE) return;
+    if (m_characteristicsReady) {
+        ACAIA_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
 
-        if (m_isPyxis) {
-            m_statusChar = m_service->characteristic(Scale::Acaia::STATUS);
-            m_cmdChar = m_service->characteristic(Scale::Acaia::CMD);
-        } else {
-            m_statusChar = m_service->characteristic(Scale::AcaiaIPS::CHARACTERISTIC);
-            m_cmdChar = m_statusChar;  // Same characteristic for IPS
-        }
+    ACAIA_LOG(QString("Characteristics discovered, protocol: %1").arg(m_isPyxis ? "Pyxis" : "IPS"));
 
-        if (!m_statusChar.isValid()) {
-            qWarning() << "AcaiaScale: Status characteristic not found!";
-            emit errorOccurred("Acaia scale characteristic not found");
-            return;
-        }
+    m_characteristicsReady = true;
 
-        // Start the initialization sequence with proper timing from de1app
-        // Pyxis: notifications @ 500ms, ident @ 1000ms
-        // IPS: notifications @ 100ms, ident @ 500ms
-        m_receivingNotifications = false;
+    // Start the initialization sequence with proper timing from de1app
+    // Pyxis: notifications @ 500ms, ident @ 1000ms
+    // IPS: notifications @ 100ms, ident @ 500ms
+    m_receivingNotifications = false;
 
-        if (m_isPyxis) {
-            QTimer::singleShot(500, this, &AcaiaScale::enableNotifications);
-            QTimer::singleShot(1000, this, &AcaiaScale::sendIdent);
-        } else {
-            QTimer::singleShot(100, this, &AcaiaScale::enableNotifications);
-            QTimer::singleShot(500, this, &AcaiaScale::sendIdent);
-        }
+    if (m_isPyxis) {
+        QTimer::singleShot(500, this, &AcaiaScale::enableNotifications);
+        QTimer::singleShot(1000, this, &AcaiaScale::sendIdent);
+    } else {
+        QTimer::singleShot(100, this, &AcaiaScale::enableNotifications);
+        QTimer::singleShot(500, this, &AcaiaScale::sendIdent);
     }
 }
 
 void AcaiaScale::enableNotifications() {
-    if (!m_statusChar.isValid()) return;
+    if (!m_transport || !m_characteristicsReady) return;
 
-    qDebug() << "AcaiaScale: Enabling notifications";
+    ACAIA_LOG("Enabling notifications");
 
-    QLowEnergyDescriptor notification = m_statusChar.descriptor(
-        QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-    if (notification.isValid()) {
-        m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
+    if (m_isPyxis) {
+        m_transport->enableNotifications(Scale::Acaia::SERVICE, Scale::Acaia::STATUS);
+    } else {
+        m_transport->enableNotifications(Scale::AcaiaIPS::SERVICE, Scale::AcaiaIPS::CHARACTERISTIC);
     }
 }
 
-void AcaiaScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == m_statusChar.uuid()) {
+void AcaiaScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value) {
+    // Check if it's from our status characteristic
+    if (m_isPyxis && characteristicUuid == Scale::Acaia::STATUS) {
+        parseResponse(value);
+    } else if (!m_isPyxis && characteristicUuid == Scale::AcaiaIPS::CHARACTERISTIC) {
         parseResponse(value);
     }
 }
@@ -179,7 +181,7 @@ QByteArray AcaiaScale::encodePacket(uint8_t msgType, const QByteArray& payload) 
 }
 
 void AcaiaScale::sendIdent() {
-    qDebug() << "AcaiaScale: Sending ident, receivingNotifications:" << m_receivingNotifications;
+    ACAIA_LOG(QString("Sending ident, receivingNotifications: %1").arg(m_receivingNotifications ? "true" : "false"));
 
     // Ident message: type 0x0B with "01234567890123" + checksum
     QByteArray payload = QByteArray::fromHex("3031323334353637383930313233349A6D");
@@ -197,7 +199,7 @@ void AcaiaScale::sendIdent() {
 }
 
 void AcaiaScale::sendConfig() {
-    qDebug() << "AcaiaScale: Sending config";
+    ACAIA_LOG("Sending config");
 
     // Config message: type 0x0C with notification settings
     QByteArray payload = QByteArray::fromHex("0900010102020103041106");
@@ -218,17 +220,14 @@ void AcaiaScale::sendHeartbeat() {
 }
 
 void AcaiaScale::sendCommand(const QByteArray& command) {
-    if (!m_service || !m_cmdChar.isValid()) return;
+    if (!m_transport || !m_characteristicsReady) return;
 
-    // Write type is different for each protocol (fixed based on de1app):
-    // - IPS (older Lunar/Pearl): WriteWithoutResponse
-    // - Pyxis (newer Lunar 2021): WriteWithResponse
+    // Write to appropriate characteristic based on protocol
     if (m_isPyxis) {
-        // Pyxis uses regular write with response
-        m_service->writeCharacteristic(m_cmdChar, command, QLowEnergyService::WriteWithResponse);
+        m_transport->writeCharacteristic(Scale::Acaia::SERVICE, Scale::Acaia::CMD, command);
     } else {
-        // IPS uses write without response
-        m_service->writeCharacteristic(m_cmdChar, command, QLowEnergyService::WriteWithoutResponse);
+        // IPS uses same characteristic for read/write
+        m_transport->writeCharacteristic(Scale::AcaiaIPS::SERVICE, Scale::AcaiaIPS::CHARACTERISTIC, command);
     }
 }
 
@@ -311,7 +310,7 @@ void AcaiaScale::decodeWeight(const QByteArray& data, int payloadOffset) {
     // This ensures the handshake completed successfully
     if (!m_weightReceived) {
         m_weightReceived = true;
-        qDebug() << "AcaiaScale: First weight received, marking as connected";
+        ACAIA_LOG("First weight received, marking as connected");
         setConnected(true);
     }
 
@@ -319,7 +318,7 @@ void AcaiaScale::decodeWeight(const QByteArray& data, int payloadOffset) {
 }
 
 void AcaiaScale::tare() {
-    qDebug() << "AcaiaScale: Sending tare";
+    ACAIA_LOG("Sending tare");
 
     // Tare message: type 0x04 with zeros
     QByteArray payload(17, 0);

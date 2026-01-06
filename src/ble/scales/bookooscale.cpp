@@ -5,147 +5,156 @@
 
 // Helper macro that logs to both qDebug and emits signal for UI/file logging
 #define BOOKOO_LOG(msg) do { \
-    QString _msg = msg; \
+    QString _msg = QString("[BLE BookooScale] ") + msg; \
     qDebug().noquote() << _msg; \
     emit logMessage(_msg); \
 } while(0)
 
-BookooScale::BookooScale(QObject* parent)
+BookooScale::BookooScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &BookooScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &BookooScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &BookooScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &BookooScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &BookooScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &BookooScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &BookooScale::onCharacteristicChanged);
+        connect(m_transport, &ScaleBleTransport::notificationsEnabled,
+                this, &BookooScale::onNotificationsEnabled);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 }
 
 BookooScale::~BookooScale() {
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void BookooScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &BookooScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &BookooScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &BookooScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &BookooScale::onServiceDiscovered);
+    BOOKOO_LOG(QString("Connecting to %1 (%2)")
+               .arg(device.name())
+               .arg(device.address().toString()));
 
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void BookooScale::onControllerConnected() {
-    BOOKOO_LOG("Bookoo: Controller connected, starting service discovery");
-    connect(m_controller, &QLowEnergyController::discoveryFinished,
-            this, [this]() {
-        BOOKOO_LOG(QString("Bookoo: Service discovery finished, service found: %1").arg(m_service != nullptr));
-        if (!m_service) {
-            BOOKOO_LOG(QString("Bookoo: Service %1 not found!").arg(Scale::Bookoo::SERVICE.toString()));
-            emit errorOccurred("Bookoo service not found");
-        }
-    });
-    m_controller->discoverServices();
+void BookooScale::onTransportConnected() {
+    BOOKOO_LOG("Transport connected, starting service discovery");
+    m_transport->discoverServices();
 }
 
-void BookooScale::onControllerDisconnected() {
+void BookooScale::onTransportDisconnected() {
+    BOOKOO_LOG("Transport disconnected");
     setConnected(false);
 }
 
-void BookooScale::onControllerError(QLowEnergyController::Error error) {
-    Q_UNUSED(error)
-    emit errorOccurred("Bookoo scale connection error");
-    setConnected(false);
+void BookooScale::onTransportError(const QString& message) {
+    // Log but don't fail - Bookoo rejects CCCD writes but may still work
+    BOOKOO_LOG(QString("Transport error: %1 (may be expected)").arg(message));
 }
 
 void BookooScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
-    BOOKOO_LOG(QString("Bookoo: Service discovered: %1").arg(uuid.toString()));
+    BOOKOO_LOG(QString("Service discovered: %1").arg(uuid.toString()));
+
     if (uuid == Scale::Bookoo::SERVICE) {
-        BOOKOO_LOG("Bookoo: Found Bookoo service, creating service object");
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &BookooScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &BookooScale::onCharacteristicChanged);
-            connect(m_service, &QLowEnergyService::errorOccurred,
-                    this, [this](QLowEnergyService::ServiceError error) {
-                // Log but don't fail - Bookoo rejects CCCD writes but may still work
-                BOOKOO_LOG(QString("Bookoo: Service error: %1 (may be expected)").arg(static_cast<int>(error)));
-            });
-            m_service->discoverDetails();
-        }
+        BOOKOO_LOG("Found Bookoo service");
+        m_serviceFound = true;
     }
 }
 
-void BookooScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    BOOKOO_LOG(QString("Bookoo: Service state changed to: %1").arg(static_cast<int>(state)));
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        m_statusChar = m_service->characteristic(Scale::Bookoo::STATUS);
-        m_cmdChar = m_service->characteristic(Scale::Bookoo::CMD);
+void BookooScale::onServicesDiscoveryFinished() {
+    BOOKOO_LOG(QString("Service discovery finished, service found: %1").arg(m_serviceFound));
 
-        BOOKOO_LOG(QString("Bookoo: STATUS char valid: %1, properties: %2")
-                   .arg(m_statusChar.isValid())
-                   .arg(static_cast<int>(m_statusChar.properties())));
-        BOOKOO_LOG(QString("Bookoo: CMD char valid: %1").arg(m_cmdChar.isValid()));
+    if (!m_serviceFound) {
+        BOOKOO_LOG(QString("Service %1 not found!").arg(Scale::Bookoo::SERVICE.toString()));
+        emit errorOccurred("Bookoo service not found");
+        return;
+    }
 
-        if (!m_statusChar.isValid()) {
-            BOOKOO_LOG("Bookoo: STATUS characteristic not found!");
-            emit errorOccurred("Bookoo STATUS characteristic not found");
-            return;
-        }
+    // Discover characteristics for the Bookoo service
+    m_transport->discoverCharacteristics(Scale::Bookoo::SERVICE);
+}
 
-        // de1app waits 200ms after connection before enabling notifications:
-        //   after 200 bookoo_enable_weight_notifications
-        // Let's do the same
-        QTimer::singleShot(200, this, [this]() {
-            if (!m_service || !m_statusChar.isValid()) return;
+void BookooScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::Bookoo::SERVICE) return;
+    if (m_characteristicsReady) {
+        BOOKOO_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
 
-            QLowEnergyDescriptor cccd = m_statusChar.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
+    BOOKOO_LOG("Characteristics discovered");
+    m_characteristicsReady = true;
+    setConnected(true);
 
-            if (cccd.isValid()) {
-                BOOKOO_LOG("Bookoo: Enabling notifications via CCCD");
-                m_service->writeDescriptor(cccd, QByteArray::fromHex("0100"));
-            } else {
-                BOOKOO_LOG("Bookoo: No CCCD descriptor found");
-            }
+    // de1app waits 200ms after connection before enabling notifications:
+    //   after 200 bookoo_enable_weight_notifications
+    BOOKOO_LOG("Scheduling notification enable in 200ms (de1app timing)");
+    QTimer::singleShot(200, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
 
-            setConnected(true);
-            BOOKOO_LOG("Bookoo: Connected, waiting for weight data");
-        });
+        BOOKOO_LOG("Enabling notifications (200ms)");
+        m_transport->enableNotifications(Scale::Bookoo::SERVICE, Scale::Bookoo::STATUS);
+    });
+}
+
+void BookooScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid,
+                                          const QByteArray& value) {
+    if (characteristicUuid == Scale::Bookoo::STATUS) {
+        parseWeightData(value);
     }
 }
 
-void BookooScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::Bookoo::STATUS) {
-        // Bookoo format: h1 h2 h3 h4 h5 h6 sign w1 w2 w3 (10 bytes)
-        // de1app checks >= 9 bytes, we check >= 10 to be safe
-        if (value.size() >= 10) {
-            const uint8_t* d = reinterpret_cast<const uint8_t*>(value.constData());
+void BookooScale::onNotificationsEnabled(const QBluetoothUuid& characteristicUuid) {
+    BOOKOO_LOG(QString("Notifications enabled for %1").arg(characteristicUuid.toString()));
+}
 
-            char sign = static_cast<char>(d[6]);
+void BookooScale::parseWeightData(const QByteArray& data) {
+    // Bookoo format: h1 h2 h3 h4 h5 h6 sign w1 w2 w3 (10 bytes)
+    // de1app checks >= 9 bytes, we check >= 10 to be safe
+    if (data.size() >= 10) {
+        const uint8_t* d = reinterpret_cast<const uint8_t*>(data.constData());
 
-            // Weight is 3 bytes big-endian in hundredths of gram
-            uint32_t weightRaw = (d[7] << 16) | (d[8] << 8) | d[9];
-            double weight = weightRaw / 100.0;
+        char sign = static_cast<char>(d[6]);
 
-            if (sign == '-') {
-                weight = -weight;
-            }
+        // Weight is 3 bytes big-endian in hundredths of gram
+        uint32_t weightRaw = (d[7] << 16) | (d[8] << 8) | d[9];
+        double weight = weightRaw / 100.0;
 
-            setWeight(weight);
+        if (sign == '-') {
+            weight = -weight;
         }
+
+        setWeight(weight);
     }
 }
 
 void BookooScale::sendCommand(const QByteArray& cmd) {
-    if (!m_service || !m_cmdChar.isValid()) return;
-    m_service->writeCharacteristic(m_cmdChar, cmd);
+    if (!m_transport || !m_characteristicsReady) return;
+    m_transport->writeCharacteristic(Scale::Bookoo::SERVICE, Scale::Bookoo::CMD, cmd);
 }
 
 void BookooScale::tare() {

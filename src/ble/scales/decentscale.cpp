@@ -1,96 +1,152 @@
 #include "decentscale.h"
 #include "../protocol/de1characteristics.h"
 #include <algorithm>
+#include <QTimer>
 
-DecentScale::DecentScale(QObject* parent)
+// Helper macro that logs to both qDebug and emits signal for UI/file logging
+#define DECENT_LOG(msg) do { \
+    QString _msg = QString("[BLE DecentScale] ") + msg; \
+    qDebug().noquote() << _msg; \
+    emit logMessage(_msg); \
+} while(0)
+
+DecentScale::DecentScale(ScaleBleTransport* transport, QObject* parent)
     : ScaleDevice(parent)
+    , m_transport(transport)
 {
+    if (m_transport) {
+        m_transport->setParent(this);
+
+        connect(m_transport, &ScaleBleTransport::connected,
+                this, &DecentScale::onTransportConnected);
+        connect(m_transport, &ScaleBleTransport::disconnected,
+                this, &DecentScale::onTransportDisconnected);
+        connect(m_transport, &ScaleBleTransport::error,
+                this, &DecentScale::onTransportError);
+        connect(m_transport, &ScaleBleTransport::serviceDiscovered,
+                this, &DecentScale::onServiceDiscovered);
+        connect(m_transport, &ScaleBleTransport::servicesDiscoveryFinished,
+                this, &DecentScale::onServicesDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicsDiscoveryFinished,
+                this, &DecentScale::onCharacteristicsDiscoveryFinished);
+        connect(m_transport, &ScaleBleTransport::characteristicChanged,
+                this, &DecentScale::onCharacteristicChanged);
+        // Forward transport logs to scale log
+        connect(m_transport, &ScaleBleTransport::logMessage,
+                this, &ScaleDevice::logMessage);
+    }
 }
 
 DecentScale::~DecentScale() {
-    disconnectFromScale();
+    if (m_transport) {
+        m_transport->disconnectFromDevice();
+    }
 }
 
 void DecentScale::connectToDevice(const QBluetoothDeviceInfo& device) {
-    if (m_controller) {
-        disconnectFromScale();
+    if (!m_transport) {
+        emit errorOccurred("No transport available");
+        return;
     }
 
     m_name = device.name();
-    m_controller = QLowEnergyController::createCentral(device, this);
+    m_serviceFound = false;
+    m_characteristicsReady = false;
 
-    connect(m_controller, &QLowEnergyController::connected,
-            this, &DecentScale::onControllerConnected);
-    connect(m_controller, &QLowEnergyController::disconnected,
-            this, &DecentScale::onControllerDisconnected);
-    connect(m_controller, &QLowEnergyController::errorOccurred,
-            this, &DecentScale::onControllerError);
-    connect(m_controller, &QLowEnergyController::serviceDiscovered,
-            this, &DecentScale::onServiceDiscovered);
-
-    m_controller->connectToDevice();
+    m_transport->connectToDevice(device.address().toString(), device.name());
 }
 
-void DecentScale::onControllerConnected() {
-    m_controller->discoverServices();
+void DecentScale::onTransportConnected() {
+    m_transport->discoverServices();
 }
 
-void DecentScale::onControllerDisconnected() {
+void DecentScale::onTransportDisconnected() {
     setConnected(false);
 }
 
-void DecentScale::onControllerError(QLowEnergyController::Error error) {
-    Q_UNUSED(error)
+void DecentScale::onTransportError(const QString& message) {
+    Q_UNUSED(message)
     emit errorOccurred("Scale connection error");
     setConnected(false);
 }
 
 void DecentScale::onServiceDiscovered(const QBluetoothUuid& uuid) {
     if (uuid == Scale::Decent::SERVICE) {
-        m_service = m_controller->createServiceObject(uuid, this);
-        if (m_service) {
-            connect(m_service, &QLowEnergyService::stateChanged,
-                    this, &DecentScale::onServiceStateChanged);
-            connect(m_service, &QLowEnergyService::characteristicChanged,
-                    this, &DecentScale::onCharacteristicChanged);
-            m_service->discoverDetails();
-        }
+        m_serviceFound = true;
     }
 }
 
-void DecentScale::onServiceStateChanged(QLowEnergyService::ServiceState state) {
-    if (state == QLowEnergyService::RemoteServiceDiscovered) {
-        // Get characteristics
-        m_readChar = m_service->characteristic(Scale::Decent::READ);
-        m_writeChar = m_service->characteristic(Scale::Decent::WRITE);
+void DecentScale::onServicesDiscoveryFinished() {
+    if (!m_serviceFound) {
+        emit errorOccurred("Decent Scale service not found");
+        return;
+    }
+    m_transport->discoverCharacteristics(Scale::Decent::SERVICE);
+}
 
-        // Subscribe to notifications
-        if (m_readChar.isValid()) {
-            QLowEnergyDescriptor notification = m_readChar.descriptor(
-                QBluetoothUuid::DescriptorType::ClientCharacteristicConfiguration);
-            if (notification.isValid()) {
-                m_service->writeDescriptor(notification, QByteArray::fromHex("0100"));
-            }
-        }
+void DecentScale::onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid) {
+    if (serviceUuid != Scale::Decent::SERVICE) return;
+    if (m_characteristicsReady) {
+        DECENT_LOG("Characteristics already set up, ignoring duplicate callback");
+        return;
+    }
 
-        setConnected(true);
+    DECENT_LOG("Characteristics discovered");
+    m_characteristicsReady = true;
+    setConnected(true);
 
-        // Wake sequence matching official de1app timing:
-        // - Wake immediately
-        // - Wake again after 200ms
-        // - Enable weight notifications after 300ms
-        // - Wake again after 500ms (retry for reliability)
+    // Follow de1app sequence EXACTLY:
+    // 1. Heartbeat immediately
+    // 2. Heartbeat at 2000ms
+    // 3. LCD at 200ms
+    // 4. Enable notifications at 300ms
+    // 5. Enable notifications at 400ms (again for reliability)
+    // 6. LCD at 500ms (in case first was dropped)
+
+    DECENT_LOG("Starting de1app-style wake sequence");
+
+    // Heartbeat immediately
+    sendHeartbeat();
+
+    // LCD enable at 200ms
+    QTimer::singleShot(200, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        DECENT_LOG("Sending wake/LCD command (200ms)");
         wake();
-        QTimer::singleShot(200, this, &DecentScale::wake);
-        QTimer::singleShot(300, this, [this]() {
-            sendCommand(QByteArray::fromHex("030A0102"));  // Enable weight updates
-        });
-        QTimer::singleShot(500, this, &DecentScale::wake);
-    }
+    });
+
+    // Enable BLE notifications at 300ms
+    QTimer::singleShot(300, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        DECENT_LOG("Enabling notifications (300ms)");
+        m_transport->enableNotifications(Scale::Decent::SERVICE, Scale::Decent::READ);
+    });
+
+    // Enable BLE notifications again at 400ms (de1app does this twice for reliability)
+    QTimer::singleShot(400, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        DECENT_LOG("Enabling notifications again (400ms)");
+        m_transport->enableNotifications(Scale::Decent::SERVICE, Scale::Decent::READ);
+    });
+
+    // LCD enable again at 500ms (in case first was dropped)
+    QTimer::singleShot(500, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        DECENT_LOG("Sending wake/LCD command again (500ms)");
+        wake();
+    });
+
+    // Heartbeat at 2000ms
+    QTimer::singleShot(2000, this, [this]() {
+        if (!m_transport || !m_characteristicsReady) return;
+        DECENT_LOG("Sending heartbeat (2000ms)");
+        sendHeartbeat();
+    });
 }
 
-void DecentScale::onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value) {
-    if (c.uuid() == Scale::Decent::READ) {
+void DecentScale::onCharacteristicChanged(const QBluetoothUuid& characteristicUuid,
+                                          const QByteArray& value) {
+    if (characteristicUuid == Scale::Decent::READ) {
         parseWeightData(value);
     }
 }
@@ -115,7 +171,7 @@ void DecentScale::parseWeightData(const QByteArray& data) {
 }
 
 void DecentScale::sendCommand(const QByteArray& command) {
-    if (!m_service || !m_writeChar.isValid()) return;
+    if (!m_transport || !m_characteristicsReady) return;
 
     QByteArray packet(7, 0);
     packet[0] = 0x03;  // Model byte
@@ -126,7 +182,7 @@ void DecentScale::sendCommand(const QByteArray& command) {
 
     packet[6] = calculateXor(packet);
 
-    m_service->writeCharacteristic(m_writeChar, packet);
+    m_transport->writeCharacteristic(Scale::Decent::SERVICE, Scale::Decent::WRITE, packet);
 }
 
 uint8_t DecentScale::calculateXor(const QByteArray& data) {
@@ -162,6 +218,13 @@ void DecentScale::wake() {
     // Command 0A 01 01 00 01 enables LCD (grams mode)
     // Must match official de1app: 03 0A 01 01 00 01 [xor]
     sendCommand(QByteArray::fromHex("0A01010001"));
+}
+
+void DecentScale::sendHeartbeat() {
+    // Heartbeat command from de1app: 0A 03 FF FF
+    // Tells scale we're still connected
+    DECENT_LOG("Sending heartbeat");
+    sendCommand(QByteArray::fromHex("0A03FFFF"));
 }
 
 void DecentScale::setLed(int r, int g, int b) {

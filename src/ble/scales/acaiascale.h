@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../scaledevice.h"
-#include <QLowEnergyCharacteristic>
+#include "../transport/scalebletransport.h"
 #include <QTimer>
 #include <QByteArray>
 
@@ -9,7 +9,7 @@ class AcaiaScale : public ScaleDevice {
     Q_OBJECT
 
 public:
-    explicit AcaiaScale(QObject* parent = nullptr);
+    explicit AcaiaScale(ScaleBleTransport* transport, QObject* parent = nullptr);
     ~AcaiaScale() override;
 
     void connectToDevice(const QBluetoothDeviceInfo& device) override;
@@ -23,13 +23,13 @@ public slots:
     void resetTimer() override {}
 
 private slots:
-    void onControllerConnected();
-    void onControllerDisconnected();
-    void onControllerError(QLowEnergyController::Error error);
+    void onTransportConnected();
+    void onTransportDisconnected();
+    void onTransportError(const QString& message);
     void onServiceDiscovered(const QBluetoothUuid& uuid);
-    void onServiceStateChanged(QLowEnergyService::ServiceState state);
-    void onCharacteristicChanged(const QLowEnergyCharacteristic& c, const QByteArray& value);
-    void onServiceDiscoveryFinished();
+    void onServicesDiscoveryFinished();
+    void onCharacteristicsDiscoveryFinished(const QBluetoothUuid& serviceUuid);
+    void onCharacteristicChanged(const QBluetoothUuid& characteristicUuid, const QByteArray& value);
     void sendHeartbeat();
     void sendIdent();
     void sendConfig();
@@ -40,20 +40,16 @@ private:
     void decodeWeight(const QByteArray& payload, int payloadOffset);
     QByteArray encodePacket(uint8_t msgType, const QByteArray& payload);
     void sendCommand(const QByteArray& command);
-    void setupServiceForProtocol();
 
+    ScaleBleTransport* m_transport = nullptr;
     QString m_name = "Acaia";
     bool m_isPyxis = false;  // Auto-detected during service discovery
-    bool m_protocolDetected = false;
+    bool m_pyxisServiceFound = false;
+    bool m_ipsServiceFound = false;
+    bool m_characteristicsReady = false;
     bool m_receivingNotifications = false;
     bool m_weightReceived = false;  // Track if we've received weight data
-    QLowEnergyCharacteristic m_statusChar;
-    QLowEnergyCharacteristic m_cmdChar;
     QTimer* m_heartbeatTimer = nullptr;
-
-    // Services discovered - for auto-detection
-    QLowEnergyService* m_ipsService = nullptr;
-    QLowEnergyService* m_pyxisService = nullptr;
 
     // Message parsing state
     QByteArray m_buffer;
