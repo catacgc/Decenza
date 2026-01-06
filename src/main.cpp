@@ -429,33 +429,28 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    // Cross-platform lifecycle handling: sleep/wake devices when app is suspended/resumed
-    // This handles cases like swiping away from Recent Apps (Android/iOS) or minimizing (desktop)
+    // Cross-platform lifecycle handling: manage scale when app is suspended/resumed
+    // Note: DE1 is NOT put to sleep when backgrounded - users may switch apps while
+    // the machine is heating up and expect it to continue (e.g., checking Visualizer)
     QObject::connect(&app, &QGuiApplication::applicationStateChanged,
-                     [&de1Device, &physicalScale, &bleManager, &settings](Qt::ApplicationState state) {
+                     [&physicalScale, &bleManager, &settings](Qt::ApplicationState state) {
         static bool wasSuspended = false;
 
         if (state == Qt::ApplicationSuspended) {
-            // App is being suspended (mobile) - sleep devices immediately
-            qDebug() << "App suspended - putting devices to sleep";
+            // App is being suspended (mobile) - sleep scale to save battery
+            qDebug() << "App suspended - sleeping scale (DE1 stays awake)";
             wasSuspended = true;
 
             if (physicalScale && physicalScale->isConnected()) {
                 physicalScale->sleep();
             }
-            if (de1Device.isConnected()) {
-                de1Device.goToSleep();
-            }
+            // DE1 intentionally NOT put to sleep - user may be checking other apps
+            // while machine heats up
         }
         else if (state == Qt::ApplicationActive && wasSuspended) {
-            // App resumed from suspended state - wake devices
-            qDebug() << "App resumed - waking devices";
+            // App resumed from suspended state - wake scale
+            qDebug() << "App resumed - waking scale";
             wasSuspended = false;
-
-            // Wake DE1 (it wakes automatically on reconnect, but ensure it's awake)
-            if (de1Device.isConnected()) {
-                de1Device.wakeUp();
-            }
 
             // Try to reconnect/wake scale
             if (physicalScale && physicalScale->isConnected()) {

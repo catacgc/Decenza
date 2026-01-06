@@ -399,51 +399,35 @@ Item {
                     }
                 }
 
-                Item { height: 10 }
-
-                // Last upload status
-                Rectangle {
+                // Clear notes on shot start toggle (only when extended metadata enabled)
+                RowLayout {
                     Layout.fillWidth: true
-                    height: statusColumn.implicitHeight + 20
-                    color: Qt.darker(Theme.surfaceColor, 1.2)
-                    radius: Theme.scaled(8)
+                    spacing: Theme.scaled(15)
+                    visible: Settings.visualizerExtendedMetadata
 
                     ColumnLayout {
-                        id: statusColumn
-                        anchors.fill: parent
-                        anchors.margins: Theme.scaled(10)
-                        spacing: Theme.scaled(6)
+                        spacing: Theme.scaled(2)
 
                         Tr {
-                            key: "settings.visualizer.lastUpload"
-                            fallback: "Last Upload"
-                            color: Theme.textSecondaryColor
-                            font.pixelSize: Theme.scaled(12)
-                        }
-
-                        Text {
-                            text: MainController.visualizer.lastUploadStatus || TranslationManager.translate("settings.visualizer.noUploadsYet", "No uploads yet")
-                            color: MainController.visualizer.lastUploadStatus.indexOf("Failed") >= 0 ?
-                                   Theme.errorColor :
-                                   MainController.visualizer.lastUploadStatus.indexOf("successful") >= 0 ?
-                                   Theme.successColor : Theme.textColor
+                            key: "settings.visualizer.clearNotesOnStart"
+                            fallback: "Clear Notes on Start"
+                            color: Theme.textColor
                             font.pixelSize: Theme.scaled(14)
                         }
 
-                        Text {
-                            id: lastShotLink
-                            text: MainController.visualizer.lastShotUrl
-                            color: Theme.primaryColor
+                        Tr {
+                            key: "settings.visualizer.clearNotesOnStartDesc"
+                            fallback: "Clear espresso notes when starting a new shot"
+                            color: Theme.textSecondaryColor
                             font.pixelSize: Theme.scaled(12)
-                            visible: MainController.visualizer.lastShotUrl.length > 0
-
-                            AccessibleMouseArea {
-                                anchors.fill: parent
-                                accessibleName: "View last shot on visualizer. Opens web browser"
-                                accessibleItem: lastShotLink
-                                onAccessibleClicked: Qt.openUrlExternally(MainController.visualizer.lastShotUrl)
-                            }
                         }
+                    }
+
+                    Item { Layout.fillWidth: true }
+
+                    StyledSwitch {
+                        checked: Settings.visualizerClearNotesOnStart
+                        onCheckedChanged: Settings.visualizerClearNotesOnStart = checked
                     }
                 }
 

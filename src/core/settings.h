@@ -72,6 +72,7 @@ class Settings : public QObject {
     Q_PROPERTY(double visualizerMinDuration READ visualizerMinDuration WRITE setVisualizerMinDuration NOTIFY visualizerMinDurationChanged)
     Q_PROPERTY(bool visualizerExtendedMetadata READ visualizerExtendedMetadata WRITE setVisualizerExtendedMetadata NOTIFY visualizerExtendedMetadataChanged)
     Q_PROPERTY(bool visualizerShowAfterShot READ visualizerShowAfterShot WRITE setVisualizerShowAfterShot NOTIFY visualizerShowAfterShotChanged)
+    Q_PROPERTY(bool visualizerClearNotesOnStart READ visualizerClearNotesOnStart WRITE setVisualizerClearNotesOnStart NOTIFY visualizerClearNotesOnStartChanged)
 
     // AI Dialing Assistant settings
     Q_PROPERTY(QString aiProvider READ aiProvider WRITE setAiProvider NOTIFY aiProviderChanged)
@@ -266,6 +267,9 @@ public:
     bool visualizerShowAfterShot() const;
     void setVisualizerShowAfterShot(bool enabled);
 
+    bool visualizerClearNotesOnStart() const;
+    void setVisualizerClearNotesOnStart(bool enabled);
+
     // AI Dialing Assistant settings
     QString aiProvider() const;
     void setAiProvider(const QString& provider);
@@ -388,6 +392,7 @@ signals:
     void visualizerMinDurationChanged();
     void visualizerExtendedMetadataChanged();
     void visualizerShowAfterShotChanged();
+    void visualizerClearNotesOnStartChanged();
     void aiProviderChanged();
     void openaiApiKeyChanged();
     void anthropicApiKeyChanged();

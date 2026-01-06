@@ -1266,6 +1266,11 @@ void MainController::onEspressoCycleStarted() {
         m_shotDebugLogger->logInfo(QString("Profile: %1").arg(m_currentProfile.title()));
     }
 
+    // Clear espresso notes if setting is enabled
+    if (m_settings && m_settings->visualizerClearNotesOnStart()) {
+        m_settings->setDyeEspressoNotes("");
+    }
+
     qDebug() << "=== ESPRESSO CYCLE STARTED (graph cleared, scale tared) ===";
 }
 

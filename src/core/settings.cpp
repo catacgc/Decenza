@@ -1297,6 +1297,17 @@ void Settings::setVisualizerShowAfterShot(bool enabled) {
     }
 }
 
+bool Settings::visualizerClearNotesOnStart() const {
+    return m_settings.value("visualizer/clearNotesOnStart", false).toBool();
+}
+
+void Settings::setVisualizerClearNotesOnStart(bool enabled) {
+    if (visualizerClearNotesOnStart() != enabled) {
+        m_settings.setValue("visualizer/clearNotesOnStart", enabled);
+        emit visualizerClearNotesOnStartChanged();
+    }
+}
+
 // AI Dialing Assistant settings
 QString Settings::aiProvider() const {
     return m_settings.value("ai/provider", "openai").toString();

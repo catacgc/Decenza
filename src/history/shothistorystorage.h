@@ -168,6 +168,7 @@ private:
     void updateTotalShots();
     QString buildFilterQuery(const ShotFilter& filter, QVariantList& bindValues);
     ShotFilter parseFilterMap(const QVariantMap& filterMap);
+    QString formatFtsQuery(const QString& userInput);
 
     QSqlDatabase m_db;
     QString m_dbPath;

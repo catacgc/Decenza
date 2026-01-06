@@ -508,6 +508,32 @@ QString ShotHistoryStorage::buildFilterQuery(const ShotFilter& filter, QVariantL
     return " WHERE " + conditions.join(" AND ");
 }
 
+QString ShotHistoryStorage::formatFtsQuery(const QString& userInput)
+{
+    // FTS5 special characters that need quoting: " ( ) * : ^
+    // We'll wrap each word in quotes and add * for prefix matching
+
+    QString cleaned = userInput.simplified();
+    if (cleaned.isEmpty()) {
+        return QString();
+    }
+
+    QStringList words = cleaned.split(' ', Qt::SkipEmptyParts);
+    QStringList terms;
+
+    for (const QString& word : words) {
+        // Escape double quotes by doubling them
+        QString escaped = word;
+        escaped.replace('"', "\"\"");
+        // Use prefix matching with * for partial word matches
+        // Wrap in quotes to handle special characters
+        terms << QString("\"%1\"*").arg(escaped);
+    }
+
+    // Join with AND (implicit in FTS5 when space-separated)
+    return terms.join(" ");
+}
+
 QVariantList ShotHistoryStorage::getShotsFiltered(const QVariantMap& filterMap, int offset, int limit)
 {
     QVariantList results;
@@ -520,6 +546,9 @@ QVariantList ShotHistoryStorage::getShotsFiltered(const QVariantMap& filterMap, 
     // Handle FTS search separately
     QString sql;
     if (!filter.searchText.isEmpty()) {
+        // Format search text for FTS5: escape special chars and add prefix wildcards
+        QString ftsQuery = formatFtsQuery(filter.searchText);
+
         sql = QString(R"(
             SELECT s.id, s.uuid, s.timestamp, s.profile_name, s.duration_seconds,
                    s.final_weight, s.dose_weight, s.bean_brand, s.bean_type,
@@ -531,7 +560,7 @@ QVariantList ShotHistoryStorage::getShotsFiltered(const QVariantMap& filterMap, 
             ORDER BY s.timestamp DESC
             LIMIT ? OFFSET ?
         )").arg(whereClause.isEmpty() ? "" : " AND " + whereClause.mid(7));  // Remove " WHERE "
-        bindValues.prepend(filter.searchText);
+        bindValues.prepend(ftsQuery);
     } else {
         sql = QString(R"(
             SELECT id, uuid, timestamp, profile_name, duration_seconds,
