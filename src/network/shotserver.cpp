@@ -1,5 +1,6 @@
 #include "shotserver.h"
 #include "webdebuglogger.h"
+#include "webtemplates.h"
 #include "../history/shothistorystorage.h"
 #include "../ble/de1device.h"
 #include "../screensaver/screensavervideomanager.h"
@@ -417,6 +418,9 @@ void ShotServer::handleRequest(QTcpSocket* socket, const QByteArray& request)
     }
     else if (path == "/debug") {
         sendHtml(socket, generateDebugPage());
+    }
+    else if (path == "/remote") {
+        sendHtml(socket, QString(WEB_REMOTE_PAGE));
     }
     else if (path == "/api/debug" || path.startsWith("/api/debug?")) {
         // Get afterIndex from query string
@@ -1123,21 +1127,11 @@ QString ShotServer::generateShotListPage() const
         <div class="header-content">
             <a href="/" class="logo">&#9749; Decenza DE1</a>
             <div class="header-right">
-                <span class="shot-count">%1 shots</span>
-                <div class="menu-wrapper">
-                    <button class="menu-btn" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
-                    <div class="menu-dropdown" id="menuDropdown">
-                        <a href="#" class="menu-item" id="powerToggle" onclick="togglePower(); return false;">&#9889; Loading...</a>
-                        <a href="/debug" class="menu-item">&#128196; Live Debug Log</a>)HTML").arg(m_storage->totalShots());
+                <span class="shot-count">%1 shots</span>)HTML").arg(m_storage->totalShots());
 
-#ifdef Q_OS_ANDROID
-    html += R"HTML(<a href="/upload" class="menu-item">&#128230; Upload APK</a>)HTML";
-#endif
+    html += generateMenuHtml(true);
 
-    html += R"HTML(<a href="/database.db" class="menu-item">&#128190; Download Database</a>
-                        <a href="/upload/media" class="menu-item">&#127912; Upload Screensaver Media</a>
-                    </div>
-                </div>
+    html += R"HTML(
             </div>
         </div>
     </header>
@@ -1753,7 +1747,9 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
                 <button class="menu-btn" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
                 <div class="menu-dropdown" id="menuDropdown">
                     <a href="#" class="menu-item" id="powerToggle" onclick="togglePower(); return false;">&#9889; Loading...</a>
-                    <a href="/debug" class="menu-item">&#128196; Live Debug Log</a>)HTML"
+                    <a href="/" class="menu-item">&#127866; Shot History</a>
+                    <a href="/debug" class="menu-item">&#128196; Live Debug Log</a>
+                    <a href="/remote" class="menu-item">&#128421; Remote Control</a>)HTML"
 #ifdef Q_OS_ANDROID
                     R"HTML(<a href="/upload" class="menu-item">&#128230; Upload APK</a>)HTML"
 #endif
@@ -2391,7 +2387,9 @@ QString ShotServer::generateComparisonPage(const QList<qint64>& shotIds) const
                 <button class="menu-btn" onclick="toggleMenu()" aria-label="Menu">&#9776;</button>
                 <div class="menu-dropdown" id="menuDropdown">
                     <a href="#" class="menu-item" id="powerToggle" onclick="togglePower(); return false;">&#9889; Loading...</a>
-                    <a href="/debug" class="menu-item">&#128196; Live Debug Log</a>)HTML"
+                    <a href="/" class="menu-item">&#127866; Shot History</a>
+                    <a href="/debug" class="menu-item">&#128196; Live Debug Log</a>
+                    <a href="/remote" class="menu-item">&#128421; Remote Control</a>)HTML"
 #ifdef Q_OS_ANDROID
                     R"HTML(<a href="/upload" class="menu-item">&#128230; Upload APK</a>)HTML"
 #endif
