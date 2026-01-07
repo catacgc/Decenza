@@ -22,6 +22,7 @@ class Settings : public QObject {
     // Espresso settings
     Q_PROPERTY(double espressoTemperature READ espressoTemperature WRITE setEspressoTemperature NOTIFY espressoTemperatureChanged)
     Q_PROPERTY(double targetWeight READ targetWeight WRITE setTargetWeight NOTIFY targetWeightChanged)
+    Q_PROPERTY(double lastUsedRatio READ lastUsedRatio WRITE setLastUsedRatio NOTIFY lastUsedRatioChanged)
 
     // Steam settings
     Q_PROPERTY(double steamTemperature READ steamTemperature WRITE setSteamTemperature NOTIFY steamTemperatureChanged)
@@ -145,6 +146,9 @@ public:
 
     double targetWeight() const;
     void setTargetWeight(double weight);
+
+    double lastUsedRatio() const;
+    void setLastUsedRatio(double ratio);
 
     // Steam settings
     double steamTemperature() const;
@@ -381,6 +385,7 @@ signals:
     void flowCalibrationFactorChanged();
     void espressoTemperatureChanged();
     void targetWeightChanged();
+    void lastUsedRatioChanged();
     void steamTemperatureChanged();
     void steamTimeoutChanged();
     void steamFlowChanged();

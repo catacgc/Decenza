@@ -186,6 +186,17 @@ void Settings::setTargetWeight(double weight) {
     }
 }
 
+double Settings::lastUsedRatio() const {
+    return m_settings.value("espresso/lastUsedRatio", 2.0).toDouble();
+}
+
+void Settings::setLastUsedRatio(double ratio) {
+    if (lastUsedRatio() != ratio) {
+        m_settings.setValue("espresso/lastUsedRatio", ratio);
+        emit lastUsedRatioChanged();
+    }
+}
+
 // Steam settings
 double Settings::steamTemperature() const {
     return m_settings.value("steam/temperature", 160.0).toDouble();

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Decenza_DE1 VERSION 1.1.15 LANGUAGES CXX)
+project(Decenza_DE1 VERSION 1.1.16 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -285,6 +285,7 @@ set(QML_FILES
     qml/pages/settings/AddLanguagePage.qml
     qml/pages/settings/StringBrowserPage.qml
     qml/components/ActionButton.qml
+    qml/components/BrewRatioDialog.qml
     qml/components/CircularGauge.qml
     qml/components/ConnectionIndicator.qml
     qml/components/PresetPillRow.qml

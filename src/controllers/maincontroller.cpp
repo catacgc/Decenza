@@ -163,6 +163,10 @@ QString MainController::currentProfileName() const {
 }
 
 double MainController::targetWeight() const {
+    // Return calculated target when brew-by-ratio is active
+    if (m_brewByRatioActive) {
+        return m_brewByRatioDose * m_brewByRatio;
+    }
     return m_currentProfile.targetWeight();
 }
 
@@ -174,6 +178,42 @@ void MainController::setTargetWeight(double weight) {
         }
         emit targetWeightChanged();
     }
+}
+
+void MainController::activateBrewByRatio(double dose, double ratio) {
+    m_brewByRatioActive = true;
+    m_brewByRatioDose = dose;
+    m_brewByRatio = ratio;
+
+    // Calculate target and set it in MachineState for stop-at-weight logic
+    double calculatedTarget = dose * ratio;
+    if (m_machineState) {
+        m_machineState->setTargetWeight(calculatedTarget);
+    }
+
+    qDebug() << "Brew-by-ratio activated: dose=" << dose << "g, ratio=1:" << ratio
+             << "-> target=" << calculatedTarget << "g";
+
+    emit brewByRatioChanged();
+    emit targetWeightChanged();
+}
+
+void MainController::clearBrewByRatio() {
+    if (!m_brewByRatioActive) {
+        return;
+    }
+
+    m_brewByRatioActive = false;
+
+    // Restore profile's target weight to MachineState
+    if (m_machineState) {
+        m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+    }
+
+    qDebug() << "Brew-by-ratio cleared, restored target=" << m_currentProfile.targetWeight() << "g";
+
+    emit brewByRatioChanged();
+    emit targetWeightChanged();
 }
 
 QVariantList MainController::availableProfiles() const {
@@ -1292,6 +1332,9 @@ void MainController::onEspressoCycleStarted() {
 }
 
 void MainController::onShotEnded() {
+    // Always clear brew-by-ratio mode when shot ends
+    clearBrewByRatio();
+
     // Only process espresso shots that actually extracted
     if (!m_extractionStarted || !m_settings || !m_shotDataModel) {
         // Stop debug logging even if we don't save

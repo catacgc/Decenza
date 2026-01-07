@@ -359,7 +359,9 @@ Page {
                         Layout.alignment: Qt.AlignBaseline
                     }
                     Text {
-                        text: "/ " + MainController.targetWeight.toFixed(0) + " g"
+                        text: MainController.brewByRatioActive
+                            ? "1:" + MainController.brewByRatio.toFixed(1) + " (" + MainController.targetWeight.toFixed(0) + "g)"
+                            : "/ " + MainController.targetWeight.toFixed(0) + " g"
                         color: Theme.textSecondaryColor
                         font.pixelSize: Theme.scaled(18)
                         Layout.alignment: Qt.AlignBaseline

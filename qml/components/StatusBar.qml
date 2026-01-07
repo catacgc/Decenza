@@ -134,7 +134,7 @@ Rectangle {
             }
         }
 
-        // Scale connected indicator (tap to tare)
+        // Scale connected indicator (tap to tare, double-tap for ratio)
         Item {
             visible: ScaleDevice && ScaleDevice.connected
             implicitWidth: scaleRow.implicitWidth
@@ -156,12 +156,18 @@ Rectangle {
                     width: Theme.scaled(8)
                     height: Theme.scaled(8)
                     radius: Theme.scaled(4)
-                    color: scaleMouseArea.pressed ? Theme.accentColor : Theme.weightColor
+                    color: scaleMouseArea.pressed ? Theme.accentColor
+                         : MainController.brewByRatioActive ? Theme.primaryColor
+                         : Theme.weightColor
                 }
 
                 Text {
-                    text: MachineState.scaleWeight.toFixed(1) + "g"
-                    color: scaleMouseArea.pressed ? Theme.accentColor : Theme.weightColor
+                    text: MainController.brewByRatioActive
+                        ? MachineState.scaleWeight.toFixed(1) + "g 1:" + MainController.brewByRatio.toFixed(1)
+                        : MachineState.scaleWeight.toFixed(1) + "g"
+                    color: scaleMouseArea.pressed ? Theme.accentColor
+                         : MainController.brewByRatioActive ? Theme.primaryColor
+                         : Theme.weightColor
                     font: Theme.bodyFont
                 }
             }
@@ -171,7 +177,63 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: -Theme.spacingSmall  // Expand touch target
                 cursorShape: Qt.PointingHandCursor
-                onClicked: MachineState.tareScale()
+
+                property int tapCount: 0
+                property var lastTapTime: 0
+
+                onClicked: {
+                    // Don't allow ratio dialog during shot
+                    if (MachineState.isFlowing) {
+                        console.log("StatusBar: Tare during shot")
+                        if (MainController.brewByRatioActive) {
+                            MainController.clearBrewByRatio()
+                        }
+                        MachineState.tareScale()
+                        return
+                    }
+
+                    var now = Date.now()
+                    var timeSinceLast = now - lastTapTime
+                    console.log("StatusBar: Weight tap, timeSinceLast=" + timeSinceLast + "ms")
+
+                    if (timeSinceLast < 300) {
+                        tapCount++
+                    } else {
+                        tapCount = 1
+                    }
+                    lastTapTime = now
+
+                    console.log("StatusBar: tapCount=" + tapCount)
+
+                    if (tapCount >= 2) {
+                        tapCount = 0
+                        singleTapTimer.stop()
+                        // Double-tap: open ratio dialog
+                        console.log("StatusBar: Double-tap detected, opening ratio dialog")
+                        brewRatioDialog.open()
+                    } else {
+                        // Single tap: delay tare to distinguish from double-tap
+                        singleTapTimer.restart()
+                    }
+                }
+            }
+
+            Timer {
+                id: singleTapTimer
+                interval: 300
+                onTriggered: {
+                    console.log("StatusBar: Timer triggered, tapCount=" + scaleMouseArea.tapCount)
+                    if (scaleMouseArea.tapCount === 1) {
+                        console.log("StatusBar: Single tap confirmed, taring scale")
+                        // Cancel ratio mode if active
+                        if (MainController.brewByRatioActive) {
+                            console.log("StatusBar: Cancelling brew-by-ratio mode")
+                            MainController.clearBrewByRatio()
+                        }
+                        MachineState.tareScale()
+                    }
+                    scaleMouseArea.tapCount = 0
+                }
             }
         }
 
@@ -209,5 +271,10 @@ Rectangle {
                 font: Theme.bodyFont
             }
         }
+    }
+
+    // Brew-by-ratio dialog
+    BrewRatioDialog {
+        id: brewRatioDialog
     }
 }
