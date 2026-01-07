@@ -1447,14 +1447,10 @@ ApplicationWindow {
     function goToScreensaver() {
         console.log("[Main] goToScreensaver called, type:", ScreensaverManager.screensaverType)
         screensaverActive = true
-
-        if (ScreensaverManager.screensaverType === "disabled") {
-            // Disabled mode: just turn off the screen, don't show screensaver
-            ScreensaverManager.turnScreenOff()
-            // Stay on idle page but mark as screensaver active so wake logic works
-        } else {
-            pageStack.replace(screensaverPage)
-        }
+        // Navigate to screensaver page for all modes (including "disabled")
+        // For "disabled" mode, ScreensaverPage shows a black screen and lets
+        // Android's system timeout turn off the screen naturally
+        pageStack.replace(screensaverPage)
     }
 
     function goToIdleFromScreensaver() {
@@ -1475,50 +1471,11 @@ ApplicationWindow {
         z: 1000  // Above everything
         propagateComposedEvents: true
         onPressed: function(mouse) {
-            // If screensaver is "disabled" and we're in screensaver-active state,
-            // any touch should wake the device (same as touching ScreensaverPage)
-            if (screensaverActive && ScreensaverManager.screensaverType === "disabled") {
-                console.log("[Main] Touch wake from disabled screensaver mode")
-                // Wake the DE1
-                if (DE1Device.connected) {
-                    DE1Device.wakeUp()
-                }
-                // Wake the scale or try to reconnect
-                if (ScaleDevice && ScaleDevice.connected) {
-                    ScaleDevice.wake()
-                } else {
-                    BLEManager.tryDirectConnectToScale()
-                }
-                // Exit screensaver mode
-                screensaverActive = false
-            }
             resetInactivityTimer()
             mouse.accepted = false  // Let the touch through
         }
         onReleased: function(mouse) { mouse.accepted = false }
         onClicked: function(mouse) { mouse.accepted = false }
-    }
-
-    // Auto-wake from disabled screensaver when DE1 wakes up externally (button press on machine)
-    Connections {
-        target: DE1Device
-        enabled: screensaverActive && ScreensaverManager.screensaverType === "disabled"
-
-        function onStateChanged() {
-            var state = DE1Device.stateString
-            if (state !== "Sleep" && state !== "GoingToSleep") {
-                console.log("[Main] DE1 woke externally while in disabled screensaver mode")
-                // Wake the scale or try to reconnect
-                if (ScaleDevice && ScaleDevice.connected) {
-                    ScaleDevice.wake()
-                } else {
-                    BLEManager.tryDirectConnectToScale()
-                }
-                // Exit screensaver mode
-                screensaverActive = false
-                resetInactivityTimer()
-            }
-        }
     }
 
     // Keyboard shortcut for simulation mode (Ctrl+D)

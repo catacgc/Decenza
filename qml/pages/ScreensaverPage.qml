@@ -20,6 +20,7 @@ Page {
     property bool isPipesMode: screensaverType === "pipes"
     property bool isFlipClockMode: screensaverType === "flipclock"
     property bool isAttractorMode: screensaverType === "attractor"
+    property bool isDisabledMode: screensaverType === "disabled"
 
     property int videoFailCount: 0
     property bool mediaPlaying: false
@@ -30,9 +31,13 @@ Page {
 
     Component.onCompleted: {
         console.log("[ScreensaverPage] Loaded, type:", screensaverType,
-                    "videos:", isVideosMode, "pipes:", isPipesMode, "flipclock:", isFlipClockMode)
-        // Keep screen on while screensaver is active
-        ScreensaverManager.setKeepScreenOn(true)
+                    "videos:", isVideosMode, "pipes:", isPipesMode, "flipclock:", isFlipClockMode,
+                    "disabled:", isDisabledMode)
+        // Keep screen on for active screensavers (videos, pipes, etc.)
+        // For "disabled" mode, don't keep screen on - let Android turn it off naturally
+        if (!isDisabledMode) {
+            ScreensaverManager.setKeepScreenOn(true)
+        }
         if (isVideosMode) {
             playNextMedia()
         }
@@ -319,10 +324,10 @@ Page {
         }
     }
 
-    // Clock display (hidden in flip clock and attractor modes)
+    // Clock display (hidden in flip clock, attractor, and disabled modes)
     Text {
         z: 2
-        visible: !isFlipClockMode && !isAttractorMode
+        visible: !isFlipClockMode && !isAttractorMode && !isDisabledMode
         anchors.bottom: parent.bottom
         anchors.right: parent.right
         anchors.margins: Theme.scaled(50)
@@ -337,7 +342,7 @@ Page {
 
         Timer {
             interval: 1000
-            running: !isFlipClockMode && !isAttractorMode
+            running: !isFlipClockMode && !isAttractorMode && !isDisabledMode
             repeat: true
             onTriggered: parent.currentTime = new Date()
         }
@@ -367,10 +372,11 @@ Page {
         }
     }
 
-    // Touch hint (fades out)
+    // Touch hint (fades out) - hidden in disabled mode for pure black screen
     Tr {
         id: touchHint
         z: 2
+        visible: !isDisabledMode
         anchors.centerIn: parent
         key: "screensaver.touch_to_wake"
         fallback: "Touch to wake"
@@ -383,7 +389,7 @@ Page {
             from: 0.5
             to: 0
             duration: 3000
-            running: true
+            running: !isDisabledMode
         }
     }
 
