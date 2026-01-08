@@ -232,6 +232,62 @@ Item {
             }
         }
 
+        // Extracting popup - shows during ZIP extraction
+        Popup {
+            id: extractingPopup
+            modal: true
+            dim: true
+            closePolicy: Popup.NoAutoClose
+            anchors.centerIn: Overlay.overlay
+            padding: Theme.scaled(24)
+
+            background: Rectangle {
+                color: Theme.surfaceColor
+                radius: Theme.cardRadius
+                border.width: 2
+                border.color: Theme.primaryColor
+            }
+
+            contentItem: Column {
+                spacing: Theme.spacingMedium
+                width: Theme.scaled(250)
+
+                Text {
+                    text: "Extracting..."
+                    font: Theme.subtitleFont
+                    color: Theme.textColor
+                    anchors.horizontalCenter: parent.horizontalCenter
+                }
+
+                BusyIndicator {
+                    running: true
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Theme.scaled(48)
+                    height: Theme.scaled(48)
+                }
+
+                Text {
+                    text: "Please wait while the archive is extracted"
+                    wrapMode: Text.Wrap
+                    width: parent.width
+                    font: Theme.bodyFont
+                    color: Theme.textSecondaryColor
+                    horizontalAlignment: Text.AlignHCenter
+                }
+            }
+        }
+
+        Connections {
+            target: MainController.shotImporter
+            function onIsExtractingChanged() {
+                if (MainController.shotImporter.isExtracting) {
+                    extractingPopup.open()
+                } else {
+                    extractingPopup.close()
+                }
+            }
+        }
+
         // Import result feedback dialog
         Popup {
             id: importResultDialog

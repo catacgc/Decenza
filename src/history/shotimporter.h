@@ -20,6 +20,7 @@ class ShotImporter : public QObject {
     Q_OBJECT
 
     Q_PROPERTY(bool isImporting READ isImporting NOTIFY isImportingChanged)
+    Q_PROPERTY(bool isExtracting READ isExtracting NOTIFY isExtractingChanged)
     Q_PROPERTY(int totalFiles READ totalFiles NOTIFY progressChanged)
     Q_PROPERTY(int processedFiles READ processedFiles NOTIFY progressChanged)
     Q_PROPERTY(int importedFiles READ importedFiles NOTIFY progressChanged)
@@ -33,6 +34,7 @@ public:
     ~ShotImporter();
 
     bool isImporting() const { return m_importing; }
+    bool isExtracting() const { return m_extracting; }
     int totalFiles() const { return m_totalFiles; }
     int processedFiles() const { return m_processedFiles; }
     int importedFiles() const { return m_importedFiles; }
@@ -55,6 +57,7 @@ public:
 
 signals:
     void isImportingChanged();
+    void isExtractingChanged();
     void progressChanged();
     void currentFileChanged();
     void statusMessageChanged();
@@ -77,6 +80,7 @@ private:
     QTemporaryDir* m_tempDir = nullptr;
 
     bool m_importing = false;
+    bool m_extracting = false;
     bool m_cancelled = false;
     int m_totalFiles = 0;
     int m_processedFiles = 0;

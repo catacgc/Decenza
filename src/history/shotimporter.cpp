@@ -45,11 +45,21 @@ void ShotImporter::importFromZip(const QString& zipPath)
 
     setStatus("Extracting archive...");
     m_importing = true;
+    m_extracting = true;
     m_cancelled = false;
     emit isImportingChanged();
+    emit isExtractingChanged();
+
+    // Process events to let UI update before blocking extraction
+    QCoreApplication::processEvents();
 
     // Extract zip to temp directory
-    if (!extractZip(zipPath, m_tempDir->path())) {
+    bool extractSuccess = extractZip(zipPath, m_tempDir->path());
+
+    m_extracting = false;
+    emit isExtractingChanged();
+
+    if (!extractSuccess) {
         m_importing = false;
         emit isImportingChanged();
         emit importError("Failed to extract ZIP archive. Make sure 'unzip' is available or extract manually.");
