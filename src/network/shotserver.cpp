@@ -1870,12 +1870,12 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
         </div>
 
         <div class="actions-bar" style="margin-top:1.5rem;display:flex;gap:1rem;flex-wrap:wrap;">
-            <a href="#" onclick="downloadProfile(); return false;" class="action-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);text-decoration:none;font-size:0.875rem;">
+            <button onclick="downloadProfile()" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.875rem;cursor:pointer;">
                 &#128196; Download Profile JSON
-            </a>
-            <a href="#" onclick="showDebugLog(); return false;" class="action-btn" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);text-decoration:none;font-size:0.875rem;">
+            </button>
+            <button onclick="showDebugLog()" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.75rem 1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.875rem;cursor:pointer;">
                 &#128203; View Debug Log
-            </a>
+            </button>
         </div>
 
         <div id="debugLogContainer" style="display:none;margin-top:1rem;">
@@ -1893,14 +1893,22 @@ QString ShotServer::generateShotDetailPage(qint64 shotId) const
         }
         function showDebugLog() {
             var container = document.getElementById('debugLogContainer');
-            container.style.display = container.style.display === 'none' ? 'block' : 'none';
+            if (container) {
+                container.style.display = container.style.display === 'none' ? 'block' : 'none';
+            } else {
+                alert('Debug log container not found');
+            }
         }
         function copyDebugLog() {
             var text = document.getElementById('debugLogContent').textContent;
             navigator.clipboard.writeText(text).then(function() {
                 alert('Debug log copied to clipboard!');
+            }).catch(function(err) {
+                alert('Failed to copy: ' + err);
             });
         }
+    </script>
+    <script>
         const pressureData = %15;
         const flowData = %16;
         const weightData = %17;
