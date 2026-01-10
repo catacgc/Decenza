@@ -142,6 +142,16 @@ ApplicationWindow {
         interval: root.autoSleepMinutes * 60 * 1000  // Convert minutes to ms
         running: root.autoSleepMinutes > 0 && !screensaverActive && !root.operationActive
         repeat: false
+        // CRITICAL: When running changes from false to true via the binding,
+        // QML timers resume from their previous elapsed time, not from 0.
+        // This caused a bug where exiting the screensaver would immediately
+        // trigger auto-sleep because the timer resumed near the end.
+        // By calling restart() here, we ensure the timer always starts fresh.
+        onRunningChanged: {
+            if (running) {
+                restart()
+            }
+        }
         onTriggered: {
             console.log("Auto-sleep triggered after", root.autoSleepMinutes, "minutes of inactivity")
             triggerAutoSleep()
@@ -1451,11 +1461,8 @@ ApplicationWindow {
 
     function goToShotMetadata(hasPending) {
         announceNavigation("Shot info")
-        pageStack.push(shotMetadataPage)
-        // Set hasPendingShot on the page if we came from a shot
-        if (hasPending && pageStack.currentItem) {
-            pageStack.currentItem.hasPendingShot = true
-        }
+        // Pass hasPendingShot as initial property so it's set before Component.onCompleted
+        pageStack.push(shotMetadataPage, { hasPendingShot: hasPending || false })
     }
 
     // Helper to announce page navigation for accessibility
