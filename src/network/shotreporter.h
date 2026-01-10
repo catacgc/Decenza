@@ -47,6 +47,12 @@ public:
     // Request location update (call this at app start or when settings change)
     Q_INVOKABLE void refreshLocation();
 
+    // Open Android Location Settings (for user to enable GPS)
+    Q_INVOKABLE void openLocationSettings();
+
+    // Check if GPS is enabled at system level
+    Q_INVOKABLE bool isGpsEnabled() const;
+
     // Get location info for display
     Q_INVOKABLE QString currentCity() const;
     Q_INVOKABLE QString currentCountryCode() const;
@@ -82,6 +88,7 @@ private:
 
     bool m_enabled = false;
     QString m_lastError;
+    bool m_hasPromptedForLocation = false;  // Only prompt once per session
 
     static constexpr const char* API_URL = "https://api.decenza.coffee/v1/shots";
 };

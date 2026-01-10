@@ -75,6 +75,18 @@ void ShotReporter::refreshLocation()
     }
 }
 
+void ShotReporter::openLocationSettings()
+{
+    if (m_locationProvider) {
+        m_locationProvider->openLocationSettings();
+    }
+}
+
+bool ShotReporter::isGpsEnabled() const
+{
+    return m_locationProvider ? m_locationProvider->isGpsEnabled() : false;
+}
+
 void ShotReporter::reportShot(const QString& profileName, const QString& machineModel)
 {
     if (!m_enabled) {
@@ -204,9 +216,23 @@ void ShotReporter::onLocationChanged()
 
 void ShotReporter::onLocationError(const QString& error)
 {
-    qDebug() << "ShotReporter: Location error -" << error;
+    bool gpsEnabled = m_locationProvider ? m_locationProvider->isGpsEnabled() : false;
+    qDebug() << "ShotReporter: Location error -" << error
+             << "hasPrompted:" << m_hasPromptedForLocation
+             << "hasLocation:" << (m_locationProvider ? m_locationProvider->hasLocation() : false)
+             << "gpsEnabled:" << gpsEnabled;
     m_lastError = error;
     emit lastErrorChanged();
+
+    // Auto-open Location Settings if:
+    // - Shot map is enabled
+    // - Haven't prompted yet this session
+    // - GPS is actually disabled at system level
+    if (m_enabled && !m_hasPromptedForLocation && m_locationProvider && !gpsEnabled) {
+        m_hasPromptedForLocation = true;
+        qDebug() << "ShotReporter: GPS disabled at system level, opening Location Settings";
+        m_locationProvider->openLocationSettings();
+    }
 }
 
 QString ShotReporter::manualCity() const

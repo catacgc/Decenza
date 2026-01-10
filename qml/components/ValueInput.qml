@@ -109,12 +109,12 @@ Item {
             anchors.margins: sc(4)
             spacing: sc(2)
 
-            // Minus button
+            // Minus button - requires hold to activate (prevents accidental scroll triggers)
             Rectangle {
                 Layout.preferredWidth: sc(32)
                 Layout.fillHeight: true
                 radius: sc(8)
-                color: minusArea.pressed ? Qt.darker(Theme.surfaceColor, 1.3) : "transparent"
+                color: minusArea.pressed && minusActivateTimer.running ? Qt.darker(Theme.surfaceColor, 1.3) : "transparent"
 
                 Accessible.role: Accessible.Button
                 Accessible.name: TranslationManager.translate("valueinput.button.decrease", "Decrease")
@@ -131,10 +131,43 @@ Item {
                 MouseArea {
                     id: minusArea
                     anchors.fill: parent
-                    onClicked: adjustValue(-1)
-                    onPressAndHold: decrementTimer.start()
-                    onReleased: decrementTimer.stop()
-                    onCanceled: decrementTimer.stop()
+                    property real startY: 0
+                    property bool activated: false
+
+                    onPressed: function(mouse) {
+                        startY = mouse.y
+                        activated = false
+                        minusActivateTimer.restart()
+                    }
+                    onPositionChanged: function(mouse) {
+                        // Cancel if vertical movement detected (scrolling)
+                        if (Math.abs(mouse.y - startY) > sc(10)) {
+                            minusActivateTimer.stop()
+                            decrementTimer.stop()
+                            activated = false
+                        }
+                    }
+                    onReleased: {
+                        minusActivateTimer.stop()
+                        decrementTimer.stop()
+                        activated = false
+                    }
+                    onCanceled: {
+                        minusActivateTimer.stop()
+                        decrementTimer.stop()
+                        activated = false
+                    }
+                }
+
+                // Delay before activating - allows scroll gestures to pass through
+                Timer {
+                    id: minusActivateTimer
+                    interval: 200
+                    onTriggered: {
+                        minusArea.activated = true
+                        adjustValue(-1)
+                        decrementTimer.start()
+                    }
                 }
 
                 Timer {
@@ -171,6 +204,7 @@ Item {
                     property real startX: 0
                     property real startY: 0
                     property bool isDragging: false
+                    property bool isActivated: false  // True after hold delay
 
                     drag.target: Item {}  // Enable drag detection
                     drag.axis: Drag.XAndYAxis
@@ -180,11 +214,22 @@ Item {
                         startX = mouse.x
                         startY = mouse.y
                         isDragging = false
+                        isActivated = false
+                        valueActivateTimer.restart()
                     }
 
                     onPositionChanged: function(mouse) {
                         var deltaX = mouse.x - startX
                         var deltaY = startY - mouse.y  // Inverted: up = increase
+
+                        // Cancel activation if vertical movement before timer (scrolling)
+                        if (!isActivated && Math.abs(mouse.y - startY) > sc(10)) {
+                            valueActivateTimer.stop()
+                            return
+                        }
+
+                        // Only allow dragging after activation
+                        if (!isActivated) return
 
                         // Use whichever axis has more movement
                         var delta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY
@@ -206,14 +251,24 @@ Item {
                     }
 
                     onReleased: {
-                        if (!isDragging) {
+                        valueActivateTimer.stop()
+                        if (isActivated && !isDragging) {
                             scrubberPopup.open()
                         }
                         isDragging = false
+                        isActivated = false
                     }
 
                     onCanceled: {
+                        valueActivateTimer.stop()
                         isDragging = false
+                        isActivated = false
+                    }
+
+                    Timer {
+                        id: valueActivateTimer
+                        interval: 200
+                        onTriggered: valueDragArea.isActivated = true
                     }
                 }
 
@@ -228,11 +283,11 @@ Item {
                 // Floating speech bubble - rendered in overlay to be always on top
                 Loader {
                     id: bubbleLoader
-                    active: valueDragArea.pressed
+                    active: valueDragArea.pressed && valueDragArea.isActivated
                     sourceComponent: Item {
                         id: speechBubble
                         parent: Overlay.overlay
-                        visible: valueDragArea.pressed
+                        visible: valueDragArea.pressed && valueDragArea.isActivated
 
                         // Calculate luminance to determine text color
                         function getContrastColor(c) {
@@ -247,8 +302,8 @@ Item {
                         height: bubbleRect.height + bubbleTail.height - sc(3)
 
                         // Pop-in animation
-                        scale: valueDragArea.pressed ? 1.0 : 0.5
-                        opacity: valueDragArea.pressed ? 1.0 : 0
+                        scale: (valueDragArea.pressed && valueDragArea.isActivated) ? 1.0 : 0.5
+                        opacity: (valueDragArea.pressed && valueDragArea.isActivated) ? 1.0 : 0
                         transformOrigin: Item.Bottom
                         Behavior on scale { NumberAnimation { duration: 150; easing.type: Easing.OutBack; easing.overshoot: 2 } }
                         Behavior on opacity { NumberAnimation { duration: 100 } }
@@ -314,12 +369,12 @@ Item {
                 }
             }
 
-            // Plus button
+            // Plus button - requires hold to activate (prevents accidental scroll triggers)
             Rectangle {
                 Layout.preferredWidth: sc(32)
                 Layout.fillHeight: true
                 radius: sc(8)
-                color: plusArea.pressed ? Qt.darker(Theme.surfaceColor, 1.3) : "transparent"
+                color: plusArea.pressed && plusActivateTimer.running ? Qt.darker(Theme.surfaceColor, 1.3) : "transparent"
 
                 Accessible.role: Accessible.Button
                 Accessible.name: TranslationManager.translate("valueinput.button.increase", "Increase")
@@ -336,10 +391,43 @@ Item {
                 MouseArea {
                     id: plusArea
                     anchors.fill: parent
-                    onClicked: adjustValue(1)
-                    onPressAndHold: incrementTimer.start()
-                    onReleased: incrementTimer.stop()
-                    onCanceled: incrementTimer.stop()
+                    property real startY: 0
+                    property bool activated: false
+
+                    onPressed: function(mouse) {
+                        startY = mouse.y
+                        activated = false
+                        plusActivateTimer.restart()
+                    }
+                    onPositionChanged: function(mouse) {
+                        // Cancel if vertical movement detected (scrolling)
+                        if (Math.abs(mouse.y - startY) > sc(10)) {
+                            plusActivateTimer.stop()
+                            incrementTimer.stop()
+                            activated = false
+                        }
+                    }
+                    onReleased: {
+                        plusActivateTimer.stop()
+                        incrementTimer.stop()
+                        activated = false
+                    }
+                    onCanceled: {
+                        plusActivateTimer.stop()
+                        incrementTimer.stop()
+                        activated = false
+                    }
+                }
+
+                // Delay before activating - allows scroll gestures to pass through
+                Timer {
+                    id: plusActivateTimer
+                    interval: 200
+                    onTriggered: {
+                        plusArea.activated = true
+                        adjustValue(1)
+                        incrementTimer.start()
+                    }
                 }
 
                 Timer {

@@ -1,5 +1,6 @@
 #include "aimanager.h"
 #include "aiprovider.h"
+#include "aiconversation.h"
 #include "shotsummarizer.h"
 #include "../core/settings.h"
 #include "../models/shotdatamodel.h"
@@ -20,6 +21,9 @@ AIManager::AIManager(Settings* settings, QObject* parent)
     , m_summarizer(std::make_unique<ShotSummarizer>(this))
 {
     createProviders();
+
+    // Create conversation handler for multi-turn interactions
+    m_conversation = new AIConversation(this, this);
 
     // Connect to settings changes
     connect(m_settings, &Settings::valueChanged, this, &AIManager::onSettingsChanged);
@@ -231,6 +235,32 @@ void AIManager::testConnection()
     }
 
     provider->testConnection();
+}
+
+void AIManager::analyze(const QString& systemPrompt, const QString& userPrompt)
+{
+    AIProvider* provider = currentProvider();
+    if (!provider) {
+        m_lastError = "No AI provider configured";
+        emit errorOccurred(m_lastError);
+        return;
+    }
+
+    if (!isConfigured()) {
+        m_lastError = "AI provider not configured";
+        emit errorOccurred(m_lastError);
+        return;
+    }
+
+    m_analyzing = true;
+    emit analyzingChanged();
+
+    // Store for logging
+    m_lastSystemPrompt = systemPrompt;
+    m_lastUserPrompt = userPrompt;
+
+    logPrompt(selectedProvider(), systemPrompt, userPrompt);
+    provider->analyze(systemPrompt, userPrompt);
 }
 
 void AIManager::refreshOllamaModels()

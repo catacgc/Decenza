@@ -4,64 +4,18 @@ import QtQuick.Layouts
 import DecenzaDE1
 import "../../components"
 
-Item {
+KeyboardAwareContainer {
     id: visualizerTab
+    textFields: [usernameField, passwordField]
 
     // Connection test result message
     property string testResultMessage: ""
     property bool testResultSuccess: false
 
-    // Keyboard offset for shifting content up
-    property real keyboardOffset: 0
-
-    // Delay timer to prevent jumpy behavior when switching fields
-    Timer {
-        id: keyboardResetTimer
-        interval: 100
-        onTriggered: {
-            if (!Qt.inputMethod.visible) {
-                visualizerTab.keyboardOffset = 0
-            }
-        }
-    }
-
-    // Function to update keyboard offset for a given field
-    function updateKeyboardOffset(focusedField) {
-        if (!focusedField) return
-
-        // Qt doesn't report keyboard height on Android, so calculate based on field position
-        // Keyboard typically covers bottom ~50% of screen, shift fields to top 30%
-        var fieldPos = focusedField.mapToItem(visualizerTab, 0, 0)
-        var fieldBottom = fieldPos.y + focusedField.height
-        var safeZone = visualizerTab.height * 0.30
-
-        keyboardOffset = Math.max(0, fieldBottom - safeZone)
-    }
-
-    // Track keyboard visibility and update offset
-    Connections {
-        target: Qt.inputMethod
-        function onVisibleChanged() {
-            if (Qt.inputMethod.visible) {
-                keyboardResetTimer.stop()
-                var focusedField = usernameField.activeFocus ? usernameField :
-                                  (passwordField.activeFocus ? passwordField : null)
-                visualizerTab.updateKeyboardOffset(focusedField)
-            } else {
-                keyboardResetTimer.restart()
-            }
-        }
-    }
-
     RowLayout {
         width: parent.width
         height: parent.height
-        y: -visualizerTab.keyboardOffset
         spacing: Theme.scaled(15)
-
-        Behavior on y {
-            NumberAnimation { duration: 250; easing.type: Easing.OutQuad }
-        }
 
         // Account settings
         Rectangle {
@@ -125,10 +79,10 @@ Item {
                             border.width: 1
                         }
                         onTextChanged: Settings.visualizerUsername = text
+                        // Enter jumps to password field
                         onAccepted: passwordField.forceActiveFocus()
                         Keys.onReturnPressed: passwordField.forceActiveFocus()
                         Keys.onEnterPressed: passwordField.forceActiveFocus()
-                        onActiveFocusChanged: if (activeFocus && Qt.inputMethod.visible) visualizerTab.updateKeyboardOffset(usernameField)
                     }
                 }
 
@@ -164,13 +118,13 @@ Item {
                             border.width: 1
                         }
                         onTextChanged: Settings.visualizerPassword = text
+                        // Enter dismisses keyboard
                         onAccepted: {
                             passwordField.focus = false
                             Qt.inputMethod.hide()
                         }
                         Keys.onReturnPressed: { passwordField.focus = false; Qt.inputMethod.hide() }
                         Keys.onEnterPressed: { passwordField.focus = false; Qt.inputMethod.hide() }
-                        onActiveFocusChanged: if (activeFocus && Qt.inputMethod.visible) visualizerTab.updateKeyboardOffset(passwordField)
                     }
                 }
 

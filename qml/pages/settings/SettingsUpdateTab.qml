@@ -58,6 +58,13 @@ Item {
 
                         Text {
                             Layout.alignment: Qt.AlignHCenter
+                            text: "Build " + AppVersionCode
+                            color: Theme.textSecondaryColor
+                            font.pixelSize: Theme.scaled(12)
+                        }
+
+                        Text {
+                            Layout.alignment: Qt.AlignHCenter
                             text: DE1Device.simulationMode ? "SIMULATION MODE" : "Built with Qt 6"
                             color: DE1Device.simulationMode ? Theme.primaryColor : Theme.textSecondaryColor
                             font.pixelSize: Theme.scaled(11)
@@ -153,7 +160,9 @@ Item {
                             Text {
                                 text: {
                                     if (MainController.updateChecker.updateAvailable) {
-                                        return TranslationManager.translate("settings.update.updateavailable", "Update available:") + " v" + MainController.updateChecker.latestVersion
+                                        return TranslationManager.translate("settings.update.updateavailable", "Update available:") +
+                                               " v" + MainController.updateChecker.latestVersion +
+                                               " (Build " + MainController.updateChecker.latestVersionCode + ")"
                                     } else if (MainController.updateChecker.latestVersion) {
                                         return TranslationManager.translate("settings.update.uptodate", "You're up to date")
                                     } else {

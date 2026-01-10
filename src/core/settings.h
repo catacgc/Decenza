@@ -357,6 +357,9 @@ public:
     QString dyeShotDateTime() const;
     void setDyeShotDateTime(const QString& value);
 
+    // Force sync to disk
+    void sync() { m_settings.sync(); }
+
     // Shot server settings (HTTP API)
     bool shotServerEnabled() const;
     void setShotServerEnabled(bool enabled);

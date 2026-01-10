@@ -49,6 +49,12 @@ public:
     // Request a location update (async)
     Q_INVOKABLE void requestUpdate();
 
+    // Open Android Location Settings (for user to enable GPS)
+    Q_INVOKABLE void openLocationSettings();
+
+    // Check if GPS provider is enabled at system level (Android only)
+    Q_INVOKABLE bool isGpsEnabled() const;
+
 signals:
     void availableChanged();
     void locationChanged();

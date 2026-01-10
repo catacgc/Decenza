@@ -119,6 +119,7 @@ set(SOURCES
     src/network/visualizerimporter.cpp
     src/ai/aimanager.cpp
     src/ai/aiprovider.cpp
+    src/ai/aiconversation.cpp
     src/ai/shotsummarizer.cpp
     src/history/shothistorystorage.cpp
     src/history/shotdebuglogger.cpp
@@ -275,7 +276,7 @@ set(QML_FILES
     qml/pages/FlushPage.qml
     qml/pages/VisualizerBrowserPage.qml
     qml/pages/VisualizerMultiImportPage.qml
-    qml/pages/ShotMetadataPage.qml
+    qml/pages/BeanInfoPage.qml
     qml/pages/AISettingsPage.qml
     qml/pages/DialingAssistantPage.qml
     qml/pages/ShotHistoryPage.qml
@@ -315,7 +316,9 @@ set(QML_FILES
     qml/components/ColorEditor.qml
     qml/components/ColorSwatch.qml
     qml/components/StyledTextField.qml
-    qml/components/AutocompleteTextField.qml
+    qml/components/SuggestionField.qml
+    qml/components/KeyboardAwareContainer.qml
+    qml/components/AIConversationPanel.qml
     qml/components/Tr.qml
     qml/components/RecipeSection.qml
     qml/components/RecipeRow.qml

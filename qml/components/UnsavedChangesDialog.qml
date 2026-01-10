@@ -10,8 +10,9 @@ Dialog {
     modal: true
     padding: 0
 
-    property string itemType: "profile"  // "profile" or "recipe"
+    property string itemType: "profile"  // "profile", "recipe", or "shot"
     property bool canSave: true
+    property bool showSaveAs: true  // Set to false for items that don't support "Save As"
 
     signal discardClicked()
     signal saveAsClicked()
@@ -67,10 +68,10 @@ Dialog {
             Layout.leftMargin: Theme.scaled(20)
             Layout.rightMargin: Theme.scaled(20)
             Layout.bottomMargin: Theme.scaled(20)
-            columns: 3
+            columns: root.showSaveAs ? 3 : 2
             spacing: Theme.scaled(10)
 
-            property real buttonWidth: (width - spacing * 2) / 3
+            property real buttonWidth: root.showSaveAs ? (width - spacing * 2) / 3 : (width - spacing) / 2
             property real buttonHeight: Theme.scaled(50)
 
             AccessibleButton {
@@ -97,7 +98,8 @@ Dialog {
             }
 
             AccessibleButton {
-                width: parent.buttonWidth
+                visible: root.showSaveAs
+                width: visible ? parent.buttonWidth : 0
                 height: parent.buttonHeight
                 text: qsTr("Save As")
                 accessibleName: qsTr("Save as new %1").arg(root.itemType)

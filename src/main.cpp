@@ -279,6 +279,7 @@ int main(int argc, char *argv[])
     context->setContextProperty("AccessibilityManager", &accessibilityManager);
     context->setContextProperty("ProfileStorage", &profileStorage);
     context->setContextProperty("AppVersion", VERSION_STRING);
+    context->setContextProperty("AppVersionCode", VERSION_CODE);
 #ifdef QT_DEBUG
     context->setContextProperty("IsDebugBuild", true);
 #else

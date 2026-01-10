@@ -9,6 +9,30 @@ Page {
     objectName: "shotHistoryPage"
     background: Rectangle { color: Theme.backgroundColor }
 
+    // Keyboard handling for search field
+    property real keyboardOffset: 0
+
+    Connections {
+        target: Qt.inputMethod
+        function onVisibleChanged() {
+            if (!Qt.inputMethod.visible) {
+                shotHistoryPage.keyboardOffset = 0
+            }
+        }
+    }
+
+    // Tap outside to dismiss keyboard
+    MouseArea {
+        anchors.fill: parent
+        z: -1
+        onClicked: {
+            if (searchField.activeFocus) {
+                searchField.focus = false
+                Qt.inputMethod.hide()
+            }
+        }
+    }
+
     property var selectedShots: []
     property int maxSelections: 3
     property int currentOffset: 0
@@ -544,7 +568,7 @@ Page {
                         MouseArea {
                             anchors.fill: parent
                             onClicked: {
-                                pageStack.push(Qt.resolvedUrl("ShotMetadataPage.qml"), { editShotId: model.id })
+                                pageStack.push(Qt.resolvedUrl("BeanInfoPage.qml"), { editShotId: model.id })
                             }
                         }
                     }

@@ -4,11 +4,13 @@ import QtQuick.Layouts
 import DecenzaDE1
 import "../../components"
 
-Item {
+KeyboardAwareContainer {
     id: optionsTab
+    textFields: [manualCityField]
 
     RowLayout {
-        anchors.fill: parent
+        width: parent.width
+        height: parent.height
         spacing: Theme.scaled(15)
 
         // Left column: Offline Mode, Water Level Display, Steam Heater
@@ -303,6 +305,10 @@ Item {
                             onCheckedChanged: {
                                 if (MainController.shotReporter) {
                                     MainController.shotReporter.enabled = checked
+                                    // Auto-open Location Settings if GPS is disabled at system level
+                                    if (checked && !MainController.shotReporter.isGpsEnabled()) {
+                                        MainController.shotReporter.openLocationSettings()
+                                    }
                                 }
                             }
                         }
@@ -321,7 +327,7 @@ Item {
                                 var lon = MainController.shotReporter.longitude.toFixed(1)
                                 return prefix + city + (country ? ", " + country : "") + " (" + lat + ", " + lon + ")"
                             }
-                            return "Waiting for GPS..."
+                            return "GPS disabled - enable in Android Settings"
                         }
                         color: MainController.shotReporter && MainController.shotReporter.hasLocation ? Theme.textColor : Theme.textSecondaryColor
                         font.pixelSize: Theme.scaled(12)
@@ -346,7 +352,7 @@ Item {
                             StyledTextField {
                                 id: manualCityField
                                 Layout.fillWidth: true
-                                placeholderText: "e.g. Copenhagen, Denmark"
+                                placeholder: "e.g. Copenhagen, Denmark"
                                 text: MainController.shotReporter ? MainController.shotReporter.manualCity : ""
                                 onEditingFinished: {
                                     if (MainController.shotReporter) {

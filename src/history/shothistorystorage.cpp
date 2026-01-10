@@ -228,36 +228,36 @@ bool ShotHistoryStorage::runMigrations()
     return true;
 }
 
+QJsonObject ShotHistoryStorage::pointsToJsonObject(const QVector<QPointF>& points)
+{
+    QJsonArray timeArr, valueArr;
+    for (const auto& pt : points) {
+        timeArr.append(pt.x());
+        valueArr.append(pt.y());
+    }
+    QJsonObject obj;
+    obj["t"] = timeArr;
+    obj["v"] = valueArr;
+    return obj;
+}
+
 QByteArray ShotHistoryStorage::compressSampleData(ShotDataModel* shotData)
 {
     QJsonObject root;
 
-    // Convert QVector<QPointF> to JSON arrays
-    auto pointsToArray = [](const QVector<QPointF>& points) {
-        QJsonArray timeArr, valueArr;
-        for (const auto& pt : points) {
-            timeArr.append(pt.x());
-            valueArr.append(pt.y());
-        }
-        QJsonObject obj;
-        obj["t"] = timeArr;
-        obj["v"] = valueArr;
-        return obj;
-    };
-
-    root["pressure"] = pointsToArray(shotData->pressureData());
-    root["flow"] = pointsToArray(shotData->flowData());
-    root["temperature"] = pointsToArray(shotData->temperatureData());
-    root["pressureGoal"] = pointsToArray(shotData->pressureGoalData());
-    root["flowGoal"] = pointsToArray(shotData->flowGoalData());
-    root["temperatureGoal"] = pointsToArray(shotData->temperatureGoalData());
+    root["pressure"] = pointsToJsonObject(shotData->pressureData());
+    root["flow"] = pointsToJsonObject(shotData->flowData());
+    root["temperature"] = pointsToJsonObject(shotData->temperatureData());
+    root["pressureGoal"] = pointsToJsonObject(shotData->pressureGoalData());
+    root["flowGoal"] = pointsToJsonObject(shotData->flowGoalData());
+    root["temperatureGoal"] = pointsToJsonObject(shotData->temperatureGoalData());
 
     // Weight data needs to be scaled back (stored as /5 in model)
     QVector<QPointF> weightData = shotData->weightData();
     for (auto& pt : weightData) {
         pt.setY(pt.y() * 5.0);  // Undo the /5 scaling
     }
-    root["weight"] = pointsToArray(weightData);
+    root["weight"] = pointsToJsonObject(weightData);
 
     QByteArray json = QJsonDocument(root).toJson(QJsonDocument::Compact);
     return qCompress(json, 9);  // Max compression
@@ -848,171 +848,121 @@ bool ShotHistoryStorage::updateShotMetadata(qint64 shotId, const QVariantMap& me
     return true;
 }
 
-QStringList ShotHistoryStorage::getDistinctProfiles()
+// Helper for all getDistinct* methods
+QStringList ShotHistoryStorage::getDistinctValues(const QString& column)
 {
     QStringList results;
     if (!m_ready) return results;
 
+    QString sql = QString("SELECT DISTINCT %1 FROM shots WHERE %1 IS NOT NULL AND %1 != '' ORDER BY %1")
+                      .arg(column);
+
     QSqlQuery query(m_db);
-    query.exec("SELECT DISTINCT profile_name FROM shots WHERE profile_name IS NOT NULL ORDER BY profile_name");
+    query.exec(sql);
     while (query.next()) {
-        QString name = query.value(0).toString();
-        if (!name.isEmpty()) {
-            results << name;
+        QString value = query.value(0).toString();
+        if (!value.isEmpty()) {
+            results << value;
         }
     }
     return results;
+}
+
+// Helper for all getDistinct*Filtered methods
+QStringList ShotHistoryStorage::getDistinctValuesFiltered(const QString& column,
+                                                           const QString& excludeColumn,
+                                                           const QVariantMap& filter)
+{
+    QStringList results;
+    if (!m_ready) return results;
+
+    QString sql = QString("SELECT DISTINCT %1 FROM shots WHERE %1 IS NOT NULL AND %1 != ''")
+                      .arg(column);
+    QVariantList bindValues;
+
+    // Map of filter keys to database columns
+    static const QHash<QString, QString> filterToColumn = {
+        {"profileName", "profile_name"},
+        {"beanBrand", "bean_brand"},
+        {"beanType", "bean_type"}
+    };
+
+    for (auto it = filterToColumn.constBegin(); it != filterToColumn.constEnd(); ++it) {
+        // Skip if this is the column we're querying (don't filter on self)
+        if (it.value() == excludeColumn) continue;
+
+        if (filter.contains(it.key()) && !filter.value(it.key()).toString().isEmpty()) {
+            sql += QString(" AND %1 = ?").arg(it.value());
+            bindValues << filter.value(it.key()).toString();
+        }
+    }
+
+    sql += QString(" ORDER BY %1").arg(column);
+
+    QSqlQuery query(m_db);
+    query.prepare(sql);
+    for (int i = 0; i < bindValues.size(); ++i) {
+        query.bindValue(i, bindValues[i]);
+    }
+    query.exec();
+
+    while (query.next()) {
+        QString value = query.value(0).toString();
+        if (!value.isEmpty()) {
+            results << value;
+        }
+    }
+    return results;
+}
+
+QStringList ShotHistoryStorage::getDistinctProfiles()
+{
+    return getDistinctValues("profile_name");
 }
 
 QStringList ShotHistoryStorage::getDistinctBeanBrands()
 {
-    QStringList results;
-    if (!m_ready) return results;
-
-    QSqlQuery query(m_db);
-    query.exec("SELECT DISTINCT bean_brand FROM shots WHERE bean_brand IS NOT NULL AND bean_brand != '' ORDER BY bean_brand");
-    while (query.next()) {
-        results << query.value(0).toString();
-    }
-    return results;
+    return getDistinctValues("bean_brand");
 }
 
 QStringList ShotHistoryStorage::getDistinctBeanTypes()
 {
-    QStringList results;
-    if (!m_ready) return results;
-
-    QSqlQuery query(m_db);
-    query.exec("SELECT DISTINCT bean_type FROM shots WHERE bean_type IS NOT NULL AND bean_type != '' ORDER BY bean_type");
-    while (query.next()) {
-        results << query.value(0).toString();
-    }
-    return results;
+    return getDistinctValues("bean_type");
 }
 
 QStringList ShotHistoryStorage::getDistinctGrinders()
 {
-    QStringList results;
-    if (!m_ready) return results;
+    return getDistinctValues("grinder_model");
+}
 
-    QSqlQuery query(m_db);
-    query.exec("SELECT DISTINCT grinder_model FROM shots WHERE grinder_model IS NOT NULL AND grinder_model != '' ORDER BY grinder_model");
-    while (query.next()) {
-        results << query.value(0).toString();
-    }
-    return results;
+QStringList ShotHistoryStorage::getDistinctGrinderSettings()
+{
+    return getDistinctValues("grinder_setting");
+}
+
+QStringList ShotHistoryStorage::getDistinctBaristas()
+{
+    return getDistinctValues("barista");
 }
 
 QStringList ShotHistoryStorage::getDistinctRoastLevels()
 {
-    QStringList results;
-    if (!m_ready) return results;
-
-    QSqlQuery query(m_db);
-    query.exec("SELECT DISTINCT roast_level FROM shots WHERE roast_level IS NOT NULL AND roast_level != '' ORDER BY roast_level");
-    while (query.next()) {
-        results << query.value(0).toString();
-    }
-    return results;
+    return getDistinctValues("roast_level");
 }
 
 QStringList ShotHistoryStorage::getDistinctProfilesFiltered(const QVariantMap& filter)
 {
-    QStringList results;
-    if (!m_ready) return results;
-
-    QString sql = "SELECT DISTINCT profile_name FROM shots WHERE profile_name IS NOT NULL AND profile_name != ''";
-    QVariantList bindValues;
-
-    if (filter.contains("beanBrand") && !filter.value("beanBrand").toString().isEmpty()) {
-        sql += " AND bean_brand = ?";
-        bindValues << filter.value("beanBrand").toString();
-    }
-    if (filter.contains("beanType") && !filter.value("beanType").toString().isEmpty()) {
-        sql += " AND bean_type = ?";
-        bindValues << filter.value("beanType").toString();
-    }
-
-    sql += " ORDER BY profile_name";
-
-    QSqlQuery query(m_db);
-    query.prepare(sql);
-    for (int i = 0; i < bindValues.size(); ++i) {
-        query.bindValue(i, bindValues[i]);
-    }
-    query.exec();
-
-    while (query.next()) {
-        QString name = query.value(0).toString();
-        if (!name.isEmpty()) {
-            results << name;
-        }
-    }
-    return results;
+    return getDistinctValuesFiltered("profile_name", "profile_name", filter);
 }
 
 QStringList ShotHistoryStorage::getDistinctBeanBrandsFiltered(const QVariantMap& filter)
 {
-    QStringList results;
-    if (!m_ready) return results;
-
-    QString sql = "SELECT DISTINCT bean_brand FROM shots WHERE bean_brand IS NOT NULL AND bean_brand != ''";
-    QVariantList bindValues;
-
-    if (filter.contains("profileName") && !filter.value("profileName").toString().isEmpty()) {
-        sql += " AND profile_name = ?";
-        bindValues << filter.value("profileName").toString();
-    }
-    if (filter.contains("beanType") && !filter.value("beanType").toString().isEmpty()) {
-        sql += " AND bean_type = ?";
-        bindValues << filter.value("beanType").toString();
-    }
-
-    sql += " ORDER BY bean_brand";
-
-    QSqlQuery query(m_db);
-    query.prepare(sql);
-    for (int i = 0; i < bindValues.size(); ++i) {
-        query.bindValue(i, bindValues[i]);
-    }
-    query.exec();
-
-    while (query.next()) {
-        results << query.value(0).toString();
-    }
-    return results;
+    return getDistinctValuesFiltered("bean_brand", "bean_brand", filter);
 }
 
 QStringList ShotHistoryStorage::getDistinctBeanTypesFiltered(const QVariantMap& filter)
 {
-    QStringList results;
-    if (!m_ready) return results;
-
-    QString sql = "SELECT DISTINCT bean_type FROM shots WHERE bean_type IS NOT NULL AND bean_type != ''";
-    QVariantList bindValues;
-
-    if (filter.contains("profileName") && !filter.value("profileName").toString().isEmpty()) {
-        sql += " AND profile_name = ?";
-        bindValues << filter.value("profileName").toString();
-    }
-    if (filter.contains("beanBrand") && !filter.value("beanBrand").toString().isEmpty()) {
-        sql += " AND bean_brand = ?";
-        bindValues << filter.value("beanBrand").toString();
-    }
-
-    sql += " ORDER BY bean_type";
-
-    QSqlQuery query(m_db);
-    query.prepare(sql);
-    for (int i = 0; i < bindValues.size(); ++i) {
-        query.bindValue(i, bindValues[i]);
-    }
-    query.exec();
-
-    while (query.next()) {
-        results << query.value(0).toString();
-    }
-    return results;
+    return getDistinctValuesFiltered("bean_type", "bean_type", filter);
 }
 
 int ShotHistoryStorage::getFilteredShotCount(const QVariantMap& filterMap)
@@ -1485,26 +1435,14 @@ qint64 ShotHistoryStorage::importShotRecord(const ShotRecord& record, bool overw
     qint64 shotId = query.lastInsertId().toLongLong();
 
     // Compress and insert sample data
-    auto pointsToJsonObj = [](const QVector<QPointF>& points) {
-        QJsonArray timeArr, valueArr;
-        for (const auto& pt : points) {
-            timeArr.append(pt.x());
-            valueArr.append(pt.y());
-        }
-        QJsonObject obj;
-        obj["t"] = timeArr;
-        obj["v"] = valueArr;
-        return obj;
-    };
-
     QJsonObject root;
-    root["pressure"] = pointsToJsonObj(record.pressure);
-    root["flow"] = pointsToJsonObj(record.flow);
-    root["temperature"] = pointsToJsonObj(record.temperature);
-    root["pressureGoal"] = pointsToJsonObj(record.pressureGoal);
-    root["flowGoal"] = pointsToJsonObj(record.flowGoal);
-    root["temperatureGoal"] = pointsToJsonObj(record.temperatureGoal);
-    root["weight"] = pointsToJsonObj(record.weight);
+    root["pressure"] = pointsToJsonObject(record.pressure);
+    root["flow"] = pointsToJsonObject(record.flow);
+    root["temperature"] = pointsToJsonObject(record.temperature);
+    root["pressureGoal"] = pointsToJsonObject(record.pressureGoal);
+    root["flowGoal"] = pointsToJsonObject(record.flowGoal);
+    root["temperatureGoal"] = pointsToJsonObject(record.temperatureGoal);
+    root["weight"] = pointsToJsonObject(record.weight);
 
     QByteArray json = QJsonDocument(root).toJson(QJsonDocument::Compact);
     QByteArray compressedData = qCompress(json, 9);

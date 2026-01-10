@@ -60,6 +60,11 @@ QString UpdateChecker::currentVersion() const
     return VERSION_STRING;
 }
 
+int UpdateChecker::currentVersionCode() const
+{
+    return VERSION_CODE;
+}
+
 void UpdateChecker::checkForUpdates()
 {
     if (m_checking || m_downloading) return;
@@ -115,12 +120,21 @@ void UpdateChecker::parseReleaseInfo(const QByteArray& data)
     QString releaseName = release["name"].toString();
     QString body = release["body"].toString();
 
-    // Extract build number from tag (e.g., "v1.0.123" -> 123)
-    m_latestBuildNumber = extractBuildNumber(tagName);
     m_latestVersion = tagName.startsWith("v") ? tagName.mid(1) : tagName;
     m_releaseNotes = body;
 
+    // Extract build number from release notes (look for "Build: XXXX" or "Build XXXX")
+    QRegularExpression buildRe(R"(Build[:\s]+(\d+))", QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch buildMatch = buildRe.match(body);
+    if (buildMatch.hasMatch()) {
+        m_latestBuildNumber = buildMatch.captured(1).toInt();
+    } else {
+        // Fallback: extract from APK filename pattern (Decenza_DE1_X.Y.Z.apk where Z might be build)
+        m_latestBuildNumber = extractBuildNumber(tagName);
+    }
+
     emit latestVersionChanged();
+    emit latestVersionCodeChanged();
     emit releaseNotesChanged();
 
     // Find APK asset
@@ -135,13 +149,13 @@ void UpdateChecker::parseReleaseInfo(const QByteArray& data)
         }
     }
 
-    // Check if update is available (compare full version, not just build number)
-    QString current = currentVersion();
+    // Check if update is available using build numbers (version codes)
+    int currentCode = currentVersionCode();
     bool wasAvailable = m_updateAvailable;
-    m_updateAvailable = isNewerVersion(m_latestVersion, current) && !m_downloadUrl.isEmpty();
+    m_updateAvailable = (m_latestBuildNumber > currentCode) && !m_downloadUrl.isEmpty();
 
-    qDebug() << "UpdateChecker: Current version:" << current
-             << "Latest version:" << m_latestVersion
+    qDebug() << "UpdateChecker: Current version:" << currentVersion() << "(build" << currentCode << ")"
+             << "Latest version:" << m_latestVersion << "(build" << m_latestBuildNumber << ")"
              << "Update available:" << m_updateAvailable;
 
     if (m_updateAvailable != wasAvailable) {

@@ -8,6 +8,7 @@
 
 class QNetworkAccessManager;
 class AIProvider;
+class AIConversation;
 class ShotSummarizer;
 class ShotDataModel;
 class Profile;
@@ -26,6 +27,7 @@ class AIManager : public QObject {
     Q_PROPERTY(QString lastTestResult READ lastTestResult NOTIFY testResultChanged)
     Q_PROPERTY(bool lastTestSuccess READ lastTestSuccess NOTIFY testResultChanged)
     Q_PROPERTY(QStringList ollamaModels READ ollamaModels NOTIFY ollamaModelsChanged)
+    Q_PROPERTY(AIConversation* conversation READ conversation CONSTANT)
 
 public:
     explicit AIManager(Settings* settings, QObject* parent = nullptr);
@@ -42,6 +44,7 @@ public:
     QString lastTestResult() const { return m_lastTestResult; }
     bool lastTestSuccess() const { return m_lastTestSuccess; }
     QStringList ollamaModels() const { return m_ollamaModels; }
+    AIConversation* conversation() const { return m_conversation; }
 
     // Main analysis entry point - simple version for QML
     // Note: metadata must be passed (use {} for empty) to avoid QML overload confusion
@@ -74,6 +77,9 @@ public:
 
     // Provider testing
     Q_INVOKABLE void testConnection();
+
+    // Generic analysis - sends system prompt and user prompt to current provider
+    Q_INVOKABLE void analyze(const QString& systemPrompt, const QString& userPrompt);
 
     // Ollama-specific
     Q_INVOKABLE void refreshOllamaModels();
@@ -132,4 +138,7 @@ private:
     // For logging - store last prompts to pair with response
     QString m_lastSystemPrompt;
     QString m_lastUserPrompt;
+
+    // Conversation for multi-turn interactions
+    AIConversation* m_conversation = nullptr;
 };

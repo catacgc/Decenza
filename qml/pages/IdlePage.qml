@@ -33,7 +33,7 @@ Page {
                 console.log("DEV: Simulating completed shot")
                 // Generate fake shot data
                 MainController.generateFakeShotData()
-                // Navigate: push EspressoPage, then ShotMetadataPage on top
+                // Navigate: push EspressoPage, then BeanInfoPage on top
                 pageStack.push(Qt.resolvedUrl("EspressoPage.qml"))
                 // Small delay to let espresso page load, then push metadata
                 fakeShowMetadataTimer.start()
@@ -44,7 +44,7 @@ Page {
             id: fakeShowMetadataTimer
             interval: 300
             onTriggered: {
-                pageStack.push(Qt.resolvedUrl("ShotMetadataPage.qml"))
+                pageStack.push(Qt.resolvedUrl("BeanInfoPage.qml"))
                 // Wait for page to actually load before setting property
                 fakeSetPendingTimer.start()
             }
@@ -145,7 +145,7 @@ Page {
             color: "transparent"
 
             // Calculate button size to fit available width while maintaining aspect ratio
-            readonly property int buttonCount: 4 + (shotInfoButton.visible ? 1 : 0) + (historyButton.visible ? 1 : 0)  // 4 main + shotInfo + history
+            readonly property int buttonCount: 4 + (beanInfoButton.visible ? 1 : 0) + (historyButton.visible ? 1 : 0)  // 4 main + shotInfo + history
             readonly property real availableWidth: width - Theme.scaled(20) - (buttonCount - 1) * Theme.scaled(10)
             readonly property real buttonWidth: Math.min(Theme.scaled(150), availableWidth / buttonCount)
             readonly property real buttonHeight: buttonWidth * 0.8  // Maintain 150:120 aspect ratio
@@ -234,18 +234,18 @@ Page {
                     onDoubleClicked: root.goToFlush()
 
                     KeyNavigation.left: hotWaterButton
-                    KeyNavigation.right: shotInfoButton.visible ? shotInfoButton : (historyButton.visible ? historyButton : null)
+                    KeyNavigation.right: beanInfoButton.visible ? beanInfoButton : (historyButton.visible ? historyButton : null)
                     KeyNavigation.down: activePresetFunction === "flush" ? flushPresetRow : settingsButton
 
                     Accessible.description: TranslationManager.translate("idle.accessible.flush.description", "Flush the group head. Long-press to configure.")
                 }
 
                 ActionButton {
-                    id: shotInfoButton
+                    id: beanInfoButton
                     implicitWidth: mainButtonsCard.buttonWidth
                     implicitHeight: mainButtonsCard.buttonHeight
-                    translationKey: "idle.button.shotinfo"
-                    translationFallback: "Shot Info"
+                    translationKey: "idle.button.beaninfo"
+                    translationFallback: "Bean Info"
                     iconSource: "qrc:/icons/edit.svg"
                     iconSize: Theme.scaled(43)
                     backgroundColor: Theme.primaryColor
@@ -257,7 +257,7 @@ Page {
                     KeyNavigation.right: historyButton.visible ? historyButton : null
                     KeyNavigation.down: settingsButton
 
-                    Accessible.description: TranslationManager.translate("idle.accessible.shotinfo.description", "Edit shot metadata for Visualizer uploads. Bean, grinder, and tasting notes.")
+                    Accessible.description: TranslationManager.translate("idle.accessible.beaninfo.description", "Set up bean and grinder info for your shots.")
                 }
 
                 ActionButton {
@@ -272,7 +272,7 @@ Page {
                     backgroundColor: Theme.primaryColor
                     onClicked: pageStack.push(Qt.resolvedUrl("ShotHistoryPage.qml"))
 
-                    KeyNavigation.left: shotInfoButton.visible ? shotInfoButton : flushButton
+                    KeyNavigation.left: beanInfoButton.visible ? beanInfoButton : flushButton
                     KeyNavigation.down: settingsButton
 
                     Accessible.description: TranslationManager.translate("idle.accessible.history.description", "View and compare past shots")

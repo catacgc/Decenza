@@ -1,0 +1,253 @@
+import QtQuick
+import QtQuick.Controls
+import DecenzaDE1
+
+// Autocomplete text field that shows filtered suggestions as you type
+Item {
+    id: root
+
+    property string label: ""
+    property string text: ""
+    property var suggestions: []  // List of existing values from database
+
+    signal textEdited(string text)
+    signal inputFocused(Item field)  // Emitted when text input gets focus (for keyboard handling)
+
+    implicitHeight: fieldLabel.height + Theme.scaled(48) + 2
+
+    // Filter suggestions based on current input
+    function getFilteredSuggestions() {
+        if (!textInput.text || textInput.text.length === 0) {
+            return suggestions
+        }
+        var filter = textInput.text.toLowerCase()
+        var filtered = []
+        for (var i = 0; i < suggestions.length; i++) {
+            if (suggestions[i].toLowerCase().indexOf(filter) !== -1) {
+                filtered.push(suggestions[i])
+            }
+        }
+        return filtered
+    }
+
+    Text {
+        id: fieldLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        text: root.label
+        color: Theme.textColor
+        font.pixelSize: Theme.scaled(14)
+    }
+
+    // Text input with dropdown
+    StyledTextField {
+        id: textInput
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: fieldLabel.bottom
+        anchors.topMargin: Theme.scaled(2)
+        text: root.text
+        placeholder: root.label
+        EnterKey.type: Qt.EnterKeyDone
+
+        // Make room for buttons on the right (two 36px buttons + spacing)
+        rightPadding: Theme.scaled(84)
+
+        onTextEdited: {
+            root.text = text
+            root.textEdited(text)
+            // Show dropdown when typing if we have matching suggestions (but not after selection)
+            if (!justSelected && text.length > 0 && getFilteredSuggestions().length > 0) {
+                suggestionPopup.open()
+            }
+        }
+
+        onActiveFocusChanged: {
+            if (activeFocus) {
+                justSelected = false  // Reset so typing works again
+                root.inputFocused(textInput)
+                // Show suggestions when focused
+                if (suggestions.length > 0) {
+                    suggestionPopup.open()
+                }
+            } else {
+                // Small delay before closing to allow clicking on popup items
+                closeTimer.restart()
+            }
+        }
+
+        Keys.onReturnPressed: {
+            // Accept current text and close
+            root.text = text
+            root.textEdited(text)
+            suggestionPopup.close()
+            focus = false
+        }
+
+        Keys.onEscapePressed: {
+            suggestionPopup.close()
+            focus = false
+        }
+
+        Keys.onDownPressed: {
+            if (suggestionPopup.visible && suggestionList.count > 0) {
+                suggestionList.currentIndex = Math.min(suggestionList.currentIndex + 1, suggestionList.count - 1)
+            }
+        }
+
+        Keys.onUpPressed: {
+            if (suggestionPopup.visible && suggestionList.count > 0) {
+                suggestionList.currentIndex = Math.max(suggestionList.currentIndex - 1, 0)
+            }
+        }
+
+        Accessible.role: Accessible.EditableText
+        Accessible.name: root.label
+    }
+
+    // Buttons row (stacked horizontally on the right)
+    Row {
+        anchors.right: textInput.right
+        anchors.rightMargin: Theme.scaled(4)
+        anchors.verticalCenter: textInput.verticalCenter
+        spacing: Theme.scaled(4)
+
+        // Clear button (X in circle) - only when there's text
+        Rectangle {
+            visible: textInput.text.length > 0
+            width: Theme.scaled(36)
+            height: Theme.scaled(36)
+            radius: Theme.scaled(18)
+            color: clearArea.pressed ? Theme.surfaceColor : Theme.backgroundColor
+            border.color: Theme.textSecondaryColor
+            border.width: 1
+
+            Text {
+                anchors.centerIn: parent
+                text: "\u00D7"  // × multiplication sign (more common font support)
+                color: Theme.textSecondaryColor
+                font.pixelSize: Theme.scaled(21)
+            }
+
+            MouseArea {
+                id: clearArea
+                anchors.fill: parent
+                onClicked: {
+                    justSelected = false  // Reset so typing works again
+                    textInput.text = ""
+                    root.text = ""
+                    root.textEdited("")
+                    textInput.forceActiveFocus()
+                    if (suggestions.length > 0) {
+                        suggestionPopup.open()
+                    }
+                }
+            }
+        }
+
+        // Dropdown arrow button
+        Rectangle {
+            width: Theme.scaled(36)
+            height: Theme.scaled(36)
+            radius: Theme.scaled(18)
+            color: arrowArea.pressed ? Theme.surfaceColor : "transparent"
+
+            Text {
+                anchors.centerIn: parent
+                text: suggestionPopup.visible ? "\u25B2" : "\u25BC"  // Up/Down arrow
+                color: Theme.textSecondaryColor
+                font.pixelSize: Theme.scaled(18)
+            }
+
+            MouseArea {
+                id: arrowArea
+                anchors.fill: parent
+                onClicked: {
+                    if (suggestionPopup.visible) {
+                        suggestionPopup.close()
+                    } else {
+                        textInput.forceActiveFocus()
+                        suggestionPopup.open()
+                    }
+                }
+            }
+        }
+    }
+
+    // Track if we just selected an item (to prevent reopening)
+    property bool justSelected: false
+
+    // Delay closing popup to allow clicking items
+    Timer {
+        id: closeTimer
+        interval: 200
+        onTriggered: {
+            if (!textInput.activeFocus && !justSelected) {
+                suggestionPopup.close()
+            }
+            justSelected = false
+        }
+    }
+
+    // Popup with filtered suggestions
+    Popup {
+        id: suggestionPopup
+        x: textInput.x
+        y: textInput.y + textInput.height
+        width: textInput.width
+        implicitHeight: Math.min(suggestionList.contentHeight + 2, Theme.scaled(250))
+        padding: 1
+        closePolicy: Popup.NoAutoClose  // We handle closing manually
+
+        background: Rectangle {
+            color: Theme.surfaceColor
+            border.color: Theme.borderColor
+            radius: Theme.scaled(4)
+        }
+
+        contentItem: ListView {
+            id: suggestionList
+            clip: true
+            model: getFilteredSuggestions()
+            currentIndex: -1
+
+            delegate: ItemDelegate {
+                width: suggestionList.width
+                height: Theme.scaled(44)
+                highlighted: index === suggestionList.currentIndex
+
+                contentItem: Text {
+                    text: modelData
+                    color: Theme.textColor
+                    font.pixelSize: Theme.scaled(18)
+                    verticalAlignment: Text.AlignVCenter
+                    leftPadding: Theme.scaled(12)
+                }
+
+                background: Rectangle {
+                    color: highlighted || hovered ? Theme.primaryColor : "transparent"
+                    opacity: highlighted || hovered ? 0.2 : 1
+                }
+
+                onClicked: {
+                    justSelected = true
+                    suggestionPopup.close()
+                    textInput.text = modelData
+                    root.text = modelData
+                    root.textEdited(modelData)
+                    textInput.focus = false
+                    Qt.inputMethod.hide()
+                }
+            }
+
+            // Show message when no matches
+            Text {
+                anchors.centerIn: parent
+                text: TranslationManager.translate("suggestionfield.nomatches", "No matches - press Enter to add")
+                color: Theme.textSecondaryColor
+                font.pixelSize: Theme.scaled(14)
+                visible: suggestionList.count === 0 && textInput.text.length > 0
+            }
+        }
+    }
+}

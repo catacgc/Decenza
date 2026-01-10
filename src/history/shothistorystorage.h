@@ -136,6 +136,8 @@ public:
     Q_INVOKABLE QStringList getDistinctBeanBrands();
     Q_INVOKABLE QStringList getDistinctBeanTypes();
     Q_INVOKABLE QStringList getDistinctGrinders();
+    Q_INVOKABLE QStringList getDistinctGrinderSettings();
+    Q_INVOKABLE QStringList getDistinctBaristas();
     Q_INVOKABLE QStringList getDistinctRoastLevels();
 
     // Get filter options with cascading filter (for dependent dropdowns)
@@ -188,6 +190,15 @@ private:
     QString buildFilterQuery(const ShotFilter& filter, QVariantList& bindValues);
     ShotFilter parseFilterMap(const QVariantMap& filterMap);
     QString formatFtsQuery(const QString& userInput);
+
+    // Helper for getDistinct* methods - column is the DB column name
+    QStringList getDistinctValues(const QString& column);
+    // Helper for getDistinct*Filtered methods - excludeColumn is not filtered on itself
+    QStringList getDistinctValuesFiltered(const QString& column, const QString& excludeColumn,
+                                          const QVariantMap& filter);
+
+    // Helper for converting QVector<QPointF> to JSON object with t/v arrays
+    static QJsonObject pointsToJsonObject(const QVector<QPointF>& points);
 
     QSqlDatabase m_db;
     QString m_dbPath;

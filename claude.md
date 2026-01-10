@@ -6,11 +6,42 @@ Qt/C++ cross-platform controller for the Decent Espresso DE1 machine with BLE co
 
 - **ADB path**: `/c/Users/Micro/AppData/Local/Android/Sdk/platform-tools/adb.exe`
 - **Uninstall app**: `adb uninstall io.github.kulitorum.decenza_de1`
-- **WiFi debugging**: `192.168.1.207:5555` (reconnect: `adb connect 192.168.1.207:5555`)
-- **Qt version**: 6.8+
+- **WiFi debugging**: `192.168.68.106:5555` (reconnect: `adb connect 192.168.68.106:5555`)
+- **Qt version**: 6.10.1
+- **Qt path**: `C:/Qt/6.10.1/msvc2022_64`
 - **C++ standard**: C++17
 - **de1app source**: `C:\code\de1app` (original Tcl/Tk DE1 app for reference)
 - **IMPORTANT**: Use relative paths (e.g., `src/main.cpp`) instead of absolute paths (e.g., `C:\CODE\de1-qt\src\main.cpp`) to avoid "Error: UNKNOWN: unknown error, open" when editing files
+
+## Command Line Build (for Claude sessions)
+
+MSVC environment variables (INCLUDE, LIB) are set permanently. Use Visual Studio generator (Ninja not in PATH).
+
+**Configure Release:**
+```bash
+rm -rf build/Release && mkdir -p build/Release && cd build/Release && cmake ../.. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:/Qt/6.10.1/msvc2022_64"
+```
+
+**Build Release (parallel):**
+```bash
+cd build/Release && unset CMAKE_BUILD_PARALLEL_LEVEL && MSYS_NO_PATHCONV=1 cmake --build . --config Release -- /m
+```
+
+**Configure Debug:**
+```bash
+rm -rf build/Debug && mkdir -p build/Debug && cd build/Debug && cmake ../.. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="C:/Qt/6.10.1/msvc2022_64" -DCMAKE_BUILD_TYPE=Debug
+```
+
+**Build Debug (parallel):**
+```bash
+cd build/Debug && unset CMAKE_BUILD_PARALLEL_LEVEL && MSYS_NO_PATHCONV=1 cmake --build . --config Debug -- /m
+```
+
+Note: `unset CMAKE_BUILD_PARALLEL_LEVEL` avoids conflicts with `/m`. `MSYS_NO_PATHCONV=1` prevents bash from converting `/m` to `M:/`. The `/m` flag enables MSBuild parallel compilation.
+
+**Output locations:**
+- Release: `build/Release/Release/Decenza_DE1.exe`
+- Debug: `build/Debug/Debug/Decenza_DE1.exe`
 
 ## Project Structure
 
@@ -200,6 +231,30 @@ Supported metadata fields:
 - Desktop: Windows, macOS, Linux
 - Mobile: Android (API 28+), iOS (14.0+)
 - Android needs Location permission for BLE scanning
+
+## Decent Tablet Troubleshooting
+
+The tablets shipped with Decent espresso machines have some quirks:
+
+### GPS Not Working (Shot Map Location)
+The GPS provider is **disabled by default** on these tablets. To enable:
+
+**Via ADB:**
+```bash
+adb shell settings put secure location_providers_allowed +gps
+```
+
+**Via Android Settings:**
+1. Settings → Location → Turn ON
+2. Set Mode to "High accuracy" (not "Battery saving")
+
+**Note:** These tablets don't have Google Play Services, so network-based location (WiFi/cell triangulation) won't work. GPS requires clear sky view (outdoors or near window) for first fix. The app supports manual city entry as a fallback.
+
+### No Google Play Services
+The tablet lacks Google certification, so:
+- Network location unavailable (requires Play Services)
+- Some Google apps may prompt to install Play Services
+- GPS-only location works once enabled (see above)
 
 ## Android Build & Signing
 

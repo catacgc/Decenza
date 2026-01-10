@@ -1830,12 +1830,28 @@ void MainController::onShotEnded() {
     metadata.barista = m_settings->dyeBarista();
 
     // Always save shot to local history
+    qDebug() << "[metadata] Saving shot - shotHistory:" << (m_shotHistory ? "exists" : "null")
+             << "isReady:" << (m_shotHistory ? m_shotHistory->isReady() : false);
     if (m_shotHistory && m_shotHistory->isReady()) {
         qint64 shotId = m_shotHistory->saveShot(
             m_shotDataModel, &m_currentProfile,
             duration, finalWeight, doseWeight,
             metadata, debugLog);
-        qDebug() << "MainController: Shot saved to history with ID:" << shotId;
+        qDebug() << "[metadata] Shot saved to history with ID:" << shotId;
+
+        // Set shot date/time for display on metadata page
+        QString shotDateTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm");
+        m_settings->setDyeShotDateTime(shotDateTime);
+        qDebug() << "[metadata] Set dyeShotDateTime to:" << shotDateTime;
+
+        // Update the drink weight with actual final weight from this shot
+        m_settings->setDyeDrinkWeight(finalWeight);
+        qDebug() << "[metadata] Set dyeDrinkWeight to:" << finalWeight;
+
+        // Force QSettings to sync to disk immediately
+        m_settings->sync();
+    } else {
+        qDebug() << "[metadata] WARNING: Could not save shot - history not ready!";
     }
 
     // Report shot to decenza.coffee shot map

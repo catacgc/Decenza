@@ -1665,8 +1665,9 @@ void TranslationManager::sendNextAutoTranslateBatch()
 
     } else if (provider == "gemini") {
         QString apiKey = m_settings->geminiApiKey();
-        request.setUrl(QUrl("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey));
+        request.setUrl(QUrl("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"));
         request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        request.setRawHeader("x-goog-api-key", apiKey.toUtf8());
 
         QJsonObject json;
         QJsonArray contents;

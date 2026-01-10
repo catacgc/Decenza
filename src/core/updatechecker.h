@@ -17,6 +17,8 @@ class UpdateChecker : public QObject {
     Q_PROPERTY(bool updateAvailable READ isUpdateAvailable NOTIFY updateAvailableChanged)
     Q_PROPERTY(QString latestVersion READ latestVersion NOTIFY latestVersionChanged)
     Q_PROPERTY(QString currentVersion READ currentVersion CONSTANT)
+    Q_PROPERTY(int currentVersionCode READ currentVersionCode CONSTANT)
+    Q_PROPERTY(int latestVersionCode READ latestVersionCode NOTIFY latestVersionCodeChanged)
     Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY releaseNotesChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
 
@@ -30,6 +32,8 @@ public:
     bool isUpdateAvailable() const { return m_updateAvailable; }
     QString latestVersion() const { return m_latestVersion; }
     QString currentVersion() const;
+    int currentVersionCode() const;
+    int latestVersionCode() const { return m_latestBuildNumber; }
     QString releaseNotes() const { return m_releaseNotes; }
     QString errorMessage() const { return m_errorMessage; }
 
@@ -43,6 +47,7 @@ signals:
     void downloadProgressChanged();
     void updateAvailableChanged();
     void latestVersionChanged();
+    void latestVersionCodeChanged();
     void releaseNotesChanged();
     void errorMessageChanged();
     void updatePromptRequested();  // Emitted when auto-check finds update

@@ -142,14 +142,17 @@ ApplicationWindow {
         interval: root.autoSleepMinutes * 60 * 1000  // Convert minutes to ms
         running: root.autoSleepMinutes > 0 && !screensaverActive && !root.operationActive
         repeat: false
+        property bool restarting: false  // Guard to prevent re-entrancy
         // CRITICAL: When running changes from false to true via the binding,
         // QML timers resume from their previous elapsed time, not from 0.
         // This caused a bug where exiting the screensaver would immediately
         // trigger auto-sleep because the timer resumed near the end.
         // By calling restart() here, we ensure the timer always starts fresh.
         onRunningChanged: {
-            if (running) {
+            if (running && !restarting) {
+                restarting = true
                 restart()
+                restarting = false
             }
         }
         onTriggered: {
@@ -487,8 +490,8 @@ ApplicationWindow {
         }
 
         Component {
-            id: shotMetadataPage
-            ShotMetadataPage {}
+            id: beanInfoPage
+            BeanInfoPage {}
         }
     }
 
@@ -1460,9 +1463,9 @@ ApplicationWindow {
     }
 
     function goToShotMetadata(hasPending) {
-        announceNavigation("Shot info")
+        announceNavigation("Bean info")
         // Pass hasPendingShot as initial property so it's set before Component.onCompleted
-        pageStack.push(shotMetadataPage, { hasPendingShot: hasPending || false })
+        pageStack.push(beanInfoPage, { hasPendingShot: hasPending || false })
     }
 
     // Helper to announce page navigation for accessibility

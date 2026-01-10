@@ -279,8 +279,9 @@ GeminiProvider::GeminiProvider(QNetworkAccessManager* networkManager,
 
 QString GeminiProvider::apiUrl() const
 {
-    return QString("https://generativelanguage.googleapis.com/v1beta/models/%1:generateContent?key=%2")
-        .arg(MODEL, m_apiKey);
+    // Use URL without key - key is passed via header for better security
+    return QString("https://generativelanguage.googleapis.com/v1beta/models/%1:generateContent")
+        .arg(MODEL);
 }
 
 void GeminiProvider::analyze(const QString& systemPrompt, const QString& userPrompt)
@@ -320,6 +321,7 @@ void GeminiProvider::analyze(const QString& systemPrompt, const QString& userPro
     QNetworkRequest req;
     req.setUrl(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QString("application/json")));
+    req.setRawHeader("x-goog-api-key", m_apiKey.toUtf8());
 
     QByteArray body = QJsonDocument(requestBody).toJson();
     QNetworkReply* reply = m_networkManager->post(req, body);
@@ -387,6 +389,7 @@ void GeminiProvider::testConnection()
     QNetworkRequest req;
     req.setUrl(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, QVariant(QString("application/json")));
+    req.setRawHeader("x-goog-api-key", m_apiKey.toUtf8());
 
     QByteArray body = QJsonDocument(requestBody).toJson();
     QNetworkReply* reply = m_networkManager->post(req, body);

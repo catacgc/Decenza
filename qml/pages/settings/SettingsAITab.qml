@@ -4,8 +4,9 @@ import QtQuick.Layouts
 import DecenzaDE1
 import "../../components"
 
-Item {
+KeyboardAwareContainer {
     id: aiTab
+    textFields: [apiKeyField, ollamaEndpointField]
 
     property string testResultMessage: ""
     property bool testResultSuccess: false
@@ -24,13 +25,7 @@ Item {
     ColumnLayout {
         id: aiTabContent
         anchors.fill: parent
-        property real keyboardOffset: Qt.inputMethod.visible ? -80 : 0
-        transform: Translate { y: aiTabContent.keyboardOffset }
         spacing: Theme.scaled(10)
-
-        Behavior on keyboardOffset {
-            NumberAnimation { duration: 150 }
-        }
 
         // Provider selection - horizontal row
         Rectangle {
@@ -146,6 +141,7 @@ Item {
                     }
 
                     StyledTextField {
+                        id: apiKeyField
                         Layout.fillWidth: true
                         echoMode: TextInput.Password
                         inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
@@ -164,8 +160,6 @@ Item {
                                 case "gemini": Settings.geminiApiKey = text; break
                             }
                         }
-                        onAccepted: focus = false
-                        Keys.onReturnPressed: focus = false
                     }
 
                     Text {
@@ -202,13 +196,12 @@ Item {
                         spacing: Theme.scaled(8)
 
                         StyledTextField {
+                            id: ollamaEndpointField
                             Layout.fillWidth: true
                             placeholderText: "http://localhost:11434"
                             text: Settings.ollamaEndpoint
                             inputMethodHints: Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase | Qt.ImhUrlCharactersOnly
                             onTextChanged: Settings.ollamaEndpoint = text
-                            onAccepted: focus = false
-                            Keys.onReturnPressed: focus = false
                         }
                     }
 

@@ -9,6 +9,10 @@
 #include <QDebug>
 #include <cmath>
 
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#endif
+
 LocationProvider::LocationProvider(QObject* parent)
     : QObject(parent)
     , m_networkManager(new QNetworkAccessManager(this))
@@ -29,7 +33,22 @@ LocationProvider::LocationProvider(QObject* parent)
         connect(m_source, &QGeoPositionInfoSource::errorOccurred,
                 this, &LocationProvider::onPositionError);
 
-        qDebug() << "LocationProvider: GPS source available:" << m_source->sourceName();
+        // Prefer low accuracy (network-based) for faster initial fix, especially indoors
+        m_source->setPreferredPositioningMethods(QGeoPositionInfoSource::AllPositioningMethods);
+
+        qDebug() << "LocationProvider: GPS source available:" << m_source->sourceName()
+                 << "methods:" << m_source->supportedPositioningMethods();
+
+        // Try to get last known position immediately (might be cached from previous app run)
+        QGeoPositionInfo lastPos = m_source->lastKnownPosition();
+        if (lastPos.isValid()) {
+            QGeoCoordinate coord = lastPos.coordinate();
+            qDebug() << "LocationProvider: Last known position available -"
+                     << "Lat:" << coord.latitude() << "Lon:" << coord.longitude()
+                     << "Age:" << lastPos.timestamp().secsTo(QDateTime::currentDateTime()) << "seconds";
+        } else {
+            qDebug() << "LocationProvider: No last known position available";
+        }
     } else {
         qDebug() << "LocationProvider: No GPS source available";
     }
@@ -70,8 +89,8 @@ void LocationProvider::requestUpdate()
         return;
     }
 
-    qDebug() << "LocationProvider: Requesting position update...";
-    m_source->requestUpdate(30000);  // 30 second timeout
+    qDebug() << "LocationProvider: Requesting position update (60s timeout)...";
+    m_source->requestUpdate(60000);  // 60 second timeout (GPS cold start can take a while)
 }
 
 void LocationProvider::onPositionUpdated(const QGeoPositionInfo& info)
@@ -115,8 +134,23 @@ void LocationProvider::onPositionError(QGeoPositionInfoSource::Error error)
         break;
     case QGeoPositionInfoSource::NoError:
         return;
+    case QGeoPositionInfoSource::UpdateTimeoutError:
+        // Try to use last known position as fallback
+        if (m_source) {
+            QGeoPositionInfo lastPos = m_source->lastKnownPosition();
+            if (lastPos.isValid()) {
+                qDebug() << "LocationProvider: GPS timeout, using last known position";
+                onPositionUpdated(lastPos);
+                return;
+            }
+        }
+        errorStr = "GPS timeout - no satellite fix (try outdoors or set city manually)";
+        break;
+    case QGeoPositionInfoSource::UnknownSourceError:
+        errorStr = "Unknown GPS source error";
+        break;
     default:
-        errorStr = "Unknown location error";
+        errorStr = QString("Unknown location error (code: %1)").arg(static_cast<int>(error));
         break;
     }
 
@@ -285,4 +319,77 @@ void LocationProvider::onForwardGeocodeFinished(QNetworkReply* reply)
              << m_manualLat << m_manualLon << "-" << displayName;
 
     emit locationChanged();
+}
+
+void LocationProvider::openLocationSettings()
+{
+#ifdef Q_OS_ANDROID
+    qDebug() << "LocationProvider: Opening Android Location Settings";
+
+    QJniObject activity = QJniObject::callStaticObjectMethod(
+        "org/qtproject/qt/android/QtNative",
+        "activity",
+        "()Landroid/app/Activity;");
+
+    if (!activity.isValid()) {
+        qDebug() << "LocationProvider: Failed to get activity";
+        return;
+    }
+
+    // Create intent for Location Settings
+    QJniObject intent("android/content/Intent",
+                      "(Ljava/lang/String;)V",
+                      QJniObject::fromString("android.settings.LOCATION_SOURCE_SETTINGS").object<jstring>());
+
+    // Add flag for new task
+    intent.callObjectMethod("addFlags", "(I)Landroid/content/Intent;", 0x10000000); // FLAG_ACTIVITY_NEW_TASK
+
+    // Start the settings activity
+    activity.callMethod<void>("startActivity", "(Landroid/content/Intent;)V", intent.object());
+
+    qDebug() << "LocationProvider: Location Settings opened";
+#else
+    qDebug() << "LocationProvider: openLocationSettings() only supported on Android";
+#endif
+}
+
+bool LocationProvider::isGpsEnabled() const
+{
+#ifdef Q_OS_ANDROID
+    // Get the activity context
+    QJniObject activity = QJniObject::callStaticObjectMethod(
+        "org/qtproject/qt/android/QtNative",
+        "activity",
+        "()Landroid/app/Activity;");
+
+    if (!activity.isValid()) {
+        qDebug() << "LocationProvider: Failed to get activity for GPS check";
+        return false;
+    }
+
+    // Get LocationManager service
+    QJniObject locationServiceName = QJniObject::fromString("location");
+    QJniObject locationManager = activity.callObjectMethod(
+        "getSystemService",
+        "(Ljava/lang/String;)Ljava/lang/Object;",
+        locationServiceName.object<jstring>());
+
+    if (!locationManager.isValid()) {
+        qDebug() << "LocationProvider: Failed to get LocationManager";
+        return false;
+    }
+
+    // Check if GPS provider is enabled
+    QJniObject gpsProvider = QJniObject::fromString("gps");
+    jboolean enabled = locationManager.callMethod<jboolean>(
+        "isProviderEnabled",
+        "(Ljava/lang/String;)Z",
+        gpsProvider.object<jstring>());
+
+    qDebug() << "LocationProvider: GPS provider enabled:" << enabled;
+    return enabled;
+#else
+    // On desktop, assume GPS is available if we have a source
+    return m_source != nullptr;
+#endif
 }
