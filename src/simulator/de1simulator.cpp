@@ -297,8 +297,14 @@ void DE1Simulator::simulationTick()
         m_pressure = 1.5 + fractalNoise(elapsed * 2.0, 2) * 0.3;
     } else if (m_state == DE1::State::HotWater || m_state == DE1::State::HotWaterRinse) {
         // Simple hot water / flush simulation
-        m_flow = 4.0 + fractalNoise(elapsed * 1.0, 2) * 0.5;
+        m_flow = 40.0 + fractalNoise(elapsed * 1.0, 2) * 5.0;
         m_pressure = 2.0 + fractalNoise(elapsed * 1.5, 2) * 0.3;
+
+        // Accumulate volume and emit weight (water density ~1.0 g/mL)
+        m_outputVolume += m_flow * dt;
+        m_scaleWeight = m_outputVolume;  // 1:1 for water
+        double scaleNoise = fractalNoise(elapsed * 2.0 + 200, 2) * SCALE_NOISE_AMP;
+        emit scaleWeightChanged(qMax(0.0, m_scaleWeight + scaleNoise));
     }
 
     // Send shot samples at 5Hz (every other tick at 10Hz)
