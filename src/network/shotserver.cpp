@@ -6,6 +6,7 @@
 #include "../screensaver/screensavervideomanager.h"
 
 #include <QNetworkInterface>
+#include <QUdpSocket>
 #include <QFile>
 #include <algorithm>
 #include <QJsonDocument>
@@ -641,6 +642,21 @@ void ShotServer::sendFile(QTcpSocket* socket, const QString& path, const QString
 
 QString ShotServer::getLocalIpAddress() const
 {
+    // First, try to determine the primary IP by checking which local address
+    // would be used for an outbound connection (most reliable method)
+    QUdpSocket testSocket;
+    testSocket.connectToHost(QHostAddress("8.8.8.8"), 53);
+    if (testSocket.waitForConnected(100)) {
+        QHostAddress localAddr = testSocket.localAddress();
+        testSocket.close();
+        if (!localAddr.isNull() && !localAddr.isLoopback() &&
+            localAddr.protocol() == QAbstractSocket::IPv4Protocol) {
+            return localAddr.toString();
+        }
+    }
+    testSocket.close();
+
+    // Fallback: iterate through interfaces
     QString fallbackAddress;
 
     const auto interfaces = QNetworkInterface::allInterfaces();

@@ -202,6 +202,13 @@ void MachineState::updatePhase() {
             m_stopAtWeightTriggered = false;
             m_stopAtTimeTriggered = false;
 
+            // CRITICAL: Clear any pending BLE commands to prevent stale profile uploads
+            // from executing during active operations. This fixes a bug where queued
+            // profile commands could corrupt a running shot.
+            if (m_device) {
+                m_device->clearCommandQueue();
+            }
+
             // Only reset tareCompleted for non-espresso operations
             // (espresso tares at cycle start, before flowing begins)
             if (!wasInEspresso) {

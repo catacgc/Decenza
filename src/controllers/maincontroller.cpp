@@ -1771,6 +1771,13 @@ void MainController::onEspressoCycleStarted() {
         m_machineState->tareScale();
     }
 
+    // CRITICAL: Clear any pending BLE commands to prevent stale profile uploads
+    // from executing during extraction. The profile should already be uploaded
+    // before extraction starts - any leftover commands in the queue are stale.
+    if (m_device) {
+        m_device->clearCommandQueue();
+    }
+
     // Start debug logging for this shot
     if (m_shotDebugLogger) {
         m_shotDebugLogger->startCapture();

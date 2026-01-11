@@ -233,6 +233,43 @@ Supported metadata fields:
 - USB charger control: MMR address `0x803854` (1=on, 0=off)
 - DE1 has 10-minute timeout that auto-enables charger; must resend command every 60s
 
+### BLE Write Retry & Timeout (like de1app)
+
+BLE writes can fail or hang. The implementation includes retry logic similar to de1app:
+
+**Mechanism:**
+- Each write starts a 5-second timeout timer
+- On error or timeout: retry up to 3 times with 100ms delay
+- After max retries: log failure and move to next command
+- Queue is cleared when any flowing operation starts (espresso, steam, hot water, flush)
+
+**Error Logging (captured in shot debug log):**
+```
+DE1Device: BLE write TIMEOUT after 5000 ms - uuid: 0000a00f data: 0102...
+DE1Device: Retrying after timeout (1/3)
+DE1Device: Write FAILED (timeout) after 3 retries - uuid: 0000a00f data: 0102...
+```
+
+**Key UUIDs:**
+- `0000a002` = RequestedState
+- `0000a00d` = ShotSettings
+- `0000a00e` = StateInfo
+- `0000a00f` = HeaderWrite (profile header)
+- `0000a010` = FrameWrite (profile frames)
+
+**Comparison to de1app:**
+- de1app uses soft 1-second fallback timer (just retries queue)
+- de1app has `vital` flag for commands that must retry
+- Our implementation: hard 5-second timeout, all commands can retry up to 3 times
+
+### Shot Debug Logging
+
+`ShotDebugLogger` captures all `qDebug()`/`qWarning()` messages during shots:
+- Installs Qt message handler when shot starts
+- Stores captured log in `debug_log` column of shot history
+- Users can view/export via shot history web interface
+- BLE errors are automatically captured (use `qWarning()` for errors)
+
 ## Battery Management
 
 ### Smart Charging (BatteryManager)

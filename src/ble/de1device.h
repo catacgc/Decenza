@@ -117,6 +117,7 @@ public slots:
     // Profile upload
     void uploadProfile(const Profile& profile);
     void uploadProfileAndStartEspresso(const Profile& profile);  // Upload then start in correct order
+    void clearCommandQueue();  // Clear all pending BLE commands (use when extraction starts)
 
     // Direct frame writing (for direct control mode)
     void writeHeader(const QByteArray& headerData);
@@ -195,6 +196,15 @@ private:
     QTimer m_commandTimer;
     bool m_writePending = false;
     bool m_connecting = false;
+
+    // Retry logic for failed BLE writes (like de1app)
+    std::function<void()> m_lastCommand;  // Store last command for retry
+    int m_writeRetryCount = 0;
+    static constexpr int MAX_WRITE_RETRIES = 3;
+    QTimer m_writeTimeoutTimer;  // Timeout for BLE writes
+    static constexpr int WRITE_TIMEOUT_MS = 5000;  // 5 second timeout
+    QString m_lastWriteUuid;     // For error logging: which characteristic was being written
+    QByteArray m_lastWriteData;  // For error logging: what data was being written
     bool m_simulationMode = false;
 #if defined(Q_OS_WIN) && defined(QT_DEBUG)
     DE1Simulator* m_simulator = nullptr;  // For simulation mode

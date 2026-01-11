@@ -20,6 +20,33 @@ DE1Device::DE1Device(QObject* parent)
     m_commandTimer.setSingleShot(true);
     connect(&m_commandTimer, &QTimer::timeout, this, &DE1Device::processCommandQueue);
 
+    // Write timeout timer - detect hung BLE writes (like de1app)
+    m_writeTimeoutTimer.setSingleShot(true);
+    m_writeTimeoutTimer.setInterval(WRITE_TIMEOUT_MS);
+    connect(&m_writeTimeoutTimer, &QTimer::timeout, this, [this]() {
+        if (m_writePending) {
+            qWarning() << "DE1Device: BLE write TIMEOUT after" << WRITE_TIMEOUT_MS << "ms"
+                       << "- uuid:" << m_lastWriteUuid << "data:" << m_lastWriteData.toHex();
+            m_writePending = false;
+            if (m_lastCommand && m_writeRetryCount < MAX_WRITE_RETRIES) {
+                m_writeRetryCount++;
+                qWarning() << "DE1Device: Retrying after timeout ("
+                           << m_writeRetryCount << "/" << MAX_WRITE_RETRIES << ")";
+                QTimer::singleShot(100, this, [this]() {
+                    if (m_lastCommand) {
+                        m_lastCommand();
+                    }
+                });
+            } else {
+                qWarning() << "DE1Device: Write FAILED (timeout) after" << m_writeRetryCount
+                           << "retries - uuid:" << m_lastWriteUuid << "data:" << m_lastWriteData.toHex();
+                m_lastCommand = nullptr;
+                m_writeRetryCount = 0;
+                processCommandQueue();  // Move on to next command
+            }
+        }
+    });
+
     // Retry timer for failed service discovery
     m_retryTimer.setSingleShot(true);
     m_retryTimer.setInterval(RETRY_DELAY_MS);
@@ -188,6 +215,11 @@ void DE1Device::connectToDevice(const QBluetoothDeviceInfo& device) {
 void DE1Device::disconnect() {
     m_commandQueue.clear();
     m_writePending = false;
+    m_writeTimeoutTimer.stop();
+    m_lastCommand = nullptr;
+    m_writeRetryCount = 0;
+    m_lastWriteUuid.clear();
+    m_lastWriteData.clear();
 
     // Stop any pending retries
     m_retryTimer.stop();
@@ -277,8 +309,33 @@ void DE1Device::onServiceDiscovered(const QBluetoothUuid& uuid) {
                 // Log but don't fail on descriptor errors - common on Windows
                 if (error != QLowEnergyService::DescriptorReadError &&
                     error != QLowEnergyService::DescriptorWriteError) {
-                    qWarning() << "DE1Device: Service error:" << error;
-                    emit errorOccurred(QString("Service error: %1").arg(error));
+                    qWarning() << "DE1Device: Service error:" << error
+                               << "- uuid:" << m_lastWriteUuid << "data:" << m_lastWriteData.toHex();
+
+                    // Handle write errors with retry (like de1app)
+                    if (error == QLowEnergyService::CharacteristicWriteError && m_writePending) {
+                        m_writePending = false;
+                        m_writeTimeoutTimer.stop();  // Cancel timeout - we're handling the error
+                        if (m_lastCommand && m_writeRetryCount < MAX_WRITE_RETRIES) {
+                            m_writeRetryCount++;
+                            qWarning() << "DE1Device: Write ERROR, retrying ("
+                                       << m_writeRetryCount << "/" << MAX_WRITE_RETRIES << ")";
+                            // Re-execute the last command after a short delay
+                            QTimer::singleShot(100, this, [this]() {
+                                if (m_lastCommand) {
+                                    m_lastCommand();
+                                }
+                            });
+                        } else {
+                            qWarning() << "DE1Device: Write FAILED (error) after" << m_writeRetryCount
+                                       << "retries - uuid:" << m_lastWriteUuid << "data:" << m_lastWriteData.toHex();
+                            m_lastCommand = nullptr;
+                            m_writeRetryCount = 0;
+                            processCommandQueue();  // Move on to next command
+                        }
+                    } else {
+                        emit errorOccurred(QString("Service error: %1").arg(error));
+                    }
                 }
             });
             m_service->discoverDetails();
@@ -389,6 +446,11 @@ void DE1Device::onCharacteristicWritten(const QLowEnergyCharacteristic& c, const
     QString uuidShort = c.uuid().toString().mid(1, 8);  // Extract xxxx from {0000xxxx-...}
     qDebug() << "DE1Device: Write confirmed to" << uuidShort << "data:" << value.toHex();
     m_writePending = false;
+    m_writeTimeoutTimer.stop();  // Cancel timeout - write succeeded
+    m_writeRetryCount = 0;       // Reset retry count on successful write
+    m_lastCommand = nullptr;     // Clear stored command
+    m_lastWriteUuid.clear();
+    m_lastWriteData.clear();
     processCommandQueue();
 }
 
@@ -659,6 +721,9 @@ void DE1Device::writeCharacteristic(const QBluetoothUuid& uuid, const QByteArray
     QString uuidShort = uuid.toString().mid(1, 8);  // Extract xxxx from {0000xxxx-...}
     qDebug() << "DE1Device: Writing to" << uuidShort << "data:" << data.toHex();
     m_writePending = true;
+    m_lastWriteUuid = uuidShort;   // Store for error logging
+    m_lastWriteData = data;        // Store for error logging
+    m_writeTimeoutTimer.start();   // Start timeout timer for this write
     m_service->writeCharacteristic(m_characteristics[uuid], data);
 }
 
@@ -673,6 +738,7 @@ void DE1Device::processCommandQueue() {
     if (m_writePending || m_commandQueue.isEmpty()) return;
 
     auto command = m_commandQueue.dequeue();
+    m_lastCommand = command;  // Store for potential retry
     command();
 }
 
@@ -816,8 +882,23 @@ void DE1Device::wakeUp() {
     requestState(DE1::State::Idle);
 }
 
+void DE1Device::clearCommandQueue() {
+    int cleared = m_commandQueue.size();
+    m_commandQueue.clear();
+    m_writePending = false;
+    m_writeTimeoutTimer.stop();  // Cancel any pending timeout
+    m_lastCommand = nullptr;     // Clear stored command
+    m_writeRetryCount = 0;       // Reset retry count
+    m_lastWriteUuid.clear();
+    m_lastWriteData.clear();
+    if (cleared > 0) {
+        qDebug() << "DE1Device::clearCommandQueue: Cleared" << cleared << "pending commands";
+    }
+}
+
 void DE1Device::uploadProfile(const Profile& profile) {
-    qDebug() << "uploadProfile: Uploading profile with" << profile.steps().size() << "frames";
+    qDebug() << "uploadProfile: Uploading profile with" << profile.steps().size() << "frames,"
+             << "queue size before:" << m_commandQueue.size();
     for (int i = 0; i < profile.steps().size(); i++) {
         qDebug() << "  BLE Frame" << i << ": temp=" << profile.steps()[i].temperature;
     }
