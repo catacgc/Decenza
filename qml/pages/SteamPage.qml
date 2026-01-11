@@ -752,23 +752,25 @@ Page {
             RowLayout {
                 spacing: Theme.scaled(10)
 
-                AccessibleButton {
+                StyledButton {
+                    id: deletePitcherBtn
                     text: deleteButtonText.text
-                    accessibleName: "Delete preset"
                     onClicked: {
                         Settings.removeSteamPitcherPreset(editingPitcherIndex)
                         editPitcherPopup.close()
                     }
+                    // Red background for destructive action
                     background: Rectangle {
-                        implicitWidth: Theme.scaled(80)
+                        implicitWidth: deletePitcherBtn.implicitWidth
                         implicitHeight: Theme.scaled(36)
                         radius: Theme.scaled(6)
-                        color: Theme.errorColor
+                        color: deletePitcherBtn.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
                     }
                     contentItem: Text {
-                        text: parent.text
+                        text: deletePitcherBtn.text
+                        font.pixelSize: Theme.scaled(14)
+                        font.family: Theme.bodyFont.family
                         color: "white"
-                        font: Theme.bodyFont
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -776,45 +778,18 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                AccessibleButton {
+                StyledButton {
                     text: cancelButtonText.text
-                    accessibleName: "Cancel"
                     onClicked: editPitcherPopup.close()
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.backgroundColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                AccessibleButton {
+                StyledButton {
+                    primary: true
                     text: saveButtonText.text
-                    accessibleName: "Save preset"
                     onClicked: {
                         var preset = Settings.getSteamPitcherPreset(editingPitcherIndex)
                         Settings.updateSteamPitcherPreset(editingPitcherIndex, editPitcherNameInput.text, preset.duration, preset.flow)
                         editPitcherPopup.close()
-                    }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
@@ -902,28 +877,14 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                AccessibleButton {
+                StyledButton {
                     text: addCancelButtonText.text
-                    accessibleName: "Cancel"
                     onClicked: addPitcherDialog.close()
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.backgroundColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                AccessibleButton {
+                StyledButton {
+                    primary: true
                     text: addButtonText.text
-                    accessibleName: "Add preset"
                     onClicked: {
                         if (newPitcherName.text.trim() !== "") {
                             var presetCount = Settings.steamPitcherPresets.length
@@ -932,19 +893,6 @@ Page {
                             newPitcherName.text = ""
                             addPitcherDialog.close()
                         }
-                    }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }

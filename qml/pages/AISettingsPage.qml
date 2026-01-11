@@ -209,28 +209,12 @@ Page {
                         }
                     }
 
-                    AccessibleButton {
+                    StyledButton {
                         text: TranslationManager.translate("aisettings.button.refresh", "Refresh")
-                        accessibleName: TranslationManager.translate("aisettings.accessible.refresh", "Refresh Ollama models")
                         onClicked: {
                             if (MainController.aiManager) {
                                 MainController.aiManager.refreshOllamaModels()
                             }
-                        }
-                        background: Rectangle {
-                            implicitWidth: Theme.scaled(80)
-                            implicitHeight: Theme.scaled(40)
-                            radius: Theme.scaled(6)
-                            color: Theme.surfaceColor
-                            border.color: Theme.borderColor
-                            border.width: 1
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: Theme.textColor
-                            font: Theme.bodyFont
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
                         }
                     }
                 }
@@ -243,28 +227,13 @@ Page {
                 Layout.fillWidth: true
                 spacing: Theme.spacingSmall
 
-                AccessibleButton {
-                    text: TranslationManager.translate("aisettings.button.test", "Test Connection")
-                    accessibleName: TranslationManager.translate("aisettings.accessible.test", "Test AI provider connection")
+                StyledButton {
+                    primary: MainController.aiManager && MainController.aiManager.isConfigured
                     enabled: MainController.aiManager && MainController.aiManager.isConfigured
+                    text: TranslationManager.translate("aisettings.button.test", "Test Connection")
                     onClicked: {
                         aiSettingsPage.testResultMessage = TranslationManager.translate("aisettings.status.testing", "Testing...")
                         MainController.aiManager.testConnection()
-                    }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(140)
-                        implicitHeight: Theme.scaled(44)
-                        radius: Theme.scaled(6)
-                        color: parent.enabled ? Theme.primaryColor : Theme.surfaceColor
-                        border.color: parent.enabled ? Theme.primaryColor : Theme.borderColor
-                        border.width: 1
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: parent.enabled ? "white" : Theme.textSecondaryColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
 

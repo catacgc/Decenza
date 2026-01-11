@@ -945,9 +945,8 @@ Page {
             font: Theme.bodyFont
         }
 
-        AccessibleButton {
+        StyledButton {
             text: qsTr("Done")
-            accessibleName: recipeModified ? qsTr("Done. Unsaved changes") : qsTr("Done")
             onClicked: {
                 if (recipeModified) {
                     exitDialog.open()
@@ -955,15 +954,18 @@ Page {
                     root.goBack()
                 }
             }
+            // White button with primary text for bottom bar
             background: Rectangle {
-                implicitWidth: Theme.scaled(100)
-                implicitHeight: Theme.scaled(40)
-                radius: Theme.scaled(8)
-                color: parent.down ? Qt.darker("white", 1.2) : "white"
+                implicitWidth: Math.max(Theme.scaled(80), recipeDoneText.implicitWidth + Theme.scaled(32))
+                implicitHeight: Theme.scaled(36)
+                radius: Theme.scaled(6)
+                color: parent.down ? Qt.darker("white", 1.1) : "white"
             }
             contentItem: Text {
+                id: recipeDoneText
                 text: parent.text
-                font: Theme.bodyFont
+                font.pixelSize: Theme.scaled(14)
+                font.family: Theme.bodyFont.family
                 color: Theme.primaryColor
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter

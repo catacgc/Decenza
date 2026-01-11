@@ -533,24 +533,25 @@ Page {
             RowLayout {
                 spacing: Theme.scaled(10)
 
-                AccessibleButton {
-                    text: deleteButtonText.text
-                    accessibleName: "Delete preset"
+                StyledButton {
+                    id: deleteVesselBtn
+                    text: TranslationManager.translate("hotwater.button.delete", "Delete")
                     onClicked: {
                         Settings.removeWaterVesselPreset(editingVesselIndex)
                         editVesselPopup.close()
                     }
-                    Tr { id: deleteButtonText; key: "hotwater.button.delete"; fallback: "Delete"; visible: false }
+                    // Red background for destructive action
                     background: Rectangle {
-                        implicitWidth: Theme.scaled(80)
+                        implicitWidth: deleteVesselBtn.implicitWidth
                         implicitHeight: Theme.scaled(36)
                         radius: Theme.scaled(6)
-                        color: Theme.errorColor
+                        color: deleteVesselBtn.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
                     }
                     contentItem: Text {
-                        text: parent.text
+                        text: deleteVesselBtn.text
+                        font.pixelSize: Theme.scaled(14)
+                        font.family: Theme.bodyFont.family
                         color: "white"
-                        font: Theme.bodyFont
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -558,47 +559,18 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                AccessibleButton {
-                    text: cancelButtonText.text
-                    accessibleName: "Cancel"
+                StyledButton {
+                    text: TranslationManager.translate("hotwater.button.cancel", "Cancel")
                     onClicked: editVesselPopup.close()
-                    Tr { id: cancelButtonText; key: "hotwater.button.cancel"; fallback: "Cancel"; visible: false }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.backgroundColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                AccessibleButton {
-                    text: saveButtonText.text
-                    accessibleName: "Save preset"
+                StyledButton {
+                    primary: true
+                    text: TranslationManager.translate("hotwater.button.save", "Save")
                     onClicked: {
                         var preset = Settings.getWaterVesselPreset(editingVesselIndex)
                         Settings.updateWaterVesselPreset(editingVesselIndex, editVesselNameInput.text, preset.volume)
                         editVesselPopup.close()
-                    }
-                    Tr { id: saveButtonText; key: "hotwater.button.save"; fallback: "Save"; visible: false }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
@@ -682,49 +654,20 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                AccessibleButton {
-                    text: addCancelButtonText.text
-                    accessibleName: "Cancel"
+                StyledButton {
+                    text: TranslationManager.translate("hotwater.button.cancel", "Cancel")
                     onClicked: addVesselDialog.close()
-                    Tr { id: addCancelButtonText; key: "hotwater.button.cancel"; fallback: "Cancel"; visible: false }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.backgroundColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                AccessibleButton {
-                    text: addButtonText.text
-                    accessibleName: "Add preset"
+                StyledButton {
+                    primary: true
+                    text: TranslationManager.translate("hotwater.button.add", "Add")
                     onClicked: {
                         if (newVesselNameInput.text.length > 0) {
                             Settings.addWaterVesselPreset(newVesselNameInput.text, 200)
                             newVesselNameInput.text = ""
                             addVesselDialog.close()
                         }
-                    }
-                    Tr { id: addButtonText; key: "hotwater.button.add"; fallback: "Add"; visible: false }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }

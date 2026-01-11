@@ -244,67 +244,19 @@ Item {
                         text: TranslationManager.translate("settings.update.checknow", "Check Now")
                         enabled: !MainController.updateChecker.checking
                         onClicked: MainController.updateChecker.checkForUpdates()
-
-                        contentItem: Text {
-                            text: parent.text
-                            font.pixelSize: Theme.scaled(12)
-                            color: parent.enabled ? Theme.textColor : Theme.textSecondaryColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        background: Rectangle {
-                            implicitWidth: Theme.scaled(100)
-                            implicitHeight: Theme.scaled(32)
-                            color: parent.down ? Qt.darker(Theme.surfaceColor, 1.1) : Theme.surfaceColor
-                            border.color: Theme.borderColor
-                            border.width: 1
-                            radius: Theme.scaled(6)
-                        }
                     }
 
                     StyledButton {
+                        primary: true
                         text: TranslationManager.translate("settings.update.downloadinstall", "Download & Install")
                         visible: MainController.updateChecker.updateAvailable
                         onClicked: MainController.updateChecker.downloadAndInstall()
-
-                        contentItem: Text {
-                            text: parent.text
-                            font.pixelSize: Theme.scaled(12)
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        background: Rectangle {
-                            implicitWidth: Theme.scaled(120)
-                            implicitHeight: Theme.scaled(32)
-                            color: parent.down ? Qt.darker(Theme.primaryColor, 1.1) : Theme.primaryColor
-                            radius: Theme.scaled(6)
-                        }
                     }
 
                     StyledButton {
                         text: TranslationManager.translate("settings.update.whatsnew", "What's New?")
                         visible: MainController.updateChecker.releaseNotes !== ""
                         onClicked: releaseNotesPopup.open()
-
-                        contentItem: Text {
-                            text: parent.text
-                            font.pixelSize: Theme.scaled(12)
-                            color: Theme.primaryColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        background: Rectangle {
-                            implicitWidth: Theme.scaled(100)
-                            implicitHeight: Theme.scaled(32)
-                            color: parent.down ? Qt.darker(Theme.surfaceColor, 1.1) : Theme.surfaceColor
-                            border.color: Theme.primaryColor
-                            border.width: 1
-                            radius: Theme.scaled(6)
-                        }
                     }
 
                     Item { Layout.fillWidth: true }

@@ -539,23 +539,25 @@ Page {
             RowLayout {
                 spacing: Theme.scaled(10)
 
-                AccessibleButton {
+                StyledButton {
+                    id: deleteFlushPresetBtn
                     text: TranslationManager.translate("flush.button.delete", "Delete")
-                    accessibleName: TranslationManager.translate("flush.accessible.deletePreset", "Delete preset")
                     onClicked: {
                         Settings.removeFlushPreset(editingPresetIndex)
                         editPresetPopup.close()
                     }
+                    // Red background for destructive action
                     background: Rectangle {
-                        implicitWidth: Theme.scaled(80)
+                        implicitWidth: deleteFlushPresetBtn.implicitWidth
                         implicitHeight: Theme.scaled(36)
                         radius: Theme.scaled(6)
-                        color: Theme.errorColor
+                        color: deleteFlushPresetBtn.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
                     }
                     contentItem: Text {
-                        text: parent.text
+                        text: deleteFlushPresetBtn.text
+                        font.pixelSize: Theme.scaled(14)
+                        font.family: Theme.bodyFont.family
                         color: "white"
-                        font: Theme.bodyFont
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -563,45 +565,18 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                AccessibleButton {
+                StyledButton {
                     text: TranslationManager.translate("flush.button.cancel", "Cancel")
-                    accessibleName: TranslationManager.translate("flush.button.cancel", "Cancel")
                     onClicked: editPresetPopup.close()
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.backgroundColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                AccessibleButton {
+                StyledButton {
+                    primary: true
                     text: TranslationManager.translate("flush.button.save", "Save")
-                    accessibleName: TranslationManager.translate("flush.accessible.savePreset", "Save preset")
                     onClicked: {
                         var preset = Settings.getFlushPreset(editingPresetIndex)
                         Settings.updateFlushPreset(editingPresetIndex, editPresetNameInput.text, preset.flow, preset.seconds)
                         editPresetPopup.close()
-                    }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
@@ -685,47 +660,20 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                AccessibleButton {
+                StyledButton {
                     text: TranslationManager.translate("flush.button.cancel", "Cancel")
-                    accessibleName: TranslationManager.translate("flush.button.cancel", "Cancel")
                     onClicked: addPresetDialog.close()
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.backgroundColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                AccessibleButton {
+                StyledButton {
+                    primary: true
                     text: TranslationManager.translate("flush.button.add", "Add")
-                    accessibleName: TranslationManager.translate("flush.accessible.addPresetConfirm", "Add preset")
                     onClicked: {
                         if (newPresetNameInput.text.length > 0) {
                             Settings.addFlushPreset(newPresetNameInput.text, 6.0, 5.0)
                             newPresetNameInput.text = ""
                             addPresetDialog.close()
                         }
-                    }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(70)
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }

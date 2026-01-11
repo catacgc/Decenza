@@ -106,27 +106,10 @@ Page {
                     Layout.fillWidth: true
                 }
 
-                AccessibleButton {
-                    text: "Go Back"
-                    accessibleName: "Go back to previous screen"
+                StyledButton {
+                    text: TranslationManager.translate("dialingassistant.button.goback", "Go Back")
                     Layout.alignment: Qt.AlignHCenter
                     onClicked: pageStack.pop()
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(120)
-                        implicitHeight: Theme.scaled(44)
-                        radius: Theme.scaled(6)
-                        color: Theme.surfaceColor
-                        border.color: Theme.borderColor
-                        border.width: 1
-                    }
-                    contentItem: Tr {
-                        key: "dialingassistant.button.goback"
-                        fallback: "Go Back"
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
             }
         }
@@ -210,11 +193,11 @@ Page {
                     Keys.onEnterPressed: followUpButton.clicked()
                 }
 
-                AccessibleButton {
+                StyledButton {
                     id: followUpButton
+                    primary: enabled
                     text: MainController.aiManager && MainController.aiManager.conversation &&
                           MainController.aiManager.conversation.busy ? "..." : TranslationManager.translate("dialingassistant.followup.button", "Ask")
-                    accessibleName: "Send follow-up question"
                     enabled: followUpInput.text.length > 0 &&
                              MainController.aiManager && MainController.aiManager.conversation &&
                              !MainController.aiManager.conversation.busy
@@ -224,21 +207,6 @@ Page {
 
                         MainController.aiManager.conversation.followUp(followUpInput.text)
                         followUpInput.text = ""
-                    }
-                    background: Rectangle {
-                        implicitWidth: Theme.scaled(80)
-                        implicitHeight: Theme.scaled(44)
-                        radius: Theme.scaled(6)
-                        color: parent.enabled ? Theme.primaryColor : Theme.surfaceColor
-                        border.color: parent.enabled ? Theme.primaryColor : Theme.borderColor
-                        border.width: parent.enabled ? 0 : 1
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: parent.enabled ? "white" : Theme.textSecondaryColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
