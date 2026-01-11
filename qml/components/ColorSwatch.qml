@@ -11,7 +11,7 @@ Rectangle {
 
     signal clicked()
 
-    height: Theme.scaled(44)
+    implicitHeight: Theme.scaled(44)
     color: selected ? Qt.lighter(Theme.surfaceColor, 1.3) : "transparent"
     radius: Theme.buttonRadius
 

@@ -72,6 +72,9 @@ TranslationManager::TranslationManager(Settings* settings, QObject* parent)
     // Load translations for current language
     loadTranslations();
 
+    // Load user overrides for current language
+    loadUserOverrides();
+
     // Load AI translations for current language
     loadAiTranslations();
 
@@ -95,6 +98,9 @@ TranslationManager::TranslationManager(Settings* settings, QObject* parent)
              << "Strings:" << m_stringRegistry.size()
              << "Translations:" << m_translations.size()
              << "AI Translations:" << m_aiTranslations.size();
+
+    // Check for language updates after startup (delayed to not block app launch)
+    QTimer::singleShot(3000, this, &TranslationManager::checkForLanguageUpdate);
 }
 
 QString TranslationManager::translationsDir() const
@@ -120,6 +126,7 @@ void TranslationManager::setCurrentLanguage(const QString& lang)
         m_currentLanguage = lang;
         m_settings->setValue("localization/language", lang);
         loadTranslations();
+        loadUserOverrides();
         loadAiTranslations();
         recalculateUntranslatedCount();
         m_translationVersion++;
@@ -240,7 +247,9 @@ void TranslationManager::setTranslation(const QString& key, const QString& trans
 {
     m_translations[key] = translation;
     m_aiGenerated.remove(key);  // User edited, no longer AI-generated
+    m_userOverrides.insert(key);  // Track as user override (preserved during updates)
     saveTranslations();
+    saveUserOverrides();
     recalculateUntranslatedCount();
     m_translationVersion++;
     emit translationsChanged();
@@ -1988,6 +1997,161 @@ void TranslationManager::saveAiTranslations()
     if (file.open(QIODevice::WriteOnly)) {
         file.write(QJsonDocument(root).toJson());
         file.close();
+    }
+}
+
+// --- User Overrides (preserved during language updates) ---
+
+void TranslationManager::loadUserOverrides()
+{
+    m_userOverrides.clear();
+
+    if (m_currentLanguage == "en") {
+        return;  // English has no remote updates
+    }
+
+    QString overridesPath = translationsDir() + "/" + m_currentLanguage + "_overrides.json";
+    QFile file(overridesPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return;  // No overrides file yet
+    }
+
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+
+    if (!doc.isObject()) {
+        return;
+    }
+
+    QJsonArray overrides = doc.object()["overrides"].toArray();
+    for (const QJsonValue& val : overrides) {
+        m_userOverrides.insert(val.toString());
+    }
+
+    qDebug() << "Loaded" << m_userOverrides.size() << "user overrides for:" << m_currentLanguage;
+}
+
+void TranslationManager::saveUserOverrides()
+{
+    if (m_currentLanguage == "en") {
+        return;
+    }
+
+    QString overridesPath = translationsDir() + "/" + m_currentLanguage + "_overrides.json";
+
+    if (m_userOverrides.isEmpty()) {
+        QFile::remove(overridesPath);
+        return;
+    }
+
+    QJsonObject root;
+    QJsonArray overrides;
+    for (const QString& key : m_userOverrides) {
+        overrides.append(key);
+    }
+    root["overrides"] = overrides;
+
+    QFile file(overridesPath);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(QJsonDocument(root).toJson());
+        file.close();
+    }
+}
+
+void TranslationManager::checkForLanguageUpdate()
+{
+    // Only check for non-English languages that were downloaded from the server
+    if (m_currentLanguage == "en") {
+        return;
+    }
+
+    // Check if this language was downloaded (not locally created)
+    QVariantMap metadata = m_languageMetadata.value(m_currentLanguage).toMap();
+    if (metadata.isEmpty()) {
+        return;  // Language not in metadata
+    }
+
+    // If it's marked as remote (not yet downloaded), don't auto-update
+    if (metadata.value("isRemote", false).toBool()) {
+        return;  // User hasn't downloaded this language yet
+    }
+
+    // Check if translation file exists locally (indicates it was downloaded at some point)
+    QFile localFile(languageFilePath(m_currentLanguage));
+    if (!localFile.exists()) {
+        return;  // No local file to update
+    }
+
+    qDebug() << "Checking for language update:" << m_currentLanguage;
+
+    // Fetch the latest version from server
+    QString url = QString("%1/languages/%2").arg(TRANSLATION_API_BASE, m_currentLanguage);
+    QNetworkRequest request{QUrl(url)};
+    QNetworkReply* reply = m_networkManager->get(request);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            qDebug() << "Language update check failed:" << reply->errorString();
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        QJsonDocument doc = QJsonDocument::fromJson(data);
+
+        if (!doc.isObject()) {
+            qDebug() << "Invalid language update response";
+            return;
+        }
+
+        QJsonObject root = doc.object();
+        QJsonObject newTranslations = root["translations"].toObject();
+
+        if (newTranslations.isEmpty()) {
+            return;
+        }
+
+        // Merge new translations, preserving user overrides
+        mergeLanguageUpdate(newTranslations);
+    });
+}
+
+void TranslationManager::mergeLanguageUpdate(const QJsonObject& newTranslations)
+{
+    int added = 0;
+    int updated = 0;
+    int preserved = 0;
+
+    for (auto it = newTranslations.constBegin(); it != newTranslations.constEnd(); ++it) {
+        const QString& key = it.key();
+        const QString& newValue = it.value().toString();
+
+        // Skip if user has customized this translation
+        if (m_userOverrides.contains(key)) {
+            preserved++;
+            continue;
+        }
+
+        if (!m_translations.contains(key)) {
+            // New translation
+            m_translations[key] = newValue;
+            added++;
+        } else if (m_translations[key] != newValue) {
+            // Updated translation
+            m_translations[key] = newValue;
+            updated++;
+        }
+    }
+
+    if (added > 0 || updated > 0) {
+        qDebug() << "Language update merged:" << added << "new," << updated << "updated," << preserved << "preserved user overrides";
+        saveTranslations();
+        recalculateUntranslatedCount();
+        m_translationVersion++;
+        emit translationsChanged();
+    } else {
+        qDebug() << "Language is up to date";
     }
 }
 

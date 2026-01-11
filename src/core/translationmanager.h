@@ -149,6 +149,9 @@ public:
     Q_INVOKABLE bool isAiGenerated(const QString& key) const;  // Check if translation is unmodified AI output
     Q_INVOKABLE void copyAiToFinal(const QString& fallback);  // Copy AI translation to final for all keys
 
+    // Auto-update language on startup
+    void checkForLanguageUpdate();
+
 signals:
     void currentLanguageChanged();
     void editModeEnabledChanged();
@@ -200,6 +203,11 @@ private:
     QString buildTranslationPrompt(const QVariantList& strings) const;
     void loadAiTranslations();
     void saveAiTranslations();
+
+    // Language update helpers
+    void loadUserOverrides();
+    void saveUserOverrides();
+    void mergeLanguageUpdate(const QJsonObject& newTranslations);
 
     Settings* m_settings;
     QNetworkAccessManager* m_networkManager;
@@ -254,6 +262,9 @@ private:
 
     // Set of keys whose current translation is unmodified AI output
     QSet<QString> m_aiGenerated;
+
+    // Set of keys that the user has explicitly edited (preserved during language updates)
+    QSet<QString> m_userOverrides;
 
     // Batch translate+upload state
     QStringList m_batchLanguageQueue;
