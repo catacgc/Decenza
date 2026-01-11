@@ -20,6 +20,9 @@ BatteryManager::BatteryManager(QObject* parent)
     connect(&m_checkTimer, &QTimer::timeout, this, &BatteryManager::checkBattery);
     m_checkTimer.start();
 
+    // Check if this is a Samsung tablet (must disable smart charging)
+    checkSamsungTablet();
+
     // Do an initial check
     checkBattery();
 }
@@ -33,11 +36,31 @@ void BatteryManager::setSettings(Settings* settings) {
     if (m_settings) {
         // Load charging mode from settings
         m_chargingMode = m_settings->value("smartBatteryCharging", On).toInt();
+
+        // IMPORTANT: Samsung tablets don't support smart charging properly
+        // The de1app explicitly disables it for Samsung devices
+        if (m_isSamsungTablet && m_chargingMode != Off) {
+            qDebug() << "BatteryManager: Samsung tablet detected - disabling smart charging";
+            m_chargingMode = Off;
+            m_settings->setValue("smartBatteryCharging", Off);
+            // Emit signal so UI can show a notification
+            emit samsungTabletDetected();
+        }
+
         emit chargingModeChanged();
     }
 }
 
 void BatteryManager::setChargingMode(int mode) {
+    // IMPORTANT: Samsung tablets don't support smart charging properly
+    // Force mode to Off and warn user if they try to enable it
+    if (m_isSamsungTablet && mode != Off) {
+        qDebug() << "BatteryManager: Cannot enable smart charging on Samsung tablet";
+        // Emit signal to warn user, but don't change mode
+        emit samsungTabletDetected();
+        return;
+    }
+
     if (m_chargingMode == mode) {
         return;
     }
@@ -313,4 +336,38 @@ void BatteryManager::requestIgnoreBatteryOptimization() {
         emit batteryOptimizationChanged();
     });
 #endif
+}
+
+void BatteryManager::checkSamsungTablet() {
+#ifdef Q_OS_ANDROID
+    // Check if manufacturer contains "samsung" (case insensitive)
+    // This matches de1app's tablet_is_samsung_brand check
+    QJniObject manufacturer = QJniObject::getStaticObjectField(
+        "android/os/Build",
+        "MANUFACTURER",
+        "Ljava/lang/String;");
+
+    if (manufacturer.isValid()) {
+        QString mfr = manufacturer.toString().toLower();
+        m_isSamsungTablet = mfr.contains("samsung");
+        if (m_isSamsungTablet) {
+            qDebug() << "BatteryManager: Samsung device detected (manufacturer:" << manufacturer.toString() << ")";
+        }
+    }
+#endif
+    m_samsungCheckDone = true;
+}
+
+bool BatteryManager::isSamsungTablet() const {
+    return m_isSamsungTablet;
+}
+
+void BatteryManager::ensureChargerOn() {
+    // Safety function: Always turn charger ON when app exits or goes to background
+    // This prevents the tablet from dying if left unattended with smart charging enabled
+    // Matches de1app's app_exit behavior
+    if (m_device && m_device->isConnected()) {
+        qDebug() << "BatteryManager: Ensuring charger is ON (app exit/suspend safety)";
+        m_device->setUsbChargerOn(true, true);  // force=true to ensure it's sent
+    }
 }

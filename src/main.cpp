@@ -439,7 +439,7 @@ int main(int argc, char *argv[])
     // Note: DE1 is NOT put to sleep when backgrounded - users may switch apps while
     // the machine is heating up and expect it to continue (e.g., checking Visualizer)
     QObject::connect(&app, &QGuiApplication::applicationStateChanged,
-                     [&physicalScale, &bleManager, &settings](Qt::ApplicationState state) {
+                     [&physicalScale, &bleManager, &settings, &batteryManager](Qt::ApplicationState state) {
         static bool wasSuspended = false;
 
         if (state == Qt::ApplicationSuspended) {
@@ -452,6 +452,10 @@ int main(int argc, char *argv[])
             }
             // DE1 intentionally NOT put to sleep - user may be checking other apps
             // while machine heats up
+
+            // IMPORTANT: Ensure charger is ON when app goes to background
+            // This prevents tablet from dying if user doesn't return to the app
+            batteryManager.ensureChargerOn();
         }
         else if (state == Qt::ApplicationActive && wasSuspended) {
             // App resumed from suspended state - wake scale
@@ -465,11 +469,18 @@ int main(int argc, char *argv[])
                 // Scale disconnected while suspended - try to reconnect
                 QTimer::singleShot(500, &bleManager, &BLEManager::tryDirectConnectToScale);
             }
+
+            // Resume smart charging check now that app is active again
+            batteryManager.checkBattery();
         }
     });
 
     // Cleanup on exit
-    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&accessibilityManager]() {
+    QObject::connect(&app, &QCoreApplication::aboutToQuit, [&accessibilityManager, &batteryManager]() {
+        // IMPORTANT: Ensure charger is ON before exiting
+        // This matches de1app's app_exit behavior - always leave charger ON for safety
+        batteryManager.ensureChargerOn();
+
         // Shutdown accessibility to stop TTS before any other cleanup
         // This prevents race conditions with Android's hwuiTask thread
         accessibilityManager.shutdown();
