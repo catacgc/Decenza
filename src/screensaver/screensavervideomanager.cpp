@@ -563,11 +563,14 @@ void ScreensaverVideoManager::parseCategories(const QByteArray& data)
     }
 
     // Validate selected category exists, fallback to first if not
-    bool categoryExists = false;
-    for (const VideoCategory& cat : std::as_const(m_categories)) {
-        if (cat.id == m_selectedCategoryId) {
-            categoryExists = true;
-            break;
+    // "personal" is a virtual category that exists if there's personal media
+    bool categoryExists = (m_selectedCategoryId == "personal" && !m_personalCatalog.isEmpty());
+    if (!categoryExists) {
+        for (const VideoCategory& cat : std::as_const(m_categories)) {
+            if (cat.id == m_selectedCategoryId) {
+                categoryExists = true;
+                break;
+            }
         }
     }
 
@@ -589,6 +592,14 @@ void ScreensaverVideoManager::parseCategories(const QByteArray& data)
         m_settings->setValue("screensaver/catalogUrl", m_catalogUrl);
         m_settings->setValue("screensaver/lastETag", "");
         emit catalogUrlChanged();
+    }
+
+    // Skip catalog refresh for personal category - media is local, not fetched from network
+    if (m_selectedCategoryId == "personal") {
+        qDebug() << "[Screensaver] Personal category selected - using local catalog";
+        m_catalog = m_personalCatalog;
+        emit catalogUpdated();
+        return;
     }
 
     // Now refresh the catalog
