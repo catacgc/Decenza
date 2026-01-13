@@ -63,13 +63,17 @@ QString MachineState::phaseString() const {
 }
 
 void MachineState::setScale(ScaleDevice* scale) {
-    if (m_scale) {
+    qDebug() << "MachineState::setScale called with" << scale << "current m_scale:" << m_scale;
+
+    if (m_scale && m_scale != scale) {
+        qDebug() << "Disconnecting old scale:" << m_scale;
         disconnect(m_scale, nullptr, this, nullptr);
     }
 
     m_scale = scale;
 
     if (m_scale) {
+        qDebug() << "Connecting new scale:" << m_scale;
         connect(m_scale, &ScaleDevice::weightChanged,
                 this, &MachineState::onScaleWeightChanged);
         // Relay weight changes to QML via scaleWeightChanged signal
