@@ -54,6 +54,12 @@ int main(int argc, char *argv[])
     qSetMessagePattern("%{message}");
 #endif
 
+#ifdef Q_OS_IOS
+    // Use basic (single-threaded) render loop on iOS to avoid threading issues
+    // with Qt Multimedia VideoOutput calling UIKit APIs from render thread
+    qputenv("QSG_RENDER_LOOP", "basic");
+#endif
+
     // Install web debug logger early to capture all output
     WebDebugLogger::install();
 
