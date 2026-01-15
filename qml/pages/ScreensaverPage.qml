@@ -95,7 +95,10 @@ Page {
                 imageDisplay2.source = ""
                 mediaPlaying = true
                 mediaPlayer.source = source
+                console.log("[Screensaver] Calling mediaPlayer.play()")
                 mediaPlayer.play()
+                console.log("[Screensaver] After play() - playbackState:", mediaPlayer.playbackState,
+                            "mediaStatus:", mediaPlayer.mediaStatus)
             }
         } else {
             // No cached media yet - show fallback, wait for downloads
@@ -108,6 +111,8 @@ Page {
     function handleVideoFailure() {
         // Prevent handling the same failure twice
         var currentSource = mediaPlayer.source.toString()
+        console.log("[Screensaver] handleVideoFailure called, source:", currentSource,
+                    "lastFailed:", lastFailedSource)
         if (currentSource === lastFailedSource) return
         lastFailedSource = currentSource
 
@@ -149,7 +154,13 @@ Page {
         audioOutput: AudioOutput { volume: 0 }  // Muted
         videoOutput: videoOutput
 
+        onSourceChanged: {
+            console.log("[Screensaver] MediaPlayer source changed to:", source)
+        }
+
         onMediaStatusChanged: {
+            console.log("[Screensaver] MediaPlayer status:", mediaStatus,
+                        "(NoMedia=0, Loading=1, Loaded=2, Stalled=3, Buffering=4, Buffered=5, EndOfMedia=6, InvalidMedia=7)")
             if (mediaStatus === MediaPlayer.EndOfMedia) {
                 // Mark current video as played for LRU tracking
                 ScreensaverManager.markVideoPlayed(source.toString())
@@ -163,11 +174,14 @@ Page {
             }
         }
 
-        onErrorOccurred: {
+        onErrorOccurred: function(error, errorString) {
+            console.log("[Screensaver] MediaPlayer ERROR:", error, errorString)
             handleVideoFailure()
         }
 
         onPlaybackStateChanged: {
+            console.log("[Screensaver] MediaPlayer playbackState:", playbackState,
+                        "(Stopped=0, Playing=1, Paused=2)")
             if (playbackState === MediaPlayer.PlayingState) {
                 videoFailCount = 0
                 lastFailedSource = ""
