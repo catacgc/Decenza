@@ -51,9 +51,11 @@ Page {
 
         onCurrentIndexChanged: {
             if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
-                var tabNames = Settings.isDebugBuild ?
-                    ["Bluetooth", "Preferences", "Options", "Screensaver", "Visualizer", "AI", "Accessibility", "Themes", "Language", "History", "Update", "About", "Debug"] :
-                    ["Bluetooth", "Preferences", "Options", "Screensaver", "Visualizer", "AI", "Accessibility", "Themes", "Language", "History", "Update", "About"]
+                // Build tab names based on which tabs are visible
+                var tabNames = ["Bluetooth", "Preferences", "Options", "Screensaver", "Visualizer", "AI", "Accessibility", "Themes", "Language", "History"]
+                if (MainController.updateChecker.canCheckForUpdates) tabNames.push("Update")
+                tabNames.push("About")
+                if (Settings.isDebugBuild) tabNames.push("Debug")
                 if (currentIndex >= 0 && currentIndex < tabNames.length) {
                     AccessibilityManager.announce(tabNames[currentIndex] + " tab")
                 }
@@ -157,8 +159,10 @@ Page {
 
         StyledTabButton {
             id: updateTabButton
+            visible: MainController.updateChecker.canCheckForUpdates
             text: TranslationManager.translate("settings.tab.update", "Update")
             tabLabel: TranslationManager.translate("settings.tab.update", "Update")
+            width: visible ? implicitWidth : 0
         }
 
         StyledTabButton {
@@ -280,10 +284,10 @@ Page {
             source: "settings/SettingsShotHistoryTab.qml"
         }
 
-        // Tab 10: Update - preloads async in background
+        // Tab 10: Update - preloads async in background (not on iOS - App Store handles updates)
         Loader {
             id: updateLoader
-            active: true
+            active: MainController.updateChecker.canCheckForUpdates
             asynchronous: true
             source: "settings/SettingsUpdateTab.qml"
         }

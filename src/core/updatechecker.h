@@ -21,6 +21,10 @@ class UpdateChecker : public QObject {
     Q_PROPERTY(int latestVersionCode READ latestVersionCode NOTIFY latestVersionCodeChanged)
     Q_PROPERTY(QString releaseNotes READ releaseNotes NOTIFY releaseNotesChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
+    Q_PROPERTY(bool canDownloadUpdate READ canDownloadUpdate CONSTANT)
+    Q_PROPERTY(bool canCheckForUpdates READ canCheckForUpdates CONSTANT)
+    Q_PROPERTY(QString platformName READ platformName CONSTANT)
+    Q_PROPERTY(QString releasePageUrl READ releasePageUrl NOTIFY latestVersionChanged)
 
 public:
     explicit UpdateChecker(Settings* settings, QObject* parent = nullptr);
@@ -36,8 +40,13 @@ public:
     int latestVersionCode() const { return m_latestBuildNumber; }
     QString releaseNotes() const { return m_releaseNotes; }
     QString errorMessage() const { return m_errorMessage; }
+    bool canDownloadUpdate() const;
+    bool canCheckForUpdates() const;
+    QString platformName() const;
+    QString releasePageUrl() const;
 
     Q_INVOKABLE void checkForUpdates();
+    Q_INVOKABLE void openReleasePage();
     Q_INVOKABLE void downloadAndInstall();
     Q_INVOKABLE void dismissUpdate();
 
@@ -80,6 +89,7 @@ private:
     QString m_releaseNotes;
     QString m_downloadUrl;
     QString m_errorMessage;
+    QString m_releaseTag;
     int m_latestBuildNumber = 0;
 
     static const QString GITHUB_API_URL;

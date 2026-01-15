@@ -20,7 +20,9 @@
 #include <QFileInfo>
 #include <QImage>
 #include <QPainter>
+#ifndef Q_OS_IOS
 #include <QProcess>
+#endif
 #include <QCoreApplication>
 #include <QRegularExpression>
 

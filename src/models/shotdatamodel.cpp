@@ -67,13 +67,19 @@ void ShotDataModel::registerSeries(QLineSeries* pressure, QLineSeries* flow, QLi
     }
 
     // Enable OpenGL for hardware acceleration on main data series
-    // Note: OpenGL can cause rendering issues on some Windows systems in debug mode
+    // Note: OpenGL causes rendering issues on:
+    // - Windows debug builds
+    // - iOS (uses Metal, not OpenGL - causes missing curves)
 #if !defined(Q_OS_WIN) || !defined(QT_DEBUG)
+#if !defined(Q_OS_IOS)
     if (m_pressureSeries) m_pressureSeries->setUseOpenGL(true);
     if (m_flowSeries) m_flowSeries->setUseOpenGL(true);
     if (m_temperatureSeries) m_temperatureSeries->setUseOpenGL(true);
     if (m_weightSeries) m_weightSeries->setUseOpenGL(true);
     qDebug() << "ShotDataModel: Registered series with OpenGL acceleration";
+#else
+    qDebug() << "ShotDataModel: Registered series (OpenGL disabled for iOS/Metal)";
+#endif
 #else
     qDebug() << "ShotDataModel: Registered series (OpenGL disabled for Windows debug)";
 #endif

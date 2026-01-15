@@ -417,7 +417,16 @@ if(IOS)
     set_target_properties(Decenza_DE1 PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/Info.plist"
-        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "io.github.kulitorum.decenza_de1"
+        XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "io.github.kulitorum.decenza"
+        XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
+    )
+    # Add iOS asset catalog for app icon
+    target_sources(Decenza_DE1 PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/ios/Assets.xcassets"
+    )
+    set_source_files_properties(
+        "${CMAKE_CURRENT_SOURCE_DIR}/ios/Assets.xcassets"
+        PROPERTIES MACOSX_PACKAGE_LOCATION Resources
     )
 endif()
 
@@ -426,6 +435,13 @@ if(APPLE AND NOT IOS)
     set_target_properties(Decenza_DE1 PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/macos/Info.plist"
+        MACOSX_BUNDLE_ICON_FILE "AppIcon.icns"
+    )
+    # Add macOS app icon to bundle
+    set(MACOS_ICON "${CMAKE_CURRENT_SOURCE_DIR}/macos/AppIcon.icns")
+    target_sources(Decenza_DE1 PRIVATE ${MACOS_ICON})
+    set_source_files_properties(${MACOS_ICON} PROPERTIES
+        MACOSX_PACKAGE_LOCATION Resources
     )
 endif()
 

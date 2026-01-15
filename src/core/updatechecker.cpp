@@ -8,6 +8,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QRegularExpression>
+#include <QDesktopServices>
 
 #ifdef Q_OS_ANDROID
 #include <QJniObject>
@@ -27,19 +28,23 @@ UpdateChecker::UpdateChecker(Settings* settings, QObject* parent)
     m_periodicTimer->setInterval(60 * 60 * 1000);  // 1 hour
     connect(m_periodicTimer, &QTimer::timeout, this, &UpdateChecker::onPeriodicCheck);
 
-    // Start periodic checks if enabled
+    // Start periodic checks if enabled (not on iOS - App Store handles updates)
+#if !defined(Q_OS_IOS)
     if (m_settings->autoCheckUpdates()) {
         m_periodicTimer->start();
         // Check shortly after startup (30 seconds delay)
         QTimer::singleShot(30000, this, &UpdateChecker::onPeriodicCheck);
     }
+#endif
 
     connect(m_settings, &Settings::autoCheckUpdatesChanged, this, [this]() {
+#if !defined(Q_OS_IOS)
         if (m_settings->autoCheckUpdates()) {
             m_periodicTimer->start();
         } else {
             m_periodicTimer->stop();
         }
+#endif
     });
 }
 
@@ -67,6 +72,13 @@ int UpdateChecker::currentVersionCode() const
 
 void UpdateChecker::checkForUpdates()
 {
+#if defined(Q_OS_IOS)
+    // iOS updates come from App Store only
+    m_errorMessage = "Updates are handled by the App Store";
+    emit errorMessageChanged();
+    return;
+#endif
+
     if (m_checking || m_downloading) return;
 
     m_checking = true;
@@ -120,6 +132,7 @@ void UpdateChecker::parseReleaseInfo(const QByteArray& data)
     QString releaseName = release["name"].toString();
     QString body = release["body"].toString();
 
+    m_releaseTag = tagName;
     m_latestVersion = tagName.startsWith("v") ? tagName.mid(1) : tagName;
     m_releaseNotes = body;
 
@@ -137,21 +150,40 @@ void UpdateChecker::parseReleaseInfo(const QByteArray& data)
     emit latestVersionCodeChanged();
     emit releaseNotesChanged();
 
-    // Find APK asset
+    // Find platform-appropriate asset
     QJsonArray assets = release["assets"].toArray();
     m_downloadUrl.clear();
     for (const QJsonValue& assetVal : assets) {
         QJsonObject asset = assetVal.toObject();
         QString name = asset["name"].toString();
+#if defined(Q_OS_ANDROID)
         if (name.endsWith(".apk", Qt::CaseInsensitive)) {
             m_downloadUrl = asset["browser_download_url"].toString();
             break;
         }
+#elif defined(Q_OS_MACOS)
+        if (name.endsWith(".dmg", Qt::CaseInsensitive) ||
+            (name.endsWith(".zip", Qt::CaseInsensitive) && name.contains("macos", Qt::CaseInsensitive))) {
+            m_downloadUrl = asset["browser_download_url"].toString();
+            break;
+        }
+#endif
+        // iOS doesn't download from GitHub - updates come from App Store
     }
 
     // Check if update is available using display version comparison
+    // On iOS/macOS, update can be available even without a direct download URL
     bool wasAvailable = m_updateAvailable;
+#if defined(Q_OS_IOS)
+    // iOS: just check version, user updates via App Store
+    m_updateAvailable = isNewerVersion(m_latestVersion, currentVersion());
+#elif defined(Q_OS_ANDROID)
+    // Android: need APK to be available
     m_updateAvailable = isNewerVersion(m_latestVersion, currentVersion()) && !m_downloadUrl.isEmpty();
+#else
+    // macOS/other: update available even if no direct download (user can visit release page)
+    m_updateAvailable = isNewerVersion(m_latestVersion, currentVersion());
+#endif
 
     qDebug() << "UpdateChecker: Current version:" << currentVersion()
              << "Latest version:" << m_latestVersion
@@ -403,4 +435,54 @@ void UpdateChecker::installApk(const QString& apkPath)
     m_errorMessage = "APK installation only supported on Android";
     emit errorMessageChanged();
 #endif
+}
+
+bool UpdateChecker::canDownloadUpdate() const
+{
+#if defined(Q_OS_ANDROID)
+    return true;  // Android can download and install APKs
+#elif defined(Q_OS_IOS)
+    return false;  // iOS updates via App Store only
+#else
+    return !m_downloadUrl.isEmpty();  // macOS can download if asset exists
+#endif
+}
+
+bool UpdateChecker::canCheckForUpdates() const
+{
+#if defined(Q_OS_IOS)
+    return false;  // iOS updates via App Store only
+#else
+    return true;
+#endif
+}
+
+QString UpdateChecker::platformName() const
+{
+#if defined(Q_OS_ANDROID)
+    return "Android";
+#elif defined(Q_OS_IOS)
+    return "iOS";
+#elif defined(Q_OS_MACOS)
+    return "macOS";
+#elif defined(Q_OS_WIN)
+    return "Windows";
+#elif defined(Q_OS_LINUX)
+    return "Linux";
+#else
+    return "Unknown";
+#endif
+}
+
+QString UpdateChecker::releasePageUrl() const
+{
+    if (m_releaseTag.isEmpty()) {
+        return QString("https://github.com/%1/releases/latest").arg(GITHUB_REPO);
+    }
+    return QString("https://github.com/%1/releases/tag/%2").arg(GITHUB_REPO, m_releaseTag);
+}
+
+void UpdateChecker::openReleasePage()
+{
+    QDesktopServices::openUrl(QUrl(releasePageUrl()));
 }

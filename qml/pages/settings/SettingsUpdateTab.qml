@@ -65,7 +65,7 @@ Item {
 
                         Text {
                             Layout.alignment: Qt.AlignHCenter
-                            text: DE1Device.simulationMode ? "SIMULATION MODE" : "Built with Qt 6"
+                            text: DE1Device.simulationMode ? "SIMULATION MODE" : MainController.updateChecker.platformName
                             color: DE1Device.simulationMode ? Theme.primaryColor : Theme.textSecondaryColor
                             font.pixelSize: Theme.scaled(11)
                             font.bold: DE1Device.simulationMode
@@ -161,9 +161,14 @@ Item {
                             Text {
                                 text: {
                                     if (MainController.updateChecker.updateAvailable) {
-                                        return TranslationManager.translate("settings.update.updateavailable", "Update available:") +
+                                        var msg = TranslationManager.translate("settings.update.updateavailable", "Update available:") +
                                                " v" + MainController.updateChecker.latestVersion +
                                                " (Build " + MainController.updateChecker.latestVersionCode + ")"
+                                        // Add platform-specific note for iOS
+                                        if (Qt.platform.os === "ios") {
+                                            msg += "\n" + TranslationManager.translate("settings.update.appstoreupdate", "Update via App Store")
+                                        }
+                                        return msg
                                     } else if (MainController.updateChecker.latestVersion) {
                                         return TranslationManager.translate("settings.update.uptodate", "You're up to date")
                                     } else {
@@ -235,11 +240,21 @@ Item {
                     }
                 }
 
-                // Action buttons row
+                // iOS App Store message
+                Text {
+                    Layout.fillWidth: true
+                    visible: !MainController.updateChecker.canCheckForUpdates
+                    text: TranslationManager.translate("settings.update.appstoreonly", "Updates are handled by the App Store. Check for updates in the App Store app.")
+                    color: Theme.textSecondaryColor
+                    font.pixelSize: Theme.scaled(12)
+                    wrapMode: Text.WordWrap
+                }
+
+                // Action buttons row (not shown on iOS)
                 RowLayout {
                     Layout.fillWidth: true
                     spacing: Theme.scaled(10)
-                    visible: !MainController.updateChecker.checking && !MainController.updateChecker.downloading
+                    visible: MainController.updateChecker.canCheckForUpdates && !MainController.updateChecker.checking && !MainController.updateChecker.downloading
 
                     StyledButton {
                         text: TranslationManager.translate("settings.update.checknow", "Check Now")
@@ -250,8 +265,15 @@ Item {
                     StyledButton {
                         primary: true
                         text: TranslationManager.translate("settings.update.downloadinstall", "Download & Install")
-                        visible: MainController.updateChecker.updateAvailable
+                        visible: MainController.updateChecker.updateAvailable && MainController.updateChecker.canDownloadUpdate
                         onClicked: MainController.updateChecker.downloadAndInstall()
+                    }
+
+                    StyledButton {
+                        primary: true
+                        text: TranslationManager.translate("settings.update.viewongithub", "View on GitHub")
+                        visible: MainController.updateChecker.updateAvailable && !MainController.updateChecker.canDownloadUpdate
+                        onClicked: MainController.updateChecker.openReleasePage()
                     }
 
                     StyledButton {
