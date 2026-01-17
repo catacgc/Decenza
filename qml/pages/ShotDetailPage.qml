@@ -353,91 +353,6 @@ Page {
                 }
             }
 
-            // AI Advice button
-            Rectangle {
-                id: aiAdviceButton
-                visible: MainController.aiManager && shotData.duration > 0
-                Layout.fillWidth: true
-                Layout.preferredHeight: Theme.scaled(50)
-                radius: Theme.cardRadius
-                color: MainController.aiManager && MainController.aiManager.isConfigured
-                       ? Theme.primaryColor : Theme.surfaceColor
-                opacity: MainController.aiManager && MainController.aiManager.isAnalyzing ? 0.6 : 1.0
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.scaled(8)
-
-                    Image {
-                        source: "qrc:/icons/sparkle.svg"
-                        width: Theme.scaled(20)
-                        height: Theme.scaled(20)
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: status === Image.Ready
-                    }
-
-                    Text {
-                        text: MainController.aiManager && MainController.aiManager.isAnalyzing
-                              ? TranslationManager.translate("shotdetail.analyzing", "Analyzing...")
-                              : TranslationManager.translate("shotdetail.aiadvice", "AI Advice")
-                        color: MainController.aiManager && MainController.aiManager.isConfigured
-                               ? "white" : Theme.textColor
-                        font: Theme.bodyFont
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    enabled: MainController.aiManager && MainController.aiManager.isConfigured && !MainController.aiManager.isAnalyzing
-                    onClicked: {
-                        // Generate shot summary from historical data
-                        shotDetailPage.pendingShotSummary = MainController.aiManager.generateHistoryShotSummary(shotData)
-                        // Open conversation dialog
-                        aiConversationDialog.open()
-                    }
-                }
-            }
-
-            // Email Prompt button - fallback for users without API keys
-            Rectangle {
-                visible: MainController.aiManager && !MainController.aiManager.isConfigured && shotData.duration > 0
-                Layout.fillWidth: true
-                Layout.preferredHeight: Theme.scaled(50)
-                radius: Theme.cardRadius
-                color: Theme.surfaceColor
-
-                Row {
-                    anchors.centerIn: parent
-                    spacing: Theme.scaled(8)
-
-                    Image {
-                        source: "qrc:/icons/sparkle.svg"
-                        width: Theme.scaled(20)
-                        height: Theme.scaled(20)
-                        anchors.verticalCenter: parent.verticalCenter
-                        visible: status === Image.Ready
-                        opacity: 0.6
-                    }
-
-                    Text {
-                        text: TranslationManager.translate("shotdetail.emailprompt", "Email Prompt")
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
-                }
-
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        var prompt = MainController.aiManager.generateHistoryShotSummary(shotData)
-                        var subject = "Espresso AI Analysis - " + (shotData.profileName || "Shot")
-                        Qt.openUrlExternally("mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(prompt))
-                    }
-                }
-            }
-
             // Actions
             RowLayout {
                 Layout.fillWidth: true
@@ -578,104 +493,256 @@ Page {
         }
     }
 
-    // AI Conversation Dialog
-    Dialog {
-        id: aiConversationDialog
-        title: TranslationManager.translate("shotdetail.aiconversation", "AI Advice")
-        anchors.centerIn: parent
-        width: parent.width * 0.9
-        height: parent.height * 0.85
-        modal: true
+    // Conversation overlay panel - full screen with keyboard awareness
+    Rectangle {
+        id: conversationOverlay
+        visible: false
+        anchors.fill: parent
+        color: Theme.backgroundColor
+        z: 200
 
-        background: Rectangle {
-            color: Theme.surfaceColor
-            radius: Theme.cardRadius
-        }
-
-        function sendFollowUp() {
-            if (!MainController.aiManager || !MainController.aiManager.conversation) return
-            if (followUpInput.text.length === 0) return
-
-            var conversation = MainController.aiManager.conversation
-
-            // If no history, send initial analysis with shot data
-            if (!conversation.hasHistory) {
-                var systemPrompt = "You are an espresso analyst helping dial in shots on a Decent DE1 profiling machine. " +
-                    "Follow James Hoffmann's methodology for dialing in espresso."
-                var userPrompt = shotDetailPage.pendingShotSummary + "\n\nUser question: " + followUpInput.text
-                conversation.send(systemPrompt, userPrompt)
-            } else {
-                conversation.followUp(followUpInput.text)
-            }
-            followUpInput.text = ""
-        }
-
-        ColumnLayout {
+        // Consume ALL mouse/touch events - prevent pass-through to background
+        MouseArea {
             anchors.fill: parent
-            spacing: Theme.spacingMedium
+            preventStealing: true
+        }
 
-            // Conversation history
-            ScrollView {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                contentWidth: availableWidth
+        KeyboardAwareContainer {
+            id: conversationKeyboardContainer
+            anchors.fill: parent
+            anchors.topMargin: Theme.pageTopMargin
+            anchors.bottomMargin: Theme.bottomBarHeight
+            textFields: [conversationInput]
 
-                Text {
-                    id: conversationText
-                    width: parent.width
-                    text: MainController.aiManager && MainController.aiManager.conversation
-                          ? MainController.aiManager.conversation.getConversationText()
-                          : ""
-                    font: Theme.bodyFont
-                    color: Theme.textColor
-                    wrapMode: Text.Wrap
-                    textFormat: Text.MarkdownText
-                }
-            }
+            // Main conversation content
+            Rectangle {
+                anchors.fill: parent
+                color: Theme.backgroundColor
 
-            // Loading indicator
-            BusyIndicator {
-                Layout.alignment: Qt.AlignHCenter
-                running: MainController.aiManager && MainController.aiManager.conversation &&
-                         MainController.aiManager.conversation.busy
-                visible: running
-            }
+                ColumnLayout {
+                    anchors.fill: parent
+                    anchors.margins: Theme.standardMargin
+                    spacing: Theme.spacingSmall
 
-            // Follow-up input
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: Theme.spacingSmall
+                    // Clear button row at top
+                    RowLayout {
+                        Layout.fillWidth: true
 
-                StyledTextField {
-                    id: followUpInput
-                    Layout.fillWidth: true
-                    placeholderText: TranslationManager.translate("shotdetail.followup.placeholder", "Ask a follow-up question...")
-                    enabled: MainController.aiManager && MainController.aiManager.conversation &&
-                             !MainController.aiManager.conversation.busy
-                    onAccepted: sendFollowUp()
-                }
+                        Item { Layout.fillWidth: true }
 
-                StyledButton {
-                    text: TranslationManager.translate("shotdetail.send", "Send")
-                    enabled: followUpInput.text.length > 0 &&
-                             MainController.aiManager && MainController.aiManager.conversation &&
-                             !MainController.aiManager.conversation.busy
-                    onClicked: sendFollowUp()
+                        // Clear conversation button
+                        Rectangle {
+                            width: clearText.width + Theme.scaled(16)
+                            height: Theme.scaled(32)
+                            radius: Theme.scaled(4)
+                            color: Theme.errorColor
+                            opacity: 0.8
+
+                            Text {
+                                id: clearText
+                                anchors.centerIn: parent
+                                text: TranslationManager.translate("shotdetail.conversation.clear", "Clear")
+                                font.pixelSize: Theme.scaled(12)
+                                color: "white"
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: {
+                                    if (MainController.aiManager && MainController.aiManager.conversation) {
+                                        MainController.aiManager.conversation.clearHistory()
+                                        MainController.aiManager.conversation.saveToStorage()
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Conversation history
+                    Flickable {
+                        id: conversationFlickable
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        contentHeight: conversationText.height
+                        clip: true
+                        boundsBehavior: Flickable.StopAtBounds
+
+                        TextArea {
+                            id: conversationText
+                            width: parent.width
+                            text: MainController.aiManager && MainController.aiManager.conversation
+                                  ? MainController.aiManager.conversation.getConversationText()
+                                  : ""
+                            textFormat: Text.MarkdownText
+                            wrapMode: TextEdit.WordWrap
+                            readOnly: true
+                            font: Theme.bodyFont
+                            color: Theme.textColor
+                            background: null
+                            padding: 0
+                        }
+                    }
+
+                    // Loading indicator
+                    RowLayout {
+                        visible: MainController.aiManager && MainController.aiManager.conversation &&
+                                 MainController.aiManager.conversation.busy
+                        Layout.fillWidth: true
+
+                        BusyIndicator {
+                            running: true
+                            Layout.preferredWidth: Theme.scaled(24)
+                            Layout.preferredHeight: Theme.scaled(24)
+                            palette.dark: Theme.primaryColor
+                        }
+
+                        Text {
+                            text: TranslationManager.translate("shotdetail.conversation.thinking", "Thinking...")
+                            font: Theme.bodyFont
+                            color: Theme.textSecondaryColor
+                        }
+                    }
+
+                    // Shot data attached indicator
+                    Rectangle {
+                        visible: shotDetailPage.pendingShotSummary.length > 0
+                        Layout.fillWidth: true
+                        height: Theme.scaled(28)
+                        radius: Theme.scaled(4)
+                        color: Qt.rgba(Theme.primaryColor.r, Theme.primaryColor.g, Theme.primaryColor.b, 0.15)
+                        border.color: Theme.primaryColor
+                        border.width: 1
+
+                        RowLayout {
+                            anchors.fill: parent
+                            anchors.leftMargin: Theme.scaled(8)
+                            anchors.rightMargin: Theme.scaled(8)
+                            spacing: Theme.scaled(6)
+
+                            Text {
+                                text: "\uD83D\uDCCA"  // chart emoji
+                                font.pixelSize: Theme.scaled(12)
+                            }
+
+                            Text {
+                                text: TranslationManager.translate("shotdetail.conversation.shotattached", "Shot data will be included with your message")
+                                font.pixelSize: Theme.scaled(11)
+                                color: Theme.primaryColor
+                                Layout.fillWidth: true
+                            }
+
+                            Text {
+                                text: "\u2715"
+                                font.pixelSize: Theme.scaled(12)
+                                color: Theme.textSecondaryColor
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    anchors.margins: -Theme.scaled(4)
+                                    onClicked: shotDetailPage.pendingShotSummary = ""
+                                }
+                            }
+                        }
+                    }
+
+                    // Input row
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.spacingSmall
+
+                        StyledTextField {
+                            id: conversationInput
+                            Layout.fillWidth: true
+                            placeholder: shotDetailPage.pendingShotSummary.length > 0
+                                         ? TranslationManager.translate("shotdetail.conversation.placeholder.withshot", "Ask about this shot...")
+                                         : TranslationManager.translate("shotdetail.conversation.placeholder", "Ask a follow-up question...")
+                            enabled: MainController.aiManager && MainController.aiManager.conversation &&
+                                     !MainController.aiManager.conversation.busy
+
+                            Keys.onReturnPressed: sendFollowUp()
+                            Keys.onEnterPressed: sendFollowUp()
+
+                            function sendFollowUp() {
+                                if (text.length === 0) return
+                                if (!MainController.aiManager || !MainController.aiManager.conversation) return
+
+                                var conversation = MainController.aiManager.conversation
+                                var message = text
+
+                                // If there's a pending shot, include it with the user's question
+                                if (shotDetailPage.pendingShotSummary.length > 0) {
+                                    message = "Here's my latest shot:\n\n" + shotDetailPage.pendingShotSummary +
+                                              "\n\n" + text
+                                    shotDetailPage.pendingShotSummary = ""  // Clear after sending
+                                }
+
+                                // Use ask() for new conversation, followUp() for existing
+                                if (!conversation.hasHistory) {
+                                    var systemPrompt = "You are an expert espresso consultant helping a user dial in their shots. " +
+                                        "The user has a Decent Espresso machine. " +
+                                        "Provide specific, actionable advice. Focus on one variable at a time. " +
+                                        "Follow James Hoffmann's methodology for dialing in espresso."
+                                    conversation.ask(systemPrompt, message)
+                                } else {
+                                    conversation.followUp(message)
+                                }
+                                text = ""
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: Theme.scaled(60)
+                            Layout.preferredHeight: Theme.scaled(44)
+                            radius: Theme.scaled(6)
+                            color: conversationInput.text.length > 0 ? Theme.primaryColor : Theme.surfaceColor
+                            border.color: Theme.borderColor
+                            border.width: conversationInput.text.length > 0 ? 0 : 1
+
+                            Text {
+                                anchors.centerIn: parent
+                                text: TranslationManager.translate("shotdetail.conversation.send", "Send")
+                                font: Theme.bodyFont
+                                color: conversationInput.text.length > 0 ? "white" : Theme.textSecondaryColor
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: conversationInput.text.length > 0 &&
+                                         MainController.aiManager && MainController.aiManager.conversation &&
+                                         !MainController.aiManager.conversation.busy
+                                onClicked: conversationInput.sendFollowUp()
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // Clear conversation when dialog closes
-        onClosed: {
-            if (MainController.aiManager && MainController.aiManager.conversation) {
-                MainController.aiManager.conversation.saveToStorage()
+        // Bottom bar for conversation overlay
+        BottomBar {
+            id: conversationBottomBar
+            title: TranslationManager.translate("shotdetail.conversation.title", "AI Conversation")
+            showBackButton: true
+            onBackClicked: {
+                // Save conversation before closing
+                if (MainController.aiManager && MainController.aiManager.conversation) {
+                    MainController.aiManager.conversation.saveToStorage()
+                }
+                conversationOverlay.visible = false
             }
         }
 
         // Update conversation text when response received
         Connections {
             target: MainController.aiManager ? MainController.aiManager.conversation : null
+            function onResponseReceived(response) {
+                // Scroll to bottom when new response arrives
+                Qt.callLater(function() {
+                    conversationFlickable.contentY = Math.max(0, conversationFlickable.contentHeight - conversationFlickable.height)
+                })
+            }
             function onHistoryChanged() {
+                // Refresh conversation text
                 conversationText.text = MainController.aiManager.conversation.getConversationText()
             }
         }
@@ -685,7 +752,102 @@ Page {
     BottomBar {
         id: bottomBar
         title: TranslationManager.translate("shotdetail.title", "Shot Detail")
-        rightText: shotData.profileName || ""
         onBackClicked: root.goBack()
+
+        // AI Advice button
+        Rectangle {
+            id: aiButton
+            visible: MainController.aiManager && MainController.aiManager.isConfigured && shotData.duration > 0
+            Layout.preferredWidth: aiButtonContent.width + 32
+            Layout.preferredHeight: Theme.scaled(44)
+            radius: Theme.scaled(8)
+            color: aiButtonArea.pressed ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
+
+            Accessible.role: Accessible.Button
+            Accessible.name: TranslationManager.translate("shotdetail.aiadvice", "AI Advice")
+            Accessible.onPressAction: aiButtonArea.clicked(null)
+
+            Row {
+                id: aiButtonContent
+                anchors.centerIn: parent
+                spacing: Theme.scaled(6)
+
+                Image {
+                    source: "qrc:/icons/sparkle.svg"
+                    width: Theme.scaled(18)
+                    height: Theme.scaled(18)
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: status === Image.Ready
+                }
+
+                Tr {
+                    key: "shotdetail.aiadvice"
+                    fallback: "AI Advice"
+                    color: "white"
+                    font: Theme.bodyFont
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+
+            MouseArea {
+                id: aiButtonArea
+                anchors.fill: parent
+                onClicked: {
+                    // Generate shot summary from historical data
+                    shotDetailPage.pendingShotSummary = MainController.aiManager.generateHistoryShotSummary(shotData)
+                    // Open conversation overlay
+                    conversationOverlay.visible = true
+                }
+            }
+        }
+
+        // Email Prompt button - fallback for users without API keys
+        Rectangle {
+            id: emailButton
+            visible: MainController.aiManager && !MainController.aiManager.isConfigured && shotData.duration > 0
+            Layout.preferredWidth: emailButtonContent.width + 32
+            Layout.preferredHeight: Theme.scaled(44)
+            radius: Theme.scaled(8)
+            color: emailButtonArea.pressed ? Qt.darker(Theme.surfaceColor, 1.1) : Theme.surfaceColor
+            border.color: Theme.borderColor
+            border.width: 1
+
+            Accessible.role: Accessible.Button
+            Accessible.name: TranslationManager.translate("shotdetail.emailprompt", "Email Prompt")
+            Accessible.onPressAction: emailButtonArea.clicked(null)
+
+            Row {
+                id: emailButtonContent
+                anchors.centerIn: parent
+                spacing: Theme.scaled(6)
+
+                Image {
+                    source: "qrc:/icons/sparkle.svg"
+                    width: Theme.scaled(18)
+                    height: Theme.scaled(18)
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: status === Image.Ready
+                    opacity: 0.6
+                }
+
+                Tr {
+                    key: "shotdetail.email"
+                    fallback: "Email"
+                    color: Theme.textColor
+                    font: Theme.bodyFont
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+
+            MouseArea {
+                id: emailButtonArea
+                anchors.fill: parent
+                onClicked: {
+                    var prompt = MainController.aiManager.generateHistoryShotSummary(shotData)
+                    var subject = "Espresso AI Analysis - " + (shotData.profileName || "Shot")
+                    Qt.openUrlExternally("mailto:?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(prompt))
+                }
+            }
+        }
     }
 }
