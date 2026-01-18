@@ -7,6 +7,12 @@
         <file>sounds/frameclick2.wav</file>
         <file>sounds/frameclick3.wav</file>
         <file>sounds/frameclick4.wav</file>
+        <!-- Splash screens (random on startup) -->
+        <file>splash/splash1.png</file>
+        <file>splash/splash2.png</file>
+        <file>splash/splash3.png</file>
+        <file>splash/splash4.png</file>
+        <file>splash/splash5.png</file>
         <!-- Icons -->
         <file>icons/espresso.svg</file>
         <file>icons/steam.svg</file>

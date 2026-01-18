@@ -290,15 +290,15 @@ Page {
             Layout.rightMargin: Theme.standardMargin
             clip: true
 
-            // Get the currently active preset row
+            // Get the currently active preset loader
             property var activePresetRow: {
                 switch (activePresetFunction) {
-                    case "steam": return steamPresetRow
-                    case "espresso": return espressoColumn
-                    case "hotwater": return hotWaterPresetRow
-                    case "flush": return flushPresetRow
-                    case "beans": return beanPresetRow
-                    default: return steamPresetRow  // fallback
+                    case "steam": return steamPresetLoader
+                    case "espresso": return espressoColumnLoader
+                    case "hotwater": return hotWaterPresetLoader
+                    case "flush": return flushPresetLoader
+                    case "beans": return beanPresetLoader
+                    default: return steamPresetLoader  // fallback
                 }
             }
 
@@ -306,248 +306,246 @@ Page {
                 NumberAnimation { duration: 200; easing.type: Easing.OutQuad }
             }
 
-            // All preset rows stacked in same position
-            PresetPillRow {
-                id: steamPresetRow
+            // All preset rows stacked in same position - use Loaders for lazy creation
+            Loader {
+                id: steamPresetLoader
+                width: parent.width
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: activePresetFunction === "steam"
-                opacity: visible ? 1.0 : 0.0
+                active: activePresetFunction === "steam"
+                visible: active
+                sourceComponent: PresetPillRow {
+                    id: steamPresetRow
+                    maxWidth: steamPresetLoader.width
+                    presets: Settings.steamPitcherPresets
+                    selectedIndex: Settings.selectedSteamPitcher
 
-                presets: Settings.steamPitcherPresets
-                selectedIndex: Settings.selectedSteamPitcher
+                    KeyNavigation.up: steamButton
+                    KeyNavigation.down: sleepButton
 
-                KeyNavigation.up: steamButton
-                KeyNavigation.down: sleepButton
+                    onPresetSelected: function(index) {
+                        var wasAlreadySelected = (index === Settings.selectedSteamPitcher)
+                        console.log("[IdlePage] Steam pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
+                        Settings.selectedSteamPitcher = index
+                        var preset = Settings.getSteamPitcherPreset(index)
+                        if (preset) {
+                            Settings.steamTimeout = preset.duration
+                            Settings.steamFlow = preset.flow !== undefined ? preset.flow : 150
+                        }
+                        MainController.applySteamSettings()
 
-                onPresetSelected: function(index) {
-                    var wasAlreadySelected = (index === Settings.selectedSteamPitcher)
-                    console.log("[IdlePage] Steam pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
-                    Settings.selectedSteamPitcher = index
-                    var preset = Settings.getSteamPitcherPreset(index)
-                    if (preset) {
-                        Settings.steamTimeout = preset.duration
-                        Settings.steamFlow = preset.flow !== undefined ? preset.flow : 150
-                    }
-                    MainController.applySteamSettings()
-
-                    if (wasAlreadySelected) {
-                        // Tap on already-selected pill = start operation (settings already applied)
-                        if (MachineState.isReady) {
-                            console.log("[IdlePage] Starting steam...")
-                            DE1Device.startSteam()
-                        } else {
-                            console.log("[IdlePage] NOT starting steam - MachineState.isReady is false, phase:", MachineState.phase)
+                        if (wasAlreadySelected) {
+                            if (MachineState.isReady) {
+                                console.log("[IdlePage] Starting steam...")
+                                DE1Device.startSteam()
+                            } else {
+                                console.log("[IdlePage] NOT starting steam - MachineState.isReady is false, phase:", MachineState.phase)
+                            }
                         }
                     }
-                    // Otherwise just select (settings applied above, ready for next tap)
                 }
-
-                Behavior on opacity { NumberAnimation { duration: 150 } }
             }
 
             // Espresso presets - column containing favorites + optional non-favorite pill
-            Column {
-                id: espressoColumn
+            Loader {
+                id: espressoColumnLoader
                 width: parent.width
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: activePresetFunction === "espresso"
-                opacity: visible ? 1.0 : 0.0
-                spacing: Theme.scaled(8)
+                active: activePresetFunction === "espresso"
+                visible: active
+                sourceComponent: Column {
+                    id: espressoColumn
+                    width: parent ? parent.width : 0
+                    spacing: Theme.scaled(8)
 
-                PresetPillRow {
-                    id: espressoPresetRow
-                    anchors.horizontalCenter: parent.horizontalCenter
+                    PresetPillRow {
+                        id: espressoPresetRow
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        maxWidth: espressoColumnLoader.width
 
-                    presets: Settings.favoriteProfiles
-                    selectedIndex: Settings.selectedFavoriteProfile
-                    supportLongPress: true  // Enable long-press for profile preview
+                        presets: Settings.favoriteProfiles
+                        selectedIndex: Settings.selectedFavoriteProfile
+                        supportLongPress: true
 
-                    KeyNavigation.up: espressoButton
-                    KeyNavigation.down: sleepButton
+                        KeyNavigation.up: espressoButton
+                        KeyNavigation.down: sleepButton
 
-                    // Pre-load the selected profile when pills become visible
-                    onVisibleChanged: {
-                        if (visible && Settings.selectedFavoriteProfile >= 0) {
-                            var preset = Settings.getFavoriteProfile(Settings.selectedFavoriteProfile)
+                        Component.onCompleted: {
+                            // Pre-load the selected profile when created
+                            if (Settings.selectedFavoriteProfile >= 0) {
+                                var preset = Settings.getFavoriteProfile(Settings.selectedFavoriteProfile)
+                                if (preset && preset.filename) {
+                                    MainController.loadProfile(preset.filename)
+                                }
+                            }
+                        }
+
+                        onPresetSelected: function(index) {
+                            var wasAlreadySelected = (index === Settings.selectedFavoriteProfile)
+                            console.log("[IdlePage] Espresso pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
+                            Settings.selectedFavoriteProfile = index
+                            var preset = Settings.getFavoriteProfile(index)
+
+                            if (wasAlreadySelected) {
+                                if (MachineState.isReady) {
+                                    console.log("[IdlePage] Starting espresso...")
+                                    DE1Device.startEspresso()
+                                } else {
+                                    console.log("[IdlePage] NOT starting espresso - MachineState.isReady is false, phase:", MachineState.phase)
+                                }
+                            } else {
+                                if (preset && preset.filename) {
+                                    console.log("[IdlePage] Loading profile:", preset.filename)
+                                    MainController.loadProfile(preset.filename)
+                                }
+                            }
+                        }
+
+                        onPresetLongPressed: function(index) {
+                            var preset = Settings.getFavoriteProfile(index)
                             if (preset && preset.filename) {
-                                MainController.loadProfile(preset.filename)
+                                if (index !== Settings.selectedFavoriteProfile) {
+                                    console.log("[IdlePage] Long-press selecting profile:", preset.filename)
+                                    Settings.selectedFavoriteProfile = index
+                                    MainController.loadProfile(preset.filename)
+                                }
+                                console.log("[IdlePage] Long-press showing preview for:", preset.filename)
+                                profilePreviewPopup.profileFilename = preset.filename
+                                profilePreviewPopup.profileName = preset.name || ""
+                                profilePreviewPopup.open()
                             }
                         }
                     }
+
+                    // Green pill showing non-favorite profile name (when loaded from history)
+                    Rectangle {
+                        id: nonFavoriteProfilePill
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        visible: Settings.selectedFavoriteProfile === -1
+                        width: nonFavoriteProfileText.implicitWidth + Theme.scaled(40)
+                        height: Theme.scaled(50)
+                        radius: Theme.scaled(10)
+                        color: Theme.successColor
+
+                        Text {
+                            id: nonFavoriteProfileText
+                            anchors.centerIn: parent
+                            text: MainController.currentProfileName || ""
+                            color: "white"
+                            font.pixelSize: Theme.scaled(16)
+                            font.bold: true
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            onClicked: {
+                                if (MachineState.isReady) {
+                                    console.log("[IdlePage] Starting espresso with non-favorite profile...")
+                                    DE1Device.startEspresso()
+                                } else {
+                                    console.log("[IdlePage] NOT starting espresso - MachineState.isReady is false, phase:", MachineState.phase)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Loader {
+                id: hotWaterPresetLoader
+                width: parent.width
+                anchors.horizontalCenter: parent.horizontalCenter
+                active: activePresetFunction === "hotwater"
+                visible: active
+                sourceComponent: PresetPillRow {
+                    id: hotWaterPresetRow
+                    maxWidth: hotWaterPresetLoader.width
+                    presets: Settings.waterVesselPresets
+                    selectedIndex: Settings.selectedWaterVessel
+
+                    KeyNavigation.up: hotWaterButton
+                    KeyNavigation.down: settingsButton
 
                     onPresetSelected: function(index) {
-                        var wasAlreadySelected = (index === Settings.selectedFavoriteProfile)
-                        console.log("[IdlePage] Espresso pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
-                        Settings.selectedFavoriteProfile = index
-                        var preset = Settings.getFavoriteProfile(index)
+                        var wasAlreadySelected = (index === Settings.selectedWaterVessel)
+                        console.log("[IdlePage] HotWater pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
+                        Settings.selectedWaterVessel = index
+                        var preset = Settings.getWaterVesselPreset(index)
+                        if (preset) {
+                            Settings.waterVolume = preset.volume
+                        }
+                        MainController.applyHotWaterSettings()
 
                         if (wasAlreadySelected) {
-                            // Tap on already-selected pill = start operation (profile already uploaded)
                             if (MachineState.isReady) {
-                                console.log("[IdlePage] Starting espresso...")
-                                DE1Device.startEspresso()
+                                console.log("[IdlePage] Starting hot water...")
+                                DE1Device.startHotWater()
                             } else {
-                                console.log("[IdlePage] NOT starting espresso - MachineState.isReady is false, phase:", MachineState.phase)
+                                console.log("[IdlePage] NOT starting hot water - MachineState.isReady is false, phase:", MachineState.phase)
                             }
-                        } else {
-                            // Tap on different pill = select it and upload profile
-                            if (preset && preset.filename) {
-                                console.log("[IdlePage] Loading profile:", preset.filename)
-                                MainController.loadProfile(preset.filename)
-                            }
-                        }
-                    }
-
-                    onPresetLongPressed: function(index) {
-                        var preset = Settings.getFavoriteProfile(index)
-                        if (preset && preset.filename) {
-                            // Select the profile first (same as tap behavior)
-                            if (index !== Settings.selectedFavoriteProfile) {
-                                console.log("[IdlePage] Long-press selecting profile:", preset.filename)
-                                Settings.selectedFavoriteProfile = index
-                                MainController.loadProfile(preset.filename)
-                            }
-                            // Then show the preview popup
-                            console.log("[IdlePage] Long-press showing preview for:", preset.filename)
-                            profilePreviewPopup.profileFilename = preset.filename
-                            profilePreviewPopup.profileName = preset.name || ""
-                            profilePreviewPopup.open()
                         }
                     }
                 }
+            }
 
-                // Green pill showing non-favorite profile name (when loaded from history)
-                Rectangle {
-                    id: nonFavoriteProfilePill
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: Settings.selectedFavoriteProfile === -1
-                    width: nonFavoriteProfileText.implicitWidth + Theme.scaled(40)
-                    height: Theme.scaled(50)
-                    radius: Theme.scaled(10)
-                    color: Theme.successColor
+            Loader {
+                id: flushPresetLoader
+                width: parent.width
+                anchors.horizontalCenter: parent.horizontalCenter
+                active: activePresetFunction === "flush"
+                visible: active
+                sourceComponent: PresetPillRow {
+                    id: flushPresetRow
+                    maxWidth: flushPresetLoader.width
+                    presets: Settings.flushPresets
+                    selectedIndex: Settings.selectedFlushPreset
 
-                    Text {
-                        id: nonFavoriteProfileText
-                        anchors.centerIn: parent
-                        text: MainController.currentProfileName || ""
-                        color: "white"
-                        font.pixelSize: Theme.scaled(16)
-                        font.bold: true
-                    }
+                    KeyNavigation.up: flushButton
+                    KeyNavigation.down: settingsButton
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: {
-                            // Tap on loaded profile pill = start espresso
+                    onPresetSelected: function(index) {
+                        var wasAlreadySelected = (index === Settings.selectedFlushPreset)
+                        console.log("[IdlePage] Flush pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
+                        Settings.selectedFlushPreset = index
+                        var preset = Settings.getFlushPreset(index)
+                        if (preset) {
+                            Settings.flushFlow = preset.flow
+                            Settings.flushSeconds = preset.seconds
+                        }
+                        MainController.applyFlushSettings()
+
+                        if (wasAlreadySelected) {
                             if (MachineState.isReady) {
-                                console.log("[IdlePage] Starting espresso with non-favorite profile...")
-                                DE1Device.startEspresso()
+                                console.log("[IdlePage] Starting flush...")
+                                DE1Device.startFlush()
                             } else {
-                                console.log("[IdlePage] NOT starting espresso - MachineState.isReady is false, phase:", MachineState.phase)
+                                console.log("[IdlePage] NOT starting flush - MachineState.isReady is false, phase:", MachineState.phase)
                             }
                         }
                     }
                 }
-
-                Behavior on opacity { NumberAnimation { duration: 150 } }
             }
 
-            PresetPillRow {
-                id: hotWaterPresetRow
+            Loader {
+                id: beanPresetLoader
+                width: parent.width
                 anchors.horizontalCenter: parent.horizontalCenter
-                visible: activePresetFunction === "hotwater"
-                opacity: visible ? 1.0 : 0.0
+                active: activePresetFunction === "beans"
+                visible: active
+                sourceComponent: PresetPillRow {
+                    id: beanPresetRow
+                    maxWidth: beanPresetLoader.width
+                    presets: Settings.beanPresets
+                    selectedIndex: Settings.selectedBeanPreset
 
-                presets: Settings.waterVesselPresets
-                selectedIndex: Settings.selectedWaterVessel
+                    KeyNavigation.up: beanInfoButton
+                    KeyNavigation.down: settingsButton
 
-                KeyNavigation.up: hotWaterButton
-                KeyNavigation.down: settingsButton
-
-                onPresetSelected: function(index) {
-                    var wasAlreadySelected = (index === Settings.selectedWaterVessel)
-                    console.log("[IdlePage] HotWater pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
-                    Settings.selectedWaterVessel = index
-                    var preset = Settings.getWaterVesselPreset(index)
-                    if (preset) {
-                        Settings.waterVolume = preset.volume
+                    onPresetSelected: function(index) {
+                        console.log("[IdlePage] Bean pill selected, index:", index)
+                        Settings.selectedBeanPreset = index
+                        Settings.applyBeanPreset(index)
                     }
-                    MainController.applyHotWaterSettings()
-
-                    if (wasAlreadySelected) {
-                        // Tap on already-selected pill = start operation (settings already applied)
-                        if (MachineState.isReady) {
-                            console.log("[IdlePage] Starting hot water...")
-                            DE1Device.startHotWater()
-                        } else {
-                            console.log("[IdlePage] NOT starting hot water - MachineState.isReady is false, phase:", MachineState.phase)
-                        }
-                    }
-                    // Otherwise just select (settings applied above, ready for next tap)
                 }
-
-                Behavior on opacity { NumberAnimation { duration: 150 } }
-            }
-
-            PresetPillRow {
-                id: flushPresetRow
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: activePresetFunction === "flush"
-                opacity: visible ? 1.0 : 0.0
-
-                presets: Settings.flushPresets
-                selectedIndex: Settings.selectedFlushPreset
-
-                KeyNavigation.up: flushButton
-                KeyNavigation.down: settingsButton
-
-                onPresetSelected: function(index) {
-                    var wasAlreadySelected = (index === Settings.selectedFlushPreset)
-                    console.log("[IdlePage] Flush pill selected, index:", index, "wasAlreadySelected:", wasAlreadySelected, "isReady:", MachineState.isReady)
-                    Settings.selectedFlushPreset = index
-                    var preset = Settings.getFlushPreset(index)
-                    if (preset) {
-                        Settings.flushFlow = preset.flow
-                        Settings.flushSeconds = preset.seconds
-                    }
-                    MainController.applyFlushSettings()
-
-                    if (wasAlreadySelected) {
-                        // Tap on already-selected pill = start operation (settings already applied)
-                        if (MachineState.isReady) {
-                            console.log("[IdlePage] Starting flush...")
-                            DE1Device.startFlush()
-                        } else {
-                            console.log("[IdlePage] NOT starting flush - MachineState.isReady is false, phase:", MachineState.phase)
-                        }
-                    }
-                    // Otherwise just select (settings applied above, ready for next tap)
-                }
-
-                Behavior on opacity { NumberAnimation { duration: 150 } }
-            }
-
-            PresetPillRow {
-                id: beanPresetRow
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: activePresetFunction === "beans"
-                opacity: visible ? 1.0 : 0.0
-
-                presets: Settings.beanPresets
-                selectedIndex: Settings.selectedBeanPreset
-
-                KeyNavigation.up: beanInfoButton
-                KeyNavigation.down: settingsButton
-
-                onPresetSelected: function(index) {
-                    console.log("[IdlePage] Bean pill selected, index:", index)
-                    Settings.selectedBeanPreset = index
-                    Settings.applyBeanPreset(index)
-                    // Note: Unlike other functions, no "start operation" for beans
-                    // Just applies the bean info to the DYE settings
-                }
-
-                Behavior on opacity { NumberAnimation { duration: 150 } }
             }
         }
     }
