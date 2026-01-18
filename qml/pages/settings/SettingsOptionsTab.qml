@@ -553,7 +553,7 @@ KeyboardAwareContainer {
 
                         ValueInput {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Theme.scaled(60)
+                            Layout.preferredHeight: Theme.scaled(44)
                             from: 0
                             to: 23
                             stepSize: 1
@@ -570,13 +570,13 @@ KeyboardAwareContainer {
                         Text {
                             text: ":"
                             color: Theme.textColor
-                            font.pixelSize: Theme.scaled(24)
+                            font.pixelSize: Theme.scaled(18)
                             font.bold: true
                         }
 
                         ValueInput {
                             Layout.fillWidth: true
-                            Layout.preferredHeight: Theme.scaled(60)
+                            Layout.preferredHeight: Theme.scaled(44)
                             from: 0
                             to: 59
                             stepSize: 1
