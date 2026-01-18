@@ -25,7 +25,7 @@ public slots:
 
     // Skale-specific functions
     void enableLcd();
-    void disableLcd();
+    void disableLcd() override;
     void enableGrams();
 
 private slots:
