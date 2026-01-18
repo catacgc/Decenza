@@ -217,6 +217,9 @@ signals:
     void shotEndedShowMetadata();
     void lastSavedShotIdChanged();
 
+    // Auto-wake: emitted when scheduled wake time is reached
+    void autoWakeTriggered();
+
 private slots:
     void onShotSampleReceived(const ShotSample& sample);
 

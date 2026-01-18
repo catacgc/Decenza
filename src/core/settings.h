@@ -131,6 +131,10 @@ class Settings : public QObject {
     Q_PROPERTY(double temperatureOverride READ temperatureOverride WRITE setTemperatureOverride NOTIFY temperatureOverrideChanged)
     Q_PROPERTY(bool hasTemperatureOverride READ hasTemperatureOverride NOTIFY temperatureOverrideChanged)
 
+    // Auto-wake schedule
+    Q_PROPERTY(bool autoWakeEnabled READ autoWakeEnabled WRITE setAutoWakeEnabled NOTIFY autoWakeEnabledChanged)
+    Q_PROPERTY(QVariantList autoWakeSchedule READ autoWakeSchedule WRITE setAutoWakeSchedule NOTIFY autoWakeScheduleChanged)
+
 public:
     explicit Settings(QObject* parent = nullptr);
 
@@ -416,6 +420,14 @@ public:
     bool hasTemperatureOverride() const;
     Q_INVOKABLE void clearTemperatureOverride();
 
+    // Auto-wake schedule
+    bool autoWakeEnabled() const;
+    void setAutoWakeEnabled(bool enabled);
+    QVariantList autoWakeSchedule() const;
+    void setAutoWakeSchedule(const QVariantList& schedule);
+    Q_INVOKABLE void setAutoWakeDayEnabled(int dayIndex, bool enabled);
+    Q_INVOKABLE void setAutoWakeDayTime(int dayIndex, int hour, int minute);
+
     // Generic settings access (for extensibility)
     Q_INVOKABLE QVariant value(const QString& key, const QVariant& defaultValue = QVariant()) const;
     Q_INVOKABLE void setValue(const QString& key, const QVariant& value);
@@ -491,6 +503,8 @@ signals:
     void waterLevelDisplayUnitChanged();
     void developerTranslationUploadChanged();
     void temperatureOverrideChanged();
+    void autoWakeEnabledChanged();
+    void autoWakeScheduleChanged();
     void valueChanged(const QString& key);
 
 private:

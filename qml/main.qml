@@ -1741,6 +1741,18 @@ ApplicationWindow {
         }
     }
 
+    // Auto-wake: Exit screensaver when scheduled wake time is reached
+    Connections {
+        target: MainController
+
+        function onAutoWakeTriggered() {
+            console.log("[Main] Auto-wake triggered, exiting screensaver")
+            if (screensaverActive) {
+                goToIdleFromScreensaver()
+            }
+        }
+    }
+
     // ============ ACCESSIBILITY: Machine State Announcements ============
     // Translatable accessibility announcements for machine state
     Tr { id: trAnnounceDisconnected; key: "main.accessibility.machineDisconnected"; fallback: "Machine disconnected"; visible: false }

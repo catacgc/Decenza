@@ -451,20 +451,150 @@ KeyboardAwareContainer {
             Item { Layout.fillHeight: true }
         }
 
-        // Right column: placeholder
+        // Right column: Auto-Wake Timer
         ColumnLayout {
             Layout.preferredWidth: Theme.scaled(350)
             Layout.fillHeight: true
             spacing: Theme.scaled(15)
 
-            // Placeholder card
+            // Auto-Wake Timer Card
             Rectangle {
                 Layout.fillWidth: true
-                Layout.fillHeight: true
+                implicitHeight: autoWakeContent.implicitHeight + Theme.scaled(30)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
-                opacity: 0.3
+
+                ColumnLayout {
+                    id: autoWakeContent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: Theme.scaled(15)
+                    spacing: Theme.scaled(12)
+
+                    // Track selected day (0-6, Mon-Sun)
+                    property int selectedDay: 0
+                    property var schedule: Settings.autoWakeSchedule
+                    property var selectedDayData: schedule[selectedDay] || {enabled: false, hour: 7, minute: 0}
+
+                    // Title
+                    Tr {
+                        key: "settings.options.autoWake"
+                        fallback: "Auto-Wake Timer"
+                        color: Theme.textColor
+                        font.pixelSize: Theme.scaled(16)
+                        font.bold: true
+                    }
+
+                    // Row 1: Day buttons
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.scaled(4)
+
+                        Repeater {
+                            model: ["M", "T", "W", "T", "F", "S", "S"]
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: Theme.scaled(36)
+                                radius: Theme.scaled(6)
+
+                                property bool isSelected: autoWakeContent.selectedDay === index
+                                property bool isEnabled: {
+                                    var sched = Settings.autoWakeSchedule
+                                    return sched[index] ? sched[index].enabled : false
+                                }
+
+                                color: isSelected ? Theme.primaryColor :
+                                       isEnabled ? Theme.primaryColor :
+                                       Theme.backgroundColor
+                                border.color: isEnabled || isSelected ? Theme.primaryColor : Theme.borderColor
+                                border.width: 1
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData
+                                    color: parent.isSelected || parent.isEnabled ? "white" : Theme.textSecondaryColor
+                                    font.pixelSize: Theme.scaled(14)
+                                    font.bold: parent.isSelected || parent.isEnabled
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: autoWakeContent.selectedDay = index
+                                }
+                            }
+                        }
+                    }
+
+                    // Row 2: Wake enabled toggle for selected day
+                    RowLayout {
+                        Layout.fillWidth: true
+
+                        Text {
+                            text: "Wake"
+                            color: Theme.textColor
+                            font.pixelSize: Theme.scaled(14)
+                        }
+
+                        Item { Layout.fillWidth: true }
+
+                        StyledSwitch {
+                            checked: autoWakeContent.selectedDayData.enabled || false
+                            accessibleName: "Wake enabled for selected day"
+                            onToggled: Settings.setAutoWakeDayEnabled(autoWakeContent.selectedDay, checked)
+                        }
+                    }
+
+                    // Row 3: Time inputs (50/50 width)
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: Theme.scaled(8)
+
+                        ValueInput {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Theme.scaled(60)
+                            from: 0
+                            to: 23
+                            stepSize: 1
+                            decimals: 0
+                            value: autoWakeContent.selectedDayData.hour ?? 7
+                            enabled: autoWakeContent.selectedDayData.enabled ?? false
+                            valueColor: enabled ? Theme.primaryColor : Theme.textSecondaryColor
+                            displayText: value < 10 ? "0" + value.toFixed(0) : value.toFixed(0)
+                            onValueModified: function(newValue) {
+                                Settings.setAutoWakeDayTime(autoWakeContent.selectedDay, newValue, autoWakeContent.selectedDayData.minute ?? 0)
+                            }
+                        }
+
+                        Text {
+                            text: ":"
+                            color: Theme.textColor
+                            font.pixelSize: Theme.scaled(24)
+                            font.bold: true
+                        }
+
+                        ValueInput {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: Theme.scaled(60)
+                            from: 0
+                            to: 59
+                            stepSize: 1
+                            decimals: 0
+                            value: autoWakeContent.selectedDayData.minute ?? 0
+                            enabled: autoWakeContent.selectedDayData.enabled ?? false
+                            valueColor: enabled ? Theme.primaryColor : Theme.textSecondaryColor
+                            displayText: value < 10 ? "0" + value.toFixed(0) : value.toFixed(0)
+                            onValueModified: function(newValue) {
+                                Settings.setAutoWakeDayTime(autoWakeContent.selectedDay, autoWakeContent.selectedDayData.hour ?? 7, newValue)
+                            }
+                        }
+                    }
+                }
             }
+
+            // Spacer
+            Item { Layout.fillHeight: true }
         }
 
         // Spacer

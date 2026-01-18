@@ -22,6 +22,7 @@
 #include "core/translationmanager.h"
 #include "core/batterymanager.h"
 #include "core/accessibilitymanager.h"
+#include "core/autowakemanager.h"
 #include "core/profilestorage.h"
 #include "ble/blemanager.h"
 #include "ble/de1device.h"
@@ -114,6 +115,26 @@ int main(int argc, char *argv[])
     BatteryManager batteryManager;
     batteryManager.setDE1Device(&de1Device);
     batteryManager.setSettings(&settings);
+
+    // Auto-wake manager for scheduled wake-ups
+    AutoWakeManager autoWakeManager(&settings);
+    QObject::connect(&autoWakeManager, &AutoWakeManager::wakeRequested,
+                     &de1Device, &DE1Device::wakeUp);
+    QObject::connect(&autoWakeManager, &AutoWakeManager::wakeRequested,
+                     &mainController, &MainController::autoWakeTriggered);
+    // Also wake the scale
+    QObject::connect(&autoWakeManager, &AutoWakeManager::wakeRequested,
+                     [&physicalScale, &bleManager, &settings]() {
+        qDebug() << "AutoWakeManager: Waking scale";
+        if (physicalScale && physicalScale->isConnected()) {
+            physicalScale->wake();
+        } else if (!settings.scaleAddress().isEmpty()) {
+            // Scale disconnected - try to reconnect
+            QTimer::singleShot(500, &bleManager, &BLEManager::tryDirectConnectToScale);
+        }
+    });
+    autoWakeManager.start();
+
     AccessibilityManager accessibilityManager;
     accessibilityManager.setTranslationManager(&translationManager);
 

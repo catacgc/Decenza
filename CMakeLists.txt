@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Decenza_DE1 VERSION 1.1.36 LANGUAGES CXX)
+project(Decenza_DE1 VERSION 1.1.37 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -92,6 +92,7 @@ set(SOURCES
     src/core/settings.cpp
     src/core/batterymanager.cpp
     src/core/accessibilitymanager.cpp
+    src/core/autowakemanager.cpp
     src/core/profilestorage.cpp
     src/core/translationmanager.cpp
     src/core/updatechecker.cpp
@@ -165,6 +166,7 @@ set(HEADERS
     src/core/settings.h
     src/core/batterymanager.h
     src/core/accessibilitymanager.h
+    src/core/autowakemanager.h
     src/core/profilestorage.h
     src/core/translationmanager.h
     src/core/updatechecker.h
