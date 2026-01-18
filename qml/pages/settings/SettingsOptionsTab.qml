@@ -505,11 +505,13 @@ KeyboardAwareContainer {
                                     return sched[index] ? sched[index].enabled : false
                                 }
 
-                                color: isSelected ? Theme.primaryColor :
+                                // Selected: lighter primary, Enabled: primary, Neither: background
+                                color: isSelected ? Qt.lighter(Theme.primaryColor, 1.3) :
                                        isEnabled ? Theme.primaryColor :
                                        Theme.backgroundColor
-                                border.color: isEnabled || isSelected ? Theme.primaryColor : Theme.borderColor
-                                border.width: 1
+                                border.color: isSelected ? "white" :
+                                              isEnabled ? Theme.primaryColor : Theme.borderColor
+                                border.width: isSelected ? 2 : 1
 
                                 Text {
                                     anchors.centerIn: parent
