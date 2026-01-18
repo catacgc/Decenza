@@ -64,6 +64,7 @@ Item {
         anchors.right: parent.right
         anchors.top: fieldLabel.bottom
         anchors.topMargin: Theme.scaled(2)
+        height: Theme.scaled(48)
         text: root.text
         placeholder: root.label
         EnterKey.type: Qt.EnterKeyDone

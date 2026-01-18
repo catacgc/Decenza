@@ -534,9 +534,10 @@ Page {
                     onInputFocused: function(field) { focusedField = field; focusResetTimer.stop() }
                 }
 
-                // === ROW 3: Barista ===
+                // === ROW 3: Barista (spans all 3 columns) ===
                 SuggestionField {
                     Layout.fillWidth: true
+                    Layout.columnSpan: 3
                     label: TranslationManager.translate("shotmetadata.label.barista", "Barista")
                     text: isEditMode ? editBarista : Settings.dyeBarista
                     suggestions: MainController.shotHistory.getDistinctBaristas()
@@ -657,7 +658,7 @@ Page {
         property string inputMask: ""
         signal textEdited(string text)
 
-        implicitHeight: fieldLabel.height + fieldInput.height + 2
+        implicitHeight: fieldLabel.height + Theme.scaled(48) + 2
 
         Text {
             id: fieldLabel
@@ -665,7 +666,7 @@ Page {
             anchors.top: parent.top
             text: parent.label
             color: Theme.textColor
-            font.pixelSize: Theme.scaled(11)
+            font.pixelSize: Theme.scaled(14)
         }
 
         StyledTextField {
@@ -674,6 +675,7 @@ Page {
             anchors.right: parent.right
             anchors.top: fieldLabel.bottom
             anchors.topMargin: Theme.scaled(2)
+            height: Theme.scaled(48)
             text: parent.text
             inputMethodHints: parent.inputHints
             inputMask: parent.inputMask
@@ -705,7 +707,7 @@ Page {
         property string currentValue: ""
         signal valueChanged(string value)
 
-        implicitHeight: comboLabel.height + 48 + 2
+        implicitHeight: comboLabel.height + Theme.scaled(48) + 2
 
         Text {
             id: comboLabel
@@ -713,7 +715,7 @@ Page {
             anchors.top: parent.top
             text: parent.label
             color: Theme.textColor
-            font.pixelSize: Theme.scaled(11)
+            font.pixelSize: Theme.scaled(14)
         }
 
         StyledComboBox {
@@ -725,7 +727,7 @@ Page {
             height: Theme.scaled(48)
             model: parent.model
             currentIndex: Math.max(0, model.indexOf(parent.currentValue))
-            font.pixelSize: Theme.scaled(14)
+            font.pixelSize: Theme.scaled(18)
 
             Accessible.role: Accessible.ComboBox
             Accessible.name: parent.label
@@ -748,7 +750,7 @@ Page {
             contentItem: Text {
                 text: combo.currentIndex === 0 && combo.model[0] === "" ? parent.parent.label : combo.displayText
                 color: Theme.textColor
-                font.pixelSize: Theme.scaled(14)
+                font.pixelSize: Theme.scaled(18)
                 verticalAlignment: Text.AlignVCenter
                 leftPadding: Theme.scaled(12)
             }
@@ -764,12 +766,13 @@ Page {
 
             delegate: ItemDelegate {
                 width: combo.width
-                height: Theme.scaled(32)
+                height: Theme.scaled(40)
                 contentItem: Text {
                     text: modelData || TranslationManager.translate("shotmetadata.option.none", "(None)")
                     color: Theme.textColor
-                    font.pixelSize: Theme.scaled(14)
+                    font.pixelSize: Theme.scaled(18)
                     verticalAlignment: Text.AlignVCenter
+                    leftPadding: Theme.scaled(12)
                 }
                 background: Rectangle {
                     color: highlighted ? Theme.primaryColor : Theme.surfaceColor
@@ -783,7 +786,7 @@ Page {
             popup: Popup {
                 y: combo.height
                 width: combo.width
-                implicitHeight: Math.min(contentItem.implicitHeight, 200)
+                implicitHeight: Math.min(contentItem.implicitHeight, Theme.scaled(250))
                 padding: 1
                 contentItem: ListView {
                     clip: true
