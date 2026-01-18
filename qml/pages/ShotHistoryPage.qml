@@ -34,7 +34,6 @@ Page {
     }
 
     property var selectedShots: []
-    property int maxSelections: 3
     property int currentOffset: 0
     property int pageSize: 50
     property bool hasMoreShots: true
@@ -177,7 +176,7 @@ Page {
         var idx = selectedShots.indexOf(shotId)
         if (idx >= 0) {
             selectedShots.splice(idx, 1)
-        } else if (selectedShots.length < maxSelections) {
+        } else {
             selectedShots.push(shotId)
         }
         selectedShots = selectedShots.slice()  // Trigger binding update
@@ -193,10 +192,35 @@ Page {
 
     function openComparison() {
         MainController.shotComparison.clearAll()
-        for (var i = 0; i < selectedShots.length; i++) {
-            MainController.shotComparison.addShot(selectedShots[i])
+        // Sort selected shots chronologically before adding
+        var sortedShots = selectedShots.slice().sort(function(a, b) { return a - b })
+        for (var i = 0; i < sortedShots.length; i++) {
+            MainController.shotComparison.addShot(sortedShots[i])
         }
         pageStack.push(Qt.resolvedUrl("ShotComparisonPage.qml"))
+    }
+
+    // Get the list of shot IDs for navigation (selected shots or all loaded shots)
+    function getNavigableShotIds() {
+        if (selectedShots.length > 0) {
+            // Return selected shots sorted chronologically
+            return selectedShots.slice().sort(function(a, b) { return a - b })
+        } else {
+            // Return all loaded shots from the model
+            var ids = []
+            for (var i = 0; i < shotListModel.count; i++) {
+                ids.push(shotListModel.get(i).id)
+            }
+            return ids
+        }
+    }
+
+    function openShotDetail(shotId) {
+        var shotIds = getNavigableShotIds()
+        pageStack.push(Qt.resolvedUrl("ShotDetailPage.qml"), {
+            shotId: shotId,
+            shotIds: shotIds
+        })
     }
 
     ListModel {
@@ -408,7 +432,6 @@ Page {
                     // Selection checkbox
                     CheckBox {
                         checked: isSelected(model.id)
-                        enabled: checked || selectedShots.length < maxSelections
                         onClicked: toggleSelection(model.id)
 
                         indicator: Rectangle {
@@ -569,9 +592,7 @@ Page {
 
                         MouseArea {
                             anchors.fill: parent
-                            onClicked: {
-                                pageStack.push(Qt.resolvedUrl("ShotDetailPage.qml"), { shotId: model.id })
-                            }
+                            onClicked: openShotDetail(model.id)
                         }
                     }
                 }
@@ -580,9 +601,7 @@ Page {
                     anchors.fill: parent
                     z: -1
                     onClicked: toggleSelection(model.id)
-                    onPressAndHold: {
-                        pageStack.push(Qt.resolvedUrl("ShotDetailPage.qml"), { shotId: model.id })
-                    }
+                    onPressAndHold: openShotDetail(model.id)
                 }
             }
 

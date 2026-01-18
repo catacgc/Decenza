@@ -1058,7 +1058,7 @@ Page {
                                 }
                             }
                             valueColor: {
-                                if (!step) return undefined
+                                if (!step) return Theme.textSecondaryColor
                                 switch (step.exit_type) {
                                     case "flow_over":
                                     case "flow_under":
@@ -1069,11 +1069,11 @@ Page {
                                     case "pressure_under":
                                         return Theme.pressureColor
                                     default:
-                                        return undefined
+                                        return Theme.textSecondaryColor
                                 }
                             }
                             accentColor: {
-                                if (!step) return undefined
+                                if (!step) return Theme.textSecondaryColor
                                 switch (step.exit_type) {
                                     case "flow_over":
                                     case "flow_under":
@@ -1084,7 +1084,7 @@ Page {
                                     case "pressure_under":
                                         return Theme.pressureGoalColor
                                     default:
-                                        return undefined
+                                        return Theme.textSecondaryColor
                                 }
                             }
                             onValueModified: function(newValue) {

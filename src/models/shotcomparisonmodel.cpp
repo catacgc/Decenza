@@ -30,7 +30,7 @@ void ShotComparisonModel::setStorage(ShotHistoryStorage* storage)
 QVariantList ShotComparisonModel::shotsVariant() const
 {
     QVariantList result;
-    for (int i = 0; i < m_shots.size(); ++i) {
+    for (int i = 0; i < m_displayShots.size(); ++i) {
         result.append(getShotInfo(i));
     }
     return result;
@@ -43,17 +43,16 @@ bool ShotComparisonModel::addShot(qint64 shotId)
         return false;
     }
 
-    if (m_shotIds.size() >= MAX_COMPARISON_SHOTS) {
-        emit errorOccurred("Maximum 3 shots can be compared");
-        return false;
-    }
-
     if (m_shotIds.contains(shotId)) {
         return true;  // Already added
     }
 
+    // Add and sort by shot ID (chronological order - older shots have lower IDs)
     m_shotIds.append(shotId);
-    loadShotData();
+    std::sort(m_shotIds.begin(), m_shotIds.end());
+
+    // Update window start if needed (keep showing the same relative position)
+    loadDisplayWindow();
     emit shotsChanged();
     return true;
 }
@@ -63,20 +62,60 @@ void ShotComparisonModel::removeShot(qint64 shotId)
     int index = m_shotIds.indexOf(shotId);
     if (index >= 0) {
         m_shotIds.removeAt(index);
-        loadShotData();
+        // Adjust window start if needed
+        int shotCount = static_cast<int>(m_shotIds.size());
+        if (m_windowStart >= shotCount) {
+            m_windowStart = std::max(0, shotCount - DISPLAY_WINDOW_SIZE);
+        }
+        loadDisplayWindow();
         emit shotsChanged();
+        emit windowChanged();
     }
 }
 
 void ShotComparisonModel::clearAll()
 {
     m_shotIds.clear();
-    m_shots.clear();
+    m_displayShots.clear();
+    m_windowStart = 0;
     m_maxTime = 60.0;
     m_maxPressure = 12.0;
     m_maxFlow = 8.0;
     m_maxWeight = 50.0;
     emit shotsChanged();
+    emit windowChanged();
+}
+
+void ShotComparisonModel::shiftWindowLeft()
+{
+    if (canShiftLeft()) {
+        m_windowStart--;
+        loadDisplayWindow();
+        emit shotsChanged();  // Triggers graph/data refresh
+        emit windowChanged();
+    }
+}
+
+void ShotComparisonModel::shiftWindowRight()
+{
+    if (canShiftRight()) {
+        m_windowStart++;
+        loadDisplayWindow();
+        emit shotsChanged();  // Triggers graph/data refresh
+        emit windowChanged();
+    }
+}
+
+void ShotComparisonModel::setWindowStart(int index)
+{
+    int maxStart = std::max(0, static_cast<int>(m_shotIds.size()) - DISPLAY_WINDOW_SIZE);
+    int newStart = std::max(0, std::min(index, maxStart));
+    if (newStart != m_windowStart) {
+        m_windowStart = newStart;
+        loadDisplayWindow();
+        emit shotsChanged();  // Triggers graph/data refresh
+        emit windowChanged();
+    }
 }
 
 bool ShotComparisonModel::hasShotId(qint64 shotId) const
@@ -84,13 +123,25 @@ bool ShotComparisonModel::hasShotId(qint64 shotId) const
     return m_shotIds.contains(shotId);
 }
 
-void ShotComparisonModel::loadShotData()
+void ShotComparisonModel::loadDisplayWindow()
 {
-    m_shots.clear();
+    m_displayShots.clear();
 
-    if (!m_storage) return;
+    if (!m_storage || m_shotIds.isEmpty()) return;
 
-    QList<ShotRecord> records = m_storage->getShotsForComparison(m_shotIds);
+    // Ensure window start is valid
+    int shotCount = static_cast<int>(m_shotIds.size());
+    if (m_windowStart < 0) m_windowStart = 0;
+    if (m_windowStart >= shotCount) m_windowStart = std::max(0, shotCount - DISPLAY_WINDOW_SIZE);
+
+    // Get the subset of shot IDs for the current window
+    QList<qint64> windowIds;
+    int windowEnd = std::min(m_windowStart + DISPLAY_WINDOW_SIZE, shotCount);
+    for (int i = m_windowStart; i < windowEnd; ++i) {
+        windowIds.append(m_shotIds[i]);
+    }
+
+    QList<ShotRecord> records = m_storage->getShotsForComparison(windowIds);
 
     for (const ShotRecord& record : records) {
         ComparisonShot shot;
@@ -124,7 +175,7 @@ void ShotComparisonModel::loadShotData()
             shot.phases.append(marker);
         }
 
-        m_shots.append(shot);
+        m_displayShots.append(shot);
     }
 
     calculateMaxValues();
@@ -137,7 +188,7 @@ void ShotComparisonModel::calculateMaxValues()
     m_maxFlow = 8.0;
     m_maxWeight = 50.0;
 
-    for (const auto& shot : m_shots) {
+    for (const auto& shot : m_displayShots) {
         // Max time from duration
         if (shot.duration > m_maxTime) {
             m_maxTime = shot.duration;
@@ -180,34 +231,34 @@ QVariantList ShotComparisonModel::pointsToVariant(const QVector<QPointF>& points
 
 QVariantList ShotComparisonModel::getPressureData(int index) const
 {
-    if (index < 0 || index >= m_shots.size()) return QVariantList();
-    return pointsToVariant(m_shots[index].pressure);
+    if (index < 0 || index >= m_displayShots.size()) return QVariantList();
+    return pointsToVariant(m_displayShots[index].pressure);
 }
 
 QVariantList ShotComparisonModel::getFlowData(int index) const
 {
-    if (index < 0 || index >= m_shots.size()) return QVariantList();
-    return pointsToVariant(m_shots[index].flow);
+    if (index < 0 || index >= m_displayShots.size()) return QVariantList();
+    return pointsToVariant(m_displayShots[index].flow);
 }
 
 QVariantList ShotComparisonModel::getTemperatureData(int index) const
 {
-    if (index < 0 || index >= m_shots.size()) return QVariantList();
-    return pointsToVariant(m_shots[index].temperature);
+    if (index < 0 || index >= m_displayShots.size()) return QVariantList();
+    return pointsToVariant(m_displayShots[index].temperature);
 }
 
 QVariantList ShotComparisonModel::getWeightData(int index) const
 {
-    if (index < 0 || index >= m_shots.size()) return QVariantList();
-    return pointsToVariant(m_shots[index].weight);
+    if (index < 0 || index >= m_displayShots.size()) return QVariantList();
+    return pointsToVariant(m_displayShots[index].weight);
 }
 
 QVariantList ShotComparisonModel::getPhaseMarkers(int index) const
 {
-    if (index < 0 || index >= m_shots.size()) return QVariantList();
+    if (index < 0 || index >= m_displayShots.size()) return QVariantList();
 
     QVariantList result;
-    for (const auto& phase : m_shots[index].phases) {
+    for (const auto& phase : m_displayShots[index].phases) {
         QVariantMap p;
         p["time"] = phase.time;
         p["label"] = phase.label;
@@ -219,9 +270,9 @@ QVariantList ShotComparisonModel::getPhaseMarkers(int index) const
 QVariantMap ShotComparisonModel::getShotInfo(int index) const
 {
     QVariantMap result;
-    if (index < 0 || index >= m_shots.size()) return result;
+    if (index < 0 || index >= m_displayShots.size()) return result;
 
-    const auto& shot = m_shots[index];
+    const auto& shot = m_displayShots[index];
     result["id"] = shot.id;
     result["profileName"] = shot.profileName;
     result["beanBrand"] = shot.beanBrand;

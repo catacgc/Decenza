@@ -48,22 +48,23 @@ Page {
                 spacing: Theme.spacingLarge
 
                 Repeater {
-                    model: comparisonModel.shotCount
+                    model: comparisonModel.shots  // Use shots array so items refresh
 
                     RowLayout {
                         spacing: Theme.spacingSmall
+                        property int globalIndex: comparisonModel.windowStart + index
 
                         Rectangle {
                             width: Theme.scaled(16)
                             height: Theme.scaled(16)
                             radius: Theme.scaled(4)
-                            color: comparisonModel.getShotColor(index)
+                            color: comparisonModel.getShotColor(globalIndex % 3)
                         }
 
                         Text {
                             text: {
                                 var info = comparisonModel.getShotInfo(index)
-                                return info.profileName + " - " + info.dateTime
+                                return (globalIndex + 1) + ". " + info.profileName + " - " + info.dateTime
                             }
                             font: Theme.labelFont
                             color: Theme.textColor
@@ -74,7 +75,7 @@ Page {
                 }
             }
 
-            // Graph with resize handle
+            // Graph with resize handle and swipe navigation
             Rectangle {
                 id: graphCard
                 Layout.fillWidth: true
@@ -82,6 +83,10 @@ Page {
                 Layout.topMargin: Theme.spacingSmall
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
+                clip: true
+
+                // Visual offset during swipe
+                transform: Translate { x: graphSwipeArea.swipeOffset * 0.3 }
 
                 ComparisonGraph {
                     id: comparisonGraph
@@ -92,6 +97,40 @@ Page {
                     showPressure: shotComparisonPage.showPressure
                     showFlow: shotComparisonPage.showFlow
                     showWeight: shotComparisonPage.showWeight
+                }
+
+                // Swipe handler overlay (above graph, below resize handle)
+                SwipeableArea {
+                    id: graphSwipeArea
+                    anchors.fill: parent
+                    anchors.bottomMargin: resizeHandle.height
+                    canSwipeLeft: comparisonModel.canShiftRight
+                    canSwipeRight: comparisonModel.canShiftLeft
+
+                    onSwipedLeft: comparisonModel.shiftWindowRight()
+                    onSwipedRight: comparisonModel.shiftWindowLeft()
+                }
+
+                // Position indicator (only show if more than 3 shots)
+                Rectangle {
+                    visible: comparisonModel.totalShots > 3
+                    anchors.bottom: resizeHandle.top
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottomMargin: Theme.spacingSmall
+                    width: windowPositionText.width + Theme.scaled(16)
+                    height: Theme.scaled(24)
+                    radius: Theme.scaled(12)
+                    color: Qt.rgba(0, 0, 0, 0.5)
+
+                    Text {
+                        id: windowPositionText
+                        anchors.centerIn: parent
+                        text: (comparisonModel.windowStart + 1) + "-" +
+                              Math.min(comparisonModel.windowStart + 3, comparisonModel.totalShots) +
+                              " / " + comparisonModel.totalShots
+                        font: Theme.captionFont
+                        color: "white"
+                    }
                 }
 
                 // Resize handle at bottom
@@ -263,7 +302,7 @@ Page {
                 spacing: Theme.spacingMedium
 
                 Repeater {
-                    model: comparisonModel.shotCount
+                    model: comparisonModel.shots  // Use shots array so items refresh
 
                     Rectangle {
                         Layout.fillWidth: true
@@ -271,6 +310,9 @@ Page {
                         Layout.alignment: Qt.AlignTop
                         color: Theme.surfaceColor
                         radius: Theme.cardRadius
+
+                        property int globalIndex: comparisonModel.windowStart + index
+                        property color shotColor: comparisonModel.getShotColor(globalIndex % 3)
 
                         ColumnLayout {
                             id: shotColumn
@@ -289,13 +331,13 @@ Page {
                                     width: Theme.scaled(12)
                                     height: Theme.scaled(12)
                                     radius: Theme.scaled(3)
-                                    color: comparisonModel.getShotColor(index)
+                                    color: shotColor
                                 }
 
                                 Text {
-                                    text: TranslationManager.translate("comparison.shot", "Shot") + " " + (index + 1)
+                                    text: TranslationManager.translate("comparison.shot", "Shot") + " " + (globalIndex + 1)
                                     font: Theme.subtitleFont
-                                    color: comparisonModel.getShotColor(index)
+                                    color: shotColor
                                 }
                             }
 

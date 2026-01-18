@@ -9,43 +9,64 @@
 class ShotHistoryStorage;
 struct ShotRecord;
 
-// Model for comparing up to 3 shots
+// Model for comparing shots with sliding window display (shows 3 at a time)
 class ShotComparisonModel : public QObject {
     Q_OBJECT
 
-    Q_PROPERTY(int shotCount READ shotCount NOTIFY shotsChanged)
+    // Display window properties (shows max 3 shots at a time)
+    Q_PROPERTY(int shotCount READ displayShotCount NOTIFY shotsChanged)
     Q_PROPERTY(QVariantList shots READ shotsVariant NOTIFY shotsChanged)
     Q_PROPERTY(double maxTime READ maxTime NOTIFY shotsChanged)
     Q_PROPERTY(double maxPressure READ maxPressure NOTIFY shotsChanged)
     Q_PROPERTY(double maxFlow READ maxFlow NOTIFY shotsChanged)
     Q_PROPERTY(double maxWeight READ maxWeight NOTIFY shotsChanged)
 
+    // Window navigation properties
+    Q_PROPERTY(int windowStart READ windowStart NOTIFY windowChanged)
+    Q_PROPERTY(int totalShots READ totalShots NOTIFY shotsChanged)
+    Q_PROPERTY(bool canShiftLeft READ canShiftLeft NOTIFY windowChanged)
+    Q_PROPERTY(bool canShiftRight READ canShiftRight NOTIFY windowChanged)
+
 public:
     explicit ShotComparisonModel(QObject* parent = nullptr);
 
     void setStorage(ShotHistoryStorage* storage);
 
-    int shotCount() const { return static_cast<int>(m_shotIds.size()); }
+    // Display window count (max 3 visible at a time)
+    int displayShotCount() const { return static_cast<int>(m_displayShots.size()); }
+    // Total shots in selection
+    int totalShots() const { return static_cast<int>(m_shotIds.size()); }
+
     QVariantList shotsVariant() const;
     double maxTime() const { return m_maxTime; }
     double maxPressure() const { return m_maxPressure; }
     double maxFlow() const { return m_maxFlow; }
     double maxWeight() const { return m_maxWeight; }
 
-    // Add/remove shots to comparison (max 3)
+    // Window navigation
+    int windowStart() const { return m_windowStart; }
+    bool canShiftLeft() const { return m_windowStart > 0; }
+    bool canShiftRight() const { return m_windowStart + DISPLAY_WINDOW_SIZE < static_cast<int>(m_shotIds.size()); }
+
+    // Add/remove shots to comparison (unlimited)
     Q_INVOKABLE bool addShot(qint64 shotId);
     Q_INVOKABLE void removeShot(qint64 shotId);
     Q_INVOKABLE void clearAll();
     Q_INVOKABLE bool hasShotId(qint64 shotId) const;
 
-    // Get data for specific shot (0, 1, or 2)
+    // Window navigation (shift by 1 shot at a time)
+    Q_INVOKABLE void shiftWindowLeft();   // Show older shots
+    Q_INVOKABLE void shiftWindowRight();  // Show newer shots
+    Q_INVOKABLE void setWindowStart(int index);
+
+    // Get data for specific shot in display window (0, 1, or 2)
     Q_INVOKABLE QVariantList getPressureData(int index) const;
     Q_INVOKABLE QVariantList getFlowData(int index) const;
     Q_INVOKABLE QVariantList getTemperatureData(int index) const;
     Q_INVOKABLE QVariantList getWeightData(int index) const;
     Q_INVOKABLE QVariantList getPhaseMarkers(int index) const;
 
-    // Get shot metadata
+    // Get shot metadata for display window
     Q_INVOKABLE QVariantMap getShotInfo(int index) const;
 
     // Colors for each shot in comparison (consistent assignment)
@@ -54,10 +75,11 @@ public:
 
 signals:
     void shotsChanged();
+    void windowChanged();
     void errorOccurred(const QString& message);
 
 private:
-    void loadShotData();
+    void loadDisplayWindow();
     void calculateMaxValues();
     QVariantList pointsToVariant(const QVector<QPointF>& points) const;
 
@@ -93,15 +115,16 @@ private:
     };
 
     ShotHistoryStorage* m_storage = nullptr;
-    QList<qint64> m_shotIds;
-    QList<ComparisonShot> m_shots;
+    QList<qint64> m_shotIds;              // All selected shot IDs (chronological order)
+    QList<ComparisonShot> m_displayShots; // Currently displayed shots (max 3)
+    int m_windowStart = 0;                // Start index in m_shotIds for display window
 
     double m_maxTime = 60.0;
     double m_maxPressure = 12.0;
     double m_maxFlow = 8.0;
     double m_maxWeight = 50.0;
 
-    static constexpr int MAX_COMPARISON_SHOTS = 3;
+    static constexpr int DISPLAY_WINDOW_SIZE = 3;
     static const QList<QColor> SHOT_COLORS;
     static const QList<QColor> SHOT_COLORS_LIGHT;
 };

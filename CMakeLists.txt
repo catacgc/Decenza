@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Decenza_DE1 VERSION 1.1.37 LANGUAGES CXX)
+project(Decenza_DE1 VERSION 1.1.38 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -93,6 +93,7 @@ set(SOURCES
     src/core/batterymanager.cpp
     src/core/accessibilitymanager.cpp
     src/core/autowakemanager.cpp
+    src/core/crashhandler.cpp
     src/core/profilestorage.cpp
     src/core/translationmanager.cpp
     src/core/updatechecker.cpp
@@ -144,6 +145,7 @@ set(SOURCES
     src/network/webdebuglogger.cpp
     src/network/locationprovider.cpp
     src/network/shotreporter.cpp
+    src/network/crashreporter.cpp
 )
 
 # Simulator files - Windows Debug only
@@ -167,6 +169,7 @@ set(HEADERS
     src/core/batterymanager.h
     src/core/accessibilitymanager.h
     src/core/autowakemanager.h
+    src/core/crashhandler.h
     src/core/profilestorage.h
     src/core/translationmanager.h
     src/core/updatechecker.h
@@ -219,6 +222,7 @@ set(HEADERS
     src/network/webdebuglogger.h
     src/network/locationprovider.h
     src/network/shotreporter.h
+    src/network/crashreporter.h
 )
 
 # Simulator headers - Windows Debug only
@@ -362,6 +366,8 @@ set(QML_FILES
     qml/components/StrangeAttractorScreensaver.qml
     qml/components/ShotMapScreensaver.qml
     qml/components/UnsavedChangesDialog.qml
+    qml/components/SwipeableArea.qml
+    qml/components/CrashReportDialog.qml
 )
 
 # Simulator QML - Windows Debug only

@@ -13,8 +13,17 @@ Page {
     property var shotData: ({})
     property string pendingShotSummary: ""
 
+    // Shot navigation - list of shot IDs to swipe through
+    property var shotIds: []  // Array of shot IDs (chronological order)
+    property int currentIndex: -1  // Current position in shotIds
+
     Component.onCompleted: {
         root.currentPageTitle = TranslationManager.translate("shotdetail.title", "Shot Detail")
+        // Initialize currentIndex if shotIds provided
+        if (shotIds.length > 0 && currentIndex < 0) {
+            currentIndex = shotIds.indexOf(shotId)
+            if (currentIndex < 0) currentIndex = 0
+        }
         loadShot()
     }
 
@@ -22,6 +31,22 @@ Page {
         if (shotId > 0) {
             shotData = MainController.shotHistory.getShot(shotId)
         }
+    }
+
+    function navigateToShot(index) {
+        if (index >= 0 && index < shotIds.length) {
+            currentIndex = index
+            shotId = shotIds[index]
+            loadShot()
+        }
+    }
+
+    function canGoNext() {
+        return shotIds.length > 0 && currentIndex < shotIds.length - 1
+    }
+
+    function canGoPrevious() {
+        return shotIds.length > 0 && currentIndex > 0
     }
 
     function formatRatio() {
@@ -64,12 +89,17 @@ Page {
                 }
             }
 
-            // Graph
+            // Graph with swipe navigation
             Rectangle {
+                id: graphCard
                 Layout.fillWidth: true
                 Layout.preferredHeight: Theme.scaled(250)
                 color: Theme.surfaceColor
                 radius: Theme.cardRadius
+                clip: true
+
+                // Visual offset during swipe
+                transform: Translate { x: graphSwipeArea.swipeOffset * 0.3 }
 
                 HistoryShotGraph {
                     anchors.fill: parent
@@ -80,6 +110,37 @@ Page {
                     weightData: shotData.weight || []
                     phaseMarkers: shotData.phases || []
                     maxTime: shotData.duration || 60
+                }
+
+                // Swipe handler overlay
+                SwipeableArea {
+                    id: graphSwipeArea
+                    anchors.fill: parent
+                    canSwipeLeft: canGoNext()
+                    canSwipeRight: canGoPrevious()
+
+                    onSwipedLeft: navigateToShot(currentIndex + 1)
+                    onSwipedRight: navigateToShot(currentIndex - 1)
+                }
+
+                // Position indicator (only show if navigating through multiple shots)
+                Rectangle {
+                    visible: shotIds.length > 1
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottomMargin: Theme.spacingSmall
+                    width: positionText.width + Theme.scaled(16)
+                    height: Theme.scaled(24)
+                    radius: Theme.scaled(12)
+                    color: Qt.rgba(0, 0, 0, 0.5)
+
+                    Text {
+                        id: positionText
+                        anchors.centerIn: parent
+                        text: (currentIndex + 1) + " / " + shotIds.length
+                        font: Theme.captionFont
+                        color: "white"
+                    }
                 }
             }
 
