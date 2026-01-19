@@ -70,26 +70,10 @@ Item {
                     }
 
                     // Broker Host
-                    RowLayout {
-                        Layout.fillWidth: true
-                        spacing: Theme.scaled(10)
-
-                        Text {
-                            text: "Broker Host"
-                            color: Theme.textSecondaryColor
-                            font.pixelSize: Theme.scaled(11)
-                            Layout.fillWidth: true
-                        }
-
-                        StyledButton {
-                            text: "Scan"
-                            primary: true
-                            enabled: !MainController.mdnsDiscovery.scanning
-                            onClicked: {
-                                MainController.mdnsDiscovery.clearServices()
-                                MainController.mdnsDiscovery.startDiscovery()
-                            }
-                        }
+                    Text {
+                        text: "Broker Host"
+                        color: Theme.textSecondaryColor
+                        font.pixelSize: Theme.scaled(11)
                     }
 
                     StyledTextField {
@@ -97,67 +81,6 @@ Item {
                         Layout.fillWidth: true
                         text: Settings.mqttBrokerHost
                         onEditingFinished: Settings.mqttBrokerHost = text
-                    }
-
-                    // Discovered services list (visible when scanning or services found)
-                    Rectangle {
-                        Layout.fillWidth: true
-                        height: Theme.scaled(80)
-                        color: Theme.backgroundColor
-                        radius: Theme.scaled(4)
-                        visible: MainController.mdnsDiscovery.scanning || MainController.mdnsDiscovery.discoveredServices.length > 0
-
-                        ListView {
-                            anchors.fill: parent
-                            anchors.margins: Theme.scaled(4)
-                            model: MainController.mdnsDiscovery.discoveredServices
-                            clip: true
-
-                            delegate: Rectangle {
-                                width: ListView.view.width
-                                height: Theme.scaled(30)
-                                color: mouseArea.containsMouse ? Theme.highlightColor : "transparent"
-                                radius: Theme.scaled(4)
-
-                                MouseArea {
-                                    id: mouseArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onClicked: {
-                                        Settings.mqttBrokerHost = modelData.host
-                                        Settings.mqttBrokerPort = modelData.port
-                                    }
-                                }
-
-                                RowLayout {
-                                    anchors.fill: parent
-                                    anchors.margins: Theme.scaled(4)
-
-                                    Text {
-                                        text: modelData.name || modelData.host
-                                        color: Theme.textColor
-                                        font.pixelSize: Theme.scaled(11)
-                                        Layout.fillWidth: true
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        text: modelData.host + ":" + modelData.port
-                                        color: Theme.textSecondaryColor
-                                        font.pixelSize: Theme.scaled(10)
-                                    }
-                                }
-                            }
-
-                            // Empty state
-                            Text {
-                                anchors.centerIn: parent
-                                text: MainController.mdnsDiscovery.scanning ? "Scanning..." : "No brokers found"
-                                color: Theme.textSecondaryColor
-                                font.pixelSize: Theme.scaled(11)
-                                visible: MainController.mdnsDiscovery.discoveredServices.length === 0
-                            }
-                        }
                     }
 
                     // Port
