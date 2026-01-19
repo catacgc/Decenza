@@ -52,7 +52,7 @@ Page {
         onCurrentIndexChanged: {
             if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
                 // Build tab names based on which tabs are visible
-                var tabNames = ["Bluetooth", "Preferences", "Options", "Screensaver", "Visualizer", "AI", "Accessibility", "Themes", "Language", "History", "Data", "Home"]
+                var tabNames = ["Bluetooth", "Preferences", "Options", "Screensaver", "Visualizer", "AI", "Accessibility", "Themes", "Language", "History", "Data", "MQTT"]
                 if (MainController.updateChecker.canCheckForUpdates) tabNames.push("Update")
                 tabNames.push("About")
                 if (Settings.isDebugBuild) tabNames.push("Debug")
@@ -164,9 +164,9 @@ Page {
         }
 
         StyledTabButton {
-            id: homeAutomationTabButton
-            text: TranslationManager.translate("settings.tab.home", "Home")
-            tabLabel: TranslationManager.translate("settings.tab.homeautomation", "Home Automation")
+            id: mqttTabButton
+            text: TranslationManager.translate("settings.tab.mqtt", "MQTT")
+            tabLabel: TranslationManager.translate("settings.tab.mqtt", "MQTT")
         }
 
         StyledTabButton {
