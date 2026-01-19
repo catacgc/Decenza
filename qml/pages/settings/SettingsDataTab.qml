@@ -31,52 +31,21 @@ Item {
                     font.bold: true
                 }
 
-                // Server URL display (when running)
+                // Server status
                 Rectangle {
                     Layout.fillWidth: true
-                    height: Theme.scaled(60)
+                    height: Theme.scaled(50)
                     color: Theme.backgroundColor
                     radius: Theme.scaled(8)
-                    visible: MainController.shotServer.running
-
-                    ColumnLayout {
-                        anchors.centerIn: parent
-                        spacing: Theme.scaled(2)
-
-                        Tr {
-                            key: "settings.data.serverurl"
-                            fallback: "Server URL"
-                            Layout.alignment: Qt.AlignHCenter
-                            color: Theme.textSecondaryColor
-                            font.pixelSize: Theme.scaled(11)
-                        }
-
-                        Text {
-                            Layout.alignment: Qt.AlignHCenter
-                            text: MainController.shotServer.url
-                            color: Theme.accentColor
-                            font.pixelSize: Theme.scaled(14)
-                            font.bold: true
-                        }
-                    }
-                }
-
-                // Not running - show hint to enable in Shot History
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: Theme.scaled(60)
-                    color: Theme.backgroundColor
-                    radius: Theme.scaled(8)
-                    visible: !MainController.shotServer.running
 
                     Tr {
                         anchors.fill: parent
                         anchors.margins: Theme.scaled(8)
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
-                        key: "settings.data.enableinhistory"
-                        fallback: "Enable 'Remote Access' in the Shot History tab to share data."
-                        color: Theme.textSecondaryColor
+                        key: MainController.shotServer.running ? "settings.data.serverready" : "settings.data.enableinhistory"
+                        fallback: MainController.shotServer.running ? "Server is ready for connections." : "Enable 'Remote Access' in the Shot History tab to share data."
+                        color: MainController.shotServer.running ? Theme.successColor : Theme.textSecondaryColor
                         font.pixelSize: Theme.scaled(11)
                         wrapMode: Text.WordWrap
                     }
