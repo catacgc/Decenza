@@ -33,6 +33,11 @@ BLEManager::BLEManager(QObject* parent)
     m_scaleConnectionTimer->setSingleShot(true);
     m_scaleConnectionTimer->setInterval(20000);
     connect(m_scaleConnectionTimer, &QTimer::timeout, this, &BLEManager::onScaleConnectionTimeout);
+
+    // Periodic reconnect timer - tries to reconnect when scale disconnects
+    m_scaleReconnectTimer = new QTimer(this);
+    m_scaleReconnectTimer->setInterval(5000);  // Try every 5 seconds
+    connect(m_scaleReconnectTimer, &QTimer::timeout, this, &BLEManager::onScaleReconnectTimeout);
 }
 
 BLEManager::~BLEManager() {
@@ -44,8 +49,11 @@ BLEManager::~BLEManager() {
 void BLEManager::setDisabled(bool disabled) {
     if (m_disabled != disabled) {
         m_disabled = disabled;
-        if (m_disabled && m_scanning) {
-            stopScan();
+        if (m_disabled) {
+            if (m_scanning) {
+                stopScan();
+            }
+            m_scaleReconnectTimer->stop();  // Stop auto-reconnect in simulator mode
         }
         qDebug() << "BLEManager: BLE operations" << (disabled ? "disabled (simulator mode)" : "enabled");
         emit disabledChanged();
@@ -347,13 +355,22 @@ void BLEManager::setScaleDevice(ScaleDevice* scale) {
 
 void BLEManager::onScaleConnectedChanged() {
     if (m_scaleDevice && m_scaleDevice->isConnected()) {
-        // Scale connected - stop timeout timer, clear failure flag, clear direct connect state
+        // Scale connected - stop timers, clear failure flag, clear direct connect state
         m_scaleConnectionTimer->stop();
+        m_scaleReconnectTimer->stop();
         m_directConnectInProgress = false;
         m_directConnectAddress.clear();
         if (m_scaleConnectionFailed) {
             m_scaleConnectionFailed = false;
             emit scaleConnectionFailedChanged();
+        }
+        qDebug() << "BLEManager: Scale connected, stopping reconnect timer";
+    } else if (!m_savedScaleAddress.isEmpty()) {
+        // Scale disconnected and we have a saved scale - start periodic reconnect
+        if (!m_scaleReconnectTimer->isActive()) {
+            qDebug() << "BLEManager: Scale disconnected, starting periodic reconnect timer (5s interval)";
+            appendScaleLog("Scale disconnected, will attempt reconnect every 5 seconds");
+            m_scaleReconnectTimer->start();
         }
     }
 }
@@ -370,6 +387,29 @@ void BLEManager::onScaleConnectionTimeout() {
     }
 }
 
+void BLEManager::onScaleReconnectTimeout() {
+    // Skip if already connected or no saved scale
+    if (m_scaleDevice && m_scaleDevice->isConnected()) {
+        m_scaleReconnectTimer->stop();
+        return;
+    }
+
+    if (m_savedScaleAddress.isEmpty()) {
+        m_scaleReconnectTimer->stop();
+        return;
+    }
+
+    // Skip if a connection attempt is already in progress
+    if (m_directConnectInProgress) {
+        qDebug() << "BLEManager: Skipping reconnect - connection already in progress";
+        return;
+    }
+
+    qDebug() << "BLEManager: Periodic reconnect - attempting to connect to saved scale";
+    appendScaleLog("Auto-reconnect: attempting to connect...");
+    tryDirectConnectToScale();
+}
+
 void BLEManager::setSavedScaleAddress(const QString& address, const QString& type, const QString& name) {
     m_savedScaleAddress = address;
     m_savedScaleType = type;
@@ -381,6 +421,7 @@ void BLEManager::clearSavedScale() {
     m_savedScaleType.clear();
     m_savedScaleName.clear();
     m_scaleConnectionFailed = false;
+    m_scaleReconnectTimer->stop();  // Stop auto-reconnect when scale is forgotten
     emit scaleConnectionFailedChanged();
 }
 
