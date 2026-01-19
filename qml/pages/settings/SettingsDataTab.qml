@@ -31,39 +31,7 @@ Item {
                     font.bold: true
                 }
 
-                Tr {
-                    key: "settings.data.sharedesc"
-                    fallback: "Enable the server to share your data with another device on your WiFi network."
-                    color: Theme.textSecondaryColor
-                    font.pixelSize: Theme.scaled(11)
-                    wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
-                }
-
-                Item { height: Theme.scaled(5) }
-
-                // Server toggle
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: Theme.scaled(8)
-
-                    Tr {
-                        key: "settings.data.serverenabled"
-                        fallback: "Data Server"
-                        color: Theme.textColor
-                        font.pixelSize: Theme.scaled(13)
-                    }
-
-                    Item { Layout.fillWidth: true }
-
-                    StyledSwitch {
-                        checked: Settings.shotServerEnabled
-                        accessibleName: TranslationManager.translate("settings.data.serverenabled", "Data Server")
-                        onToggled: Settings.shotServerEnabled = checked
-                    }
-                }
-
-                // Server URL display
+                // Server URL display (when running)
                 Rectangle {
                     Layout.fillWidth: true
                     height: Theme.scaled(60)
@@ -93,7 +61,7 @@ Item {
                     }
                 }
 
-                // Not running message
+                // Not running - show hint to enable in Shot History
                 Rectangle {
                     Layout.fillWidth: true
                     height: Theme.scaled(60)
@@ -102,11 +70,15 @@ Item {
                     visible: !MainController.shotServer.running
 
                     Tr {
-                        anchors.centerIn: parent
-                        key: "settings.data.serveroff"
-                        fallback: "Server is off"
+                        anchors.fill: parent
+                        anchors.margins: Theme.scaled(8)
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        key: "settings.data.enableinhistory"
+                        fallback: "Enable 'Remote Access' in the Shot History tab to share data."
                         color: Theme.textSecondaryColor
-                        font.pixelSize: Theme.scaled(13)
+                        font.pixelSize: Theme.scaled(11)
+                        wrapMode: Text.WordWrap
                     }
                 }
 
