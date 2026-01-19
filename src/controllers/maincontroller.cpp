@@ -722,6 +722,7 @@ void MainController::loadProfile(const QString& profileName) {
         // Sync selectedFavoriteProfile with the loaded profile
         // This ensures the UI shows the correct pill as selected, or -1 if not a favorite
         int favoriteIndex = m_settings->findFavoriteIndexByFilename(profileName);
+        qDebug() << "loadProfile: profileName=" << profileName << "favoriteIndex=" << favoriteIndex;
         m_settings->setSelectedFavoriteProfile(favoriteIndex);
     }
 

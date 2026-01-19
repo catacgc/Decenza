@@ -1060,21 +1060,20 @@ Page {
         }
     }
 
-    // Load recipe when page opens
+    // Load recipe when page is actually navigated to (not just instantiated)
     Component.onCompleted: {
+        // Don't create recipe here - wait for StackView.onActivated
+        // Component.onCompleted fires during instantiation which may happen at app startup
+    }
+
+    StackView.onActivated: {
         // If not already in recipe mode, create a new recipe from current profile settings
         if (!MainController.isCurrentProfileRecipe) {
             MainController.createNewRecipe(MainController.currentProfileName || "New Recipe")
         }
         loadCurrentProfile()
-        // Schedule a delayed refresh to ensure chart is ready
-        delayedRefreshTimer.start()
-    }
-
-    StackView.onActivated: {
-        loadCurrentProfile()
         root.currentPageTitle = MainController.currentProfileName || qsTr("Recipe Editor")
-        // Schedule a delayed refresh
+        // Schedule a delayed refresh to ensure chart is ready
         delayedRefreshTimer.start()
     }
 }
