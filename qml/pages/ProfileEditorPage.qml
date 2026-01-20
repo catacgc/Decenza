@@ -294,7 +294,14 @@ Page {
                     AccessibleButton {
                         Layout.fillWidth: true
                         visible: profile !== null
-                        text: qsTr("Profile Settings") + (profile ? " (" + profile.target_weight.toFixed(0) + "g, " + (profile.steps.length > 0 ? profile.steps[0].temperature.toFixed(0) : "93") + "°C)" : "")
+                        text: {
+                            if (!profile) return qsTr("Profile Settings")
+                            var stopAtValue = profile.stop_at_type === "volume"
+                                ? (profile.target_volume || 36).toFixed(0) + "ml"
+                                : (profile.target_weight || 36).toFixed(0) + "g"
+                            var temp = profile.steps.length > 0 ? profile.steps[0].temperature.toFixed(0) : "93"
+                            return qsTr("Profile Settings") + " (" + stopAtValue + ", " + temp + "°C)"
+                        }
                         accessibleName: qsTr("Open profile settings")
                         onClicked: profileSettingsPopup.open()
                         background: Rectangle {
@@ -351,7 +358,7 @@ Page {
                 color: Theme.textColor
             }
 
-            // Stop at weight
+            // Stop at weight/volume toggle
             RowLayout {
                 Layout.fillWidth: true
                 spacing: Theme.scaled(12)
@@ -363,22 +370,82 @@ Page {
                     Layout.preferredWidth: Theme.scaled(80)
                 }
 
+                RowLayout {
+                    spacing: Theme.scaled(15)
+
+                    RadioButton {
+                        id: stopAtWeightRadio
+                        text: qsTr("Weight")
+                        checked: !profile || profile.stop_at_type !== "volume"
+                        contentItem: Text {
+                            text: parent.text
+                            font: Theme.bodyFont
+                            color: Theme.weightColor
+                            leftPadding: parent.indicator.width + parent.spacing
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onToggled: {
+                            if (checked && profile) {
+                                profile.stop_at_type = "weight"
+                                uploadProfile()
+                            }
+                        }
+                    }
+
+                    RadioButton {
+                        id: stopAtVolumeRadio
+                        text: qsTr("Volume")
+                        checked: profile && profile.stop_at_type === "volume"
+                        contentItem: Text {
+                            text: parent.text
+                            font: Theme.bodyFont
+                            color: Theme.flowColor
+                            leftPadding: parent.indicator.width + parent.spacing
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onToggled: {
+                            if (checked && profile) {
+                                profile.stop_at_type = "volume"
+                                uploadProfile()
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Stop at value (weight or volume)
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.scaled(12)
+
+                Text {
+                    text: stopAtVolumeRadio.checked ? qsTr("Volume") : qsTr("Weight")
+                    font: Theme.bodyFont
+                    color: Theme.textSecondaryColor
+                    Layout.preferredWidth: Theme.scaled(80)
+                }
+
                 ValueInput {
-                    id: targetWeightInput
+                    id: targetValueInput
                     Layout.fillWidth: true
                     from: 0
                     to: 100
                     value: {
                         stepVersion  // Force re-evaluation on profile changes
-                        return profile ? profile.target_weight : 36
+                        if (!profile) return 36
+                        return stopAtVolumeRadio.checked ? (profile.target_volume || 36) : (profile.target_weight || 36)
                     }
                     stepSize: 1
-                    suffix: "g"
-                    valueColor: Theme.weightColor
-                    accentColor: Theme.weightColor
+                    suffix: stopAtVolumeRadio.checked ? " ml" : " g"
+                    valueColor: stopAtVolumeRadio.checked ? Theme.flowColor : Theme.weightColor
+                    accentColor: stopAtVolumeRadio.checked ? Theme.flowColor : Theme.weightColor
                     onValueModified: function(newValue) {
                         if (profile) {
-                            profile.target_weight = newValue
+                            if (stopAtVolumeRadio.checked) {
+                                profile.target_volume = newValue
+                            } else {
+                                profile.target_weight = newValue
+                            }
                             uploadProfile()
                         }
                     }
@@ -427,21 +494,9 @@ Page {
             AccessibleButton {
                 Layout.alignment: Qt.AlignRight
                 text: qsTr("Done")
+                primary: true
                 accessibleName: qsTr("Close profile settings")
                 onClicked: profileSettingsPopup.close()
-                background: Rectangle {
-                    implicitWidth: Theme.scaled(80)
-                    implicitHeight: Theme.scaled(36)
-                    color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                    radius: Theme.scaled(8)
-                }
-                contentItem: Text {
-                    text: parent.text
-                    font: Theme.bodyFont
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
         }
     }
@@ -474,8 +529,15 @@ Page {
         }
         Rectangle { width: 1; height: Theme.scaled(30); color: "white"; opacity: 0.3; visible: profile }
         Text {
-            text: profile ? profile.target_weight.toFixed(0) + "g" : ""
-            color: "white"
+            text: {
+                if (!profile) return ""
+                if (profile.stop_at_type === "volume") {
+                    return (profile.target_volume || 36).toFixed(0) + "ml"
+                } else {
+                    return (profile.target_weight || 36).toFixed(0) + "g"
+                }
+            }
+            color: profile && profile.stop_at_type === "volume" ? Theme.flowColor : Theme.weightColor
             font: Theme.bodyFont
         }
         StyledButton {
@@ -1640,6 +1702,8 @@ Page {
                 title: MainController.currentProfileName || "New Profile",
                 steps: [],
                 target_weight: MainController.targetWeight || 36,
+                target_volume: 36,
+                stop_at_type: "weight",
                 espresso_temperature: 93,
                 mode: "frame_based"
             }

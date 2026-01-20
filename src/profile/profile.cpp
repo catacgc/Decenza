@@ -239,6 +239,7 @@ QJsonDocument Profile::toJson() const {
     obj["profile_type"] = m_profileType;
     obj["target_weight"] = m_targetWeight;
     obj["target_volume"] = m_targetVolume;
+    obj["stop_at_type"] = (m_stopAtType == StopAtType::Volume) ? "volume" : "weight";
     obj["espresso_temperature"] = m_espressoTemperature;
     obj["maximum_pressure"] = m_maximumPressure;
     obj["maximum_flow"] = m_maximumFlow;
@@ -278,6 +279,8 @@ Profile Profile::fromJson(const QJsonDocument& doc) {
     profile.m_profileType = obj["profile_type"].toString("settings_2c");
     profile.m_targetWeight = obj["target_weight"].toDouble(36.0);
     profile.m_targetVolume = obj["target_volume"].toDouble(36.0);
+    QString stopAtStr = obj["stop_at_type"].toString("weight");
+    profile.m_stopAtType = (stopAtStr == "volume") ? StopAtType::Volume : StopAtType::Weight;
     profile.m_espressoTemperature = obj["espresso_temperature"].toDouble(93.0);
     profile.m_maximumPressure = obj["maximum_pressure"].toDouble(12.0);
     profile.m_maximumFlow = obj["maximum_flow"].toDouble(6.0);

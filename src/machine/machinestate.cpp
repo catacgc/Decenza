@@ -98,6 +98,17 @@ void MachineState::setTargetWeight(double weight) {
     }
 }
 
+void MachineState::setTargetVolume(double volume) {
+    if (m_targetVolume != volume) {
+        m_targetVolume = volume;
+        emit targetVolumeChanged();
+    }
+}
+
+void MachineState::setStopAtType(StopAtType type) {
+    m_stopAtType = type;
+}
+
 void MachineState::onDE1StateChanged() {
     updatePhase();
 }
@@ -216,7 +227,9 @@ void MachineState::updatePhase() {
         if (isFlowing() && !wasFlowing) {
             startShotTimer();
             m_stopAtWeightTriggered = false;
+            m_stopAtVolumeTriggered = false;
             m_stopAtTimeTriggered = false;
+            m_cumulativeVolume = 0.0;  // Reset volume tracking
 
             // CRITICAL: Clear any pending BLE commands to prevent stale profile uploads
             // from executing during active operations. This fixes a bug where queued
@@ -300,7 +313,11 @@ void MachineState::onScaleWeightChanged(double weight) {
     m_lastIdleWeight = 0.0;
 
     DE1::State state = m_device->state();
-    if (state == DE1::State::Espresso || state == DE1::State::HotWater) {
+    // For espresso: only check weight when stopAtType is Weight (Volume checked in onFlowSample)
+    // For hot water: always check weight (no volume option)
+    if (state == DE1::State::HotWater) {
+        checkStopAtWeight(weight);
+    } else if (state == DE1::State::Espresso && m_stopAtType == StopAtType::Weight) {
         checkStopAtWeight(weight);
     }
 }
@@ -343,6 +360,35 @@ void MachineState::checkStopAtWeight(double weight) {
     }
 }
 
+void MachineState::checkStopAtVolume() {
+    if (m_stopAtVolumeTriggered) return;
+    if (!m_tareCompleted) return;  // Don't check until tare has happened
+
+    double target = m_targetVolume;
+    if (target <= 0) return;
+
+    // Get current flow rate for lag compensation
+    double flowRate = m_scale ? m_scale->flowRate() : 0;
+    if (flowRate > 10.0) flowRate = 10.0;  // Cap to reasonable range
+    if (flowRate < 0) flowRate = 0;
+
+    // Use same lag compensation as weight-based stop
+    double lagSeconds = 0.5;
+    double lagCompensation = flowRate * lagSeconds;
+
+    if (m_cumulativeVolume >= (target - lagCompensation)) {
+        m_stopAtVolumeTriggered = true;
+        emit targetVolumeReached();
+
+        qDebug() << "MachineState: Target volume reached -" << m_cumulativeVolume << "ml /" << target << "ml";
+
+        // Stop the operation
+        if (m_device) {
+            m_device->stopOperation();
+        }
+    }
+}
+
 void MachineState::onFlowSample(double flowRate, double deltaTime) {
     // Only process during active dispensing states
     auto state = m_device->state();
@@ -355,6 +401,19 @@ void MachineState::onFlowSample(double flowRate, double deltaTime) {
     // Forward flow samples to the scale (FlowScale will integrate, physical scales ignore)
     if (m_scale) {
         m_scale->addFlowSample(flowRate, deltaTime);
+    }
+
+    // Integrate flow to track cumulative volume (ml)
+    // flowRate is in ml/s, deltaTime is in seconds
+    double volumeDelta = flowRate * deltaTime;
+    if (volumeDelta > 0) {
+        m_cumulativeVolume += volumeDelta;
+        emit cumulativeVolumeChanged();
+
+        // Check if we should stop at volume (only during espresso)
+        if (state == DE1::State::Espresso && m_stopAtType == StopAtType::Volume) {
+            checkStopAtVolume();
+        }
     }
 }
 

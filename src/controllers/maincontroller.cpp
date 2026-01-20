@@ -554,6 +554,8 @@ QVariantMap MainController::getCurrentProfile() const {
     QVariantMap profile;
     profile["title"] = m_currentProfile.title();
     profile["target_weight"] = m_currentProfile.targetWeight();
+    profile["target_volume"] = m_currentProfile.targetVolume();
+    profile["stop_at_type"] = m_currentProfile.stopAtType() == Profile::StopAtType::Volume ? "volume" : "weight";
     profile["espresso_temperature"] = m_currentProfile.espressoTemperature();
     profile["mode"] = m_currentProfile.mode() == Profile::Mode::FrameBased ? "frame_based" : "direct";
 
@@ -728,6 +730,11 @@ void MainController::loadProfile(const QString& profileName) {
 
     if (m_machineState) {
         m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+        m_machineState->setTargetVolume(m_currentProfile.targetVolume());
+        m_machineState->setStopAtType(
+            m_currentProfile.stopAtType() == Profile::StopAtType::Volume
+                ? MachineState::StopAtType::Volume
+                : MachineState::StopAtType::Weight);
     }
 
     // Upload to machine if connected (for frame-based mode)
@@ -774,6 +781,11 @@ bool MainController::loadProfileFromJson(const QString& jsonContent) {
 
     if (m_machineState) {
         m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+        m_machineState->setTargetVolume(m_currentProfile.targetVolume());
+        m_machineState->setStopAtType(
+            m_currentProfile.stopAtType() == Profile::StopAtType::Volume
+                ? MachineState::StopAtType::Volume
+                : MachineState::StopAtType::Weight);
     }
 
     // Upload to machine if connected (for frame-based mode)
@@ -1050,6 +1062,20 @@ void MainController::uploadProfile(const QVariantMap& profileData) {
         m_currentProfile.setTargetWeight(profileData["target_weight"].toDouble());
         if (m_machineState) {
             m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+        }
+    }
+    if (profileData.contains("target_volume")) {
+        m_currentProfile.setTargetVolume(profileData["target_volume"].toDouble());
+        if (m_machineState) {
+            m_machineState->setTargetVolume(m_currentProfile.targetVolume());
+        }
+    }
+    if (profileData.contains("stop_at_type")) {
+        QString typeStr = profileData["stop_at_type"].toString();
+        Profile::StopAtType type = (typeStr == "volume") ? Profile::StopAtType::Volume : Profile::StopAtType::Weight;
+        m_currentProfile.setStopAtType(type);
+        if (m_machineState) {
+            m_machineState->setStopAtType(type == Profile::StopAtType::Volume ? MachineState::StopAtType::Volume : MachineState::StopAtType::Weight);
         }
     }
 
