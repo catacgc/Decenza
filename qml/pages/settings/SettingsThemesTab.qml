@@ -132,20 +132,11 @@ Item {
                     Layout.fillWidth: true
                     spacing: Theme.spacingSmall
 
-                    StyledButton {
+                    AccessibleButton {
                         text: TranslationManager.translate("settings.themes.reset", "Reset")
+                        accessibleName: qsTr("Reset theme colors to default")
+                        destructive: true
                         onClicked: Settings.resetThemeToDefault()
-                        background: Rectangle {
-                            color: Theme.errorColor
-                            radius: Theme.buttonRadius
-                            opacity: parent.pressed ? 0.8 : 1.0
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
                     }
 
                     Item { Layout.fillWidth: true }
@@ -297,10 +288,11 @@ Item {
                 }
 
                 // Random theme button
-                StyledButton {
+                AccessibleButton {
+                    id: randomThemeBtn
                     Layout.fillWidth: true
-                    property string buttonText: TranslationManager.translate("settings.themes.randomTheme", "Random Theme")
-                    text: buttonText
+                    text: TranslationManager.translate("settings.themes.randomTheme", "Random Theme")
+                    accessibleName: qsTr("Apply a random color theme")
                     onClicked: {
                         var randomHue = Math.random() * 360
                         var randomSat = 65 + Math.random() * 20  // 65-85%
@@ -319,10 +311,10 @@ Item {
                             GradientStop { position: 1.0; color: "#9b59b6" }
                         }
                         radius: Theme.buttonRadius
-                        opacity: parent.pressed ? 0.8 : 1.0
+                        opacity: randomThemeBtn.pressed ? 0.8 : 1.0
                     }
                     contentItem: Text {
-                        text: parent.buttonText
+                        text: randomThemeBtn.text
                         color: "white"
                         font.pixelSize: Theme.bodyFont.pixelSize
                         font.bold: true

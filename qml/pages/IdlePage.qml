@@ -168,7 +168,7 @@ Page {
                     onDoubleClicked: root.goToProfileSelector()
 
                     KeyNavigation.right: steamButton
-                    KeyNavigation.down: activePresetFunction === "espresso" ? espressoPresetRow : sleepButton
+                    KeyNavigation.down: sleepButton
 
                     Accessible.description: TranslationManager.translate("idle.accessible.espresso.description", "Start espresso. Double-tap to select profile. Long-press for settings.")
                 }

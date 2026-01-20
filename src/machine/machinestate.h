@@ -22,6 +22,7 @@ class MachineState : public QObject {
     Q_PROPERTY(double scaleWeight READ scaleWeight NOTIFY scaleWeightChanged)
     Q_PROPERTY(double scaleFlowRate READ scaleFlowRate NOTIFY scaleWeightChanged)
     Q_PROPERTY(double cumulativeVolume READ cumulativeVolume NOTIFY cumulativeVolumeChanged)
+    Q_PROPERTY(StopAtType stopAtType READ stopAtType NOTIFY stopAtTypeChanged)
 
 public:
     enum class Phase {
@@ -85,6 +86,7 @@ signals:
     void targetWeightChanged();
     void targetVolumeChanged();
     void cumulativeVolumeChanged();
+    void stopAtTypeChanged();
     void scaleWeightChanged();
     void espressoCycleStarted();  // When entering espresso preheating (clear graph here)
     void shotStarted();           // When extraction actually begins (flow starts)

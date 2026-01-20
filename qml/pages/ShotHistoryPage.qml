@@ -251,41 +251,18 @@ Page {
                 Layout.fillWidth: true
             }
 
-            StyledButton {
+            AccessibleButton {
                 text: TranslationManager.translate("shothistory.clear", "Clear")
+                accessibleName: qsTr("Clear shot selection")
                 onClicked: clearSelection()
-
-                background: Rectangle {
-                    color: "transparent"
-                    radius: Theme.buttonRadius
-                    border.color: Theme.borderColor
-                    border.width: 1
-                }
-                contentItem: Text {
-                    text: parent.text
-                    font: Theme.labelFont
-                    color: Theme.textColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
 
-            StyledButton {
+            AccessibleButton {
                 text: TranslationManager.translate("shothistory.compare", "Compare")
+                accessibleName: qsTr("Compare selected shots side by side")
+                primary: true
                 enabled: selectedShots.length >= 2
                 onClicked: openComparison()
-
-                background: Rectangle {
-                    color: parent.enabled ? Theme.primaryColor : Theme.buttonDisabled
-                    radius: Theme.buttonRadius
-                }
-                contentItem: Text {
-                    text: parent.text
-                    font: Theme.labelFont
-                    color: parent.enabled ? "white" : Theme.textSecondaryColor
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
         }
 

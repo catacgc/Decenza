@@ -783,40 +783,28 @@ Page {
             RowLayout {
                 spacing: Theme.scaled(10)
 
-                StyledButton {
-                    id: deletePitcherBtn
+                AccessibleButton {
                     text: deleteButtonText.text
+                    accessibleName: qsTr("Delete this pitcher preset")
+                    destructive: true
                     onClicked: {
                         Settings.removeSteamPitcherPreset(editingPitcherIndex)
                         editPitcherPopup.close()
-                    }
-                    // Red background for destructive action
-                    background: Rectangle {
-                        implicitWidth: deletePitcherBtn.implicitWidth
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: deletePitcherBtn.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
-                    }
-                    contentItem: Text {
-                        text: deletePitcherBtn.text
-                        font.pixelSize: Theme.scaled(14)
-                        font.family: Theme.bodyFont.family
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: cancelButtonText.text
+                    accessibleName: qsTr("Cancel editing pitcher preset")
                     onClicked: editPitcherPopup.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: saveButtonText.text
+                    accessibleName: qsTr("Save changes to pitcher preset")
                     onClicked: {
                         var preset = Settings.getSteamPitcherPreset(editingPitcherIndex)
                         Settings.updateSteamPitcherPreset(editingPitcherIndex, editPitcherNameInput.text, preset.duration, preset.flow)
@@ -908,14 +896,16 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: addCancelButtonText.text
+                    accessibleName: qsTr("Cancel adding new pitcher preset")
                     onClicked: addPitcherDialog.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: addButtonText.text
+                    accessibleName: qsTr("Add new pitcher preset with entered name")
                     onClicked: {
                         if (newPitcherName.text.trim() !== "") {
                             var presetCount = Settings.steamPitcherPresets.length

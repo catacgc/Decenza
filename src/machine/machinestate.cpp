@@ -106,7 +106,10 @@ void MachineState::setTargetVolume(double volume) {
 }
 
 void MachineState::setStopAtType(StopAtType type) {
-    m_stopAtType = type;
+    if (m_stopAtType != type) {
+        m_stopAtType = type;
+        emit stopAtTypeChanged();
+    }
 }
 
 void MachineState::onDE1StateChanged() {

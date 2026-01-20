@@ -174,15 +174,17 @@ Item {
                         Layout.fillWidth: true
                         spacing: Theme.scaled(8)
 
-                        StyledButton {
+                        AccessibleButton {
                             text: "Connect"
+                            accessibleName: qsTr("Connect to MQTT broker for home automation")
                             primary: true
                             enabled: !MainController.mqttClient.connected && Settings.mqttBrokerHost.length > 0
                             onClicked: MainController.mqttClient.connectToBroker()
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             text: "Disconnect"
+                            accessibleName: qsTr("Disconnect from MQTT broker")
                             enabled: MainController.mqttClient.connected
                             onClicked: MainController.mqttClient.disconnectFromBroker()
                         }
@@ -325,8 +327,9 @@ Item {
                         Layout.fillWidth: true
                     }
 
-                    StyledButton {
+                    AccessibleButton {
                         text: "Publish Discovery Now"
+                        accessibleName: qsTr("Publish Home Assistant discovery message")
                         primary: true
                         enabled: MainController.mqttClient.connected
                         onClicked: MainController.mqttClient.publishDiscovery()

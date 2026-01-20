@@ -39,7 +39,10 @@ Page {
                 return "Flow: " + DE1Device.flow.toFixed(1) + " milliliters per second"
             case 4: // Temperature
                 return "Temperature: " + DE1Device.temperature.toFixed(1) + " degrees"
-            case 5: // Weight
+            case 5: // Weight or Volume
+                if (MachineState.stopAtType === MachineStateType.StopAtType.Volume) {
+                    return "Volume: " + MachineState.cumulativeVolume.toFixed(1) + " of " + MachineState.targetVolume.toFixed(0) + " milliliters"
+                }
                 return "Weight: " + espressoPage.currentWeight.toFixed(1) + " of " + MainController.targetWeight.toFixed(0) + " grams"
             default:
                 return ""
@@ -464,28 +467,38 @@ Page {
                 opacity: 0.3
             }
 
-            // Weight with progress
+            // Weight or Volume with progress
             ColumnLayout {
+                id: weightVolumeColumn
                 Layout.fillWidth: true
                 spacing: Theme.scaled(4)
 
+                // Helper properties for weight vs volume mode
+                readonly property bool isVolumeMode: MachineState.stopAtType === MachineStateType.StopAtType.Volume
+                readonly property double currentValue: isVolumeMode ? MachineState.cumulativeVolume : espressoPage.currentWeight
+                readonly property double targetValue: isVolumeMode ? MachineState.targetVolume : MainController.targetWeight
+                readonly property string unit: isVolumeMode ? "ml" : "g"
+                readonly property color displayColor: isVolumeMode ? Theme.flowColor : Theme.weightColor
+
                 Accessible.role: Accessible.StaticText
-                Accessible.name: TranslationManager.translate("espresso.accessible.weight", "Weight:") + " " + espressoPage.currentWeight.toFixed(1) + " " + TranslationManager.translate("espresso.accessible.of", "of") + " " + MainController.targetWeight.toFixed(0) + " " + TranslationManager.translate("espresso.accessible.grams", "grams")
+                Accessible.name: isVolumeMode
+                    ? TranslationManager.translate("espresso.accessible.volume", "Volume:") + " " + currentValue.toFixed(1) + " " + TranslationManager.translate("espresso.accessible.of", "of") + " " + targetValue.toFixed(0) + " " + TranslationManager.translate("espresso.accessible.milliliters", "milliliters")
+                    : TranslationManager.translate("espresso.accessible.weight", "Weight:") + " " + currentValue.toFixed(1) + " " + TranslationManager.translate("espresso.accessible.of", "of") + " " + targetValue.toFixed(0) + " " + TranslationManager.translate("espresso.accessible.grams", "grams")
 
                 RowLayout {
                     spacing: Theme.spacingSmall
 
                     Text {
-                        text: espressoPage.currentWeight.toFixed(1)
-                        color: Theme.weightColor
+                        text: weightVolumeColumn.currentValue.toFixed(1)
+                        color: weightVolumeColumn.displayColor
                         font.pixelSize: Theme.scaled(28)
                         font.weight: Font.Medium
                         Layout.alignment: Qt.AlignBaseline
                     }
                     Text {
-                        text: MainController.brewByRatioActive
+                        text: MainController.brewByRatioActive && !weightVolumeColumn.isVolumeMode
                             ? "1:" + MainController.brewByRatio.toFixed(1) + " (" + MainController.targetWeight.toFixed(0) + "g)"
-                            : "/ " + MainController.targetWeight.toFixed(0) + " g"
+                            : "/ " + weightVolumeColumn.targetValue.toFixed(0) + " " + weightVolumeColumn.unit
                         color: Theme.textSecondaryColor
                         font.pixelSize: Theme.scaled(18)
                         Layout.alignment: Qt.AlignBaseline
@@ -493,11 +506,12 @@ Page {
                 }
 
                 ProgressBar {
+                    id: weightVolumeProgressBar
                     Layout.fillWidth: true
                     Layout.preferredHeight: Theme.spacingSmall
                     from: 0
-                    to: MainController.targetWeight
-                    value: espressoPage.currentWeight
+                    to: weightVolumeColumn.targetValue
+                    value: weightVolumeColumn.currentValue
 
                     background: Rectangle {
                         color: Theme.surfaceColor
@@ -505,10 +519,10 @@ Page {
                     }
 
                     contentItem: Rectangle {
-                        width: parent.visualPosition * parent.width
+                        width: weightVolumeProgressBar.visualPosition * parent.width
                         height: parent.height
                         radius: Theme.scaled(4)
-                        color: Theme.weightColor
+                        color: weightVolumeColumn.displayColor
                     }
                 }
             }

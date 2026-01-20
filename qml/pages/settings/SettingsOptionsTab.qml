@@ -389,8 +389,9 @@ KeyboardAwareContainer {
                                 }
                             }
 
-                            StyledButton {
+                            AccessibleButton {
                                 text: "Test"
+                                accessibleName: qsTr("Test location on shot map")
                                 enabled: MainController.shotReporter && MainController.shotReporter.hasLocation
                                 onClicked: mapTestPopup.open()
                             }
@@ -431,8 +432,9 @@ KeyboardAwareContainer {
 
                         Item { Layout.fillWidth: true }
 
-                        StyledButton {
+                        AccessibleButton {
                             text: "Close"
+                            accessibleName: qsTr("Close map test popup")
                             onClicked: mapTestPopup.close()
                         }
                     }

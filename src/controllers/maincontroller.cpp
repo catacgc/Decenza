@@ -2089,14 +2089,24 @@ void MainController::onShotEnded() {
 
     double duration = m_shotDataModel->rawTime();  // Use rawTime, not maxTime (which is for graph axis)
 
-    // Get final weight from shot data (cumulative weight, not flow rate)
-    const auto& cumulativeWeight = m_shotDataModel->cumulativeWeightData();
-    double finalWeight = 0;
-    if (!cumulativeWeight.isEmpty()) {
-        finalWeight = cumulativeWeight.last().y();
-    }
-
     double doseWeight = m_settings->dyeBeanWeight();  // Use DYE bean weight as dose
+
+    // Get final weight from shot data (cumulative weight, not flow rate)
+    // In volume mode, estimate weight from ml: ml - 5 - dose*0.5
+    // (5g waste tray loss + 50% of dose retained in wet puck)
+    double finalWeight = 0;
+    if (m_machineState && m_machineState->stopAtType() == MachineState::StopAtType::Volume) {
+        double cumulativeVolume = m_machineState->cumulativeVolume();
+        double puckRetention = doseWeight > 0 ? doseWeight * 0.5 : 9.0;  // fallback 9g if no dose
+        finalWeight = cumulativeVolume - 5.0 - puckRetention;
+        if (finalWeight < 0) finalWeight = 0;
+        qDebug() << "Volume mode: estimated weight from" << cumulativeVolume << "ml ->" << finalWeight << "g";
+    } else {
+        const auto& cumulativeWeight = m_shotDataModel->cumulativeWeightData();
+        if (!cumulativeWeight.isEmpty()) {
+            finalWeight = cumulativeWeight.last().y();
+        }
+    }
 
     // Stop debug logging and get the captured log
     QString debugLog;

@@ -138,10 +138,13 @@ Item {
                         Layout.fillWidth: true
                         spacing: Theme.scaled(8)
 
-                        StyledButton {
+                        AccessibleButton {
                             text: MainController.dataMigration.isSearching ?
                                   TranslationManager.translate("settings.data.searching", "Searching...") :
                                   TranslationManager.translate("settings.data.searchdevices", "Search for Devices")
+                            accessibleName: MainController.dataMigration.isSearching ?
+                                  qsTr("Searching for devices on your network") :
+                                  qsTr("Search for other Decenza devices on your network")
                             primary: true
                             enabled: !MainController.dataMigration.isConnecting && !MainController.dataMigration.isImporting &&
                                      !MainController.dataMigration.isSearching
@@ -252,8 +255,9 @@ Item {
                             }
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             text: TranslationManager.translate("settings.data.connect", "Connect")
+                            accessibleName: qsTr("Connect to selected device")
                             enabled: deviceComboBox.currentIndex >= 0
                             onClicked: {
                                 var device = MainController.dataMigration.discoveredDevices[deviceComboBox.currentIndex]
@@ -341,8 +345,9 @@ Item {
                                 Layout.fillWidth: true
                             }
 
-                            StyledButton {
+                            AccessibleButton {
                                 text: TranslationManager.translate("settings.data.disconnect", "Disconnect")
+                                accessibleName: qsTr("Disconnect from remote device")
                                 onClicked: MainController.dataMigration.disconnect()
                             }
                         }
@@ -406,16 +411,18 @@ Item {
                         Layout.fillWidth: true
                         spacing: Theme.scaled(10)
 
-                        StyledButton {
+                        AccessibleButton {
                             primary: true
                             text: TranslationManager.translate("settings.data.importall", "Import All")
+                            accessibleName: qsTr("Import all data from remote device including settings, profiles, shots, and media")
                             visible: !MainController.dataMigration.isImporting
                             enabled: !MainController.dataMigration.isImporting
                             onClicked: MainController.dataMigration.importAll()
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             text: TranslationManager.translate("common.cancel", "Cancel")
+                            accessibleName: qsTr("Cancel import operation")
                             visible: MainController.dataMigration.isImporting
                             onClicked: MainController.dataMigration.cancel()
                         }
@@ -429,29 +436,33 @@ Item {
                         spacing: Theme.scaled(8)
                         visible: !MainController.dataMigration.isImporting
 
-                        StyledButton {
+                        AccessibleButton {
                             text: TranslationManager.translate("settings.data.importsettings", "Import Settings")
+                            accessibleName: qsTr("Import only settings from remote device")
                             enabled: MainController.dataMigration.manifest.hasSettings === true
                             onClicked: MainController.dataMigration.importOnlySettings()
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             text: TranslationManager.translate("settings.data.importprofiles", "Import Profiles") +
                                   " (" + (MainController.dataMigration.manifest.profileCount || 0) + ")"
+                            accessibleName: qsTr("Import only profiles from remote device")
                             enabled: (MainController.dataMigration.manifest.profileCount || 0) > 0
                             onClicked: MainController.dataMigration.importOnlyProfiles()
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             text: TranslationManager.translate("settings.data.importshots", "Import Shots") +
                                   " (" + (MainController.dataMigration.manifest.shotCount || 0) + ")"
+                            accessibleName: qsTr("Import only shot history from remote device")
                             enabled: (MainController.dataMigration.manifest.shotCount || 0) > 0
                             onClicked: MainController.dataMigration.importOnlyShots()
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             text: TranslationManager.translate("settings.data.importmedia", "Import Media") +
                                   " (" + (MainController.dataMigration.manifest.mediaCount || 0) + ")"
+                            accessibleName: qsTr("Import only media files from remote device")
                             enabled: (MainController.dataMigration.manifest.mediaCount || 0) > 0
                             onClicked: MainController.dataMigration.importOnlyMedia()
                         }
@@ -594,9 +605,10 @@ Item {
                 }
             }
 
-            StyledButton {
+            AccessibleButton {
                 Layout.alignment: Qt.AlignHCenter
                 text: TranslationManager.translate("common.ok", "OK")
+                accessibleName: qsTr("Close import complete dialog")
                 onClicked: importCompletePopup.close()
             }
         }

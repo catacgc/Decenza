@@ -874,14 +874,16 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("common.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel saving bean preset")
                     onClicked: savePresetDialog.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: TranslationManager.translate("common.add", "Add")
+                    accessibleName: qsTr("Add new bean preset with current settings")
                     onClicked: {
                         if (newBeanNameInput.text.trim().length > 0) {
                             Settings.saveBeanPresetFromCurrent(newBeanNameInput.text.trim())
@@ -963,9 +965,10 @@ Page {
             RowLayout {
                 spacing: Theme.scaled(10)
 
-                StyledButton {
+                AccessibleButton {
                     id: deleteBeanBtn
                     text: TranslationManager.translate("common.delete", "Delete")
+                    accessibleName: qsTr("Delete this bean preset")
                     onClicked: {
                         Settings.removeBeanPreset(editPresetIndex)
                         editPresetDialog.close()
@@ -988,14 +991,16 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("common.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel editing bean preset")
                     onClicked: editPresetDialog.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: TranslationManager.translate("common.save", "Save")
+                    accessibleName: qsTr("Save changes to bean preset")
                     onClicked: {
                         if (editBeanNameInput.text.trim().length > 0 && editPresetIndex >= 0) {
                             var preset = Settings.getBeanPreset(editPresetIndex)

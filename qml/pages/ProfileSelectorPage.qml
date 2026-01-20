@@ -119,67 +119,28 @@ Page {
 
                     Item { Layout.fillWidth: true }
 
-                    StyledButton {
+                    AccessibleButton {
                         visible: viewFilter.currentIndex === 1  // Cleaning/Descale view
                         text: TranslationManager.translate("profileselector.button.descaling_wizard", "Descaling Wizard")
+                        accessibleName: qsTr("Open descaling wizard to clean your machine")
                         Layout.preferredHeight: Theme.scaled(44)
                         onClicked: root.goToDescaling()
-
-                        background: Rectangle {
-                            radius: Theme.scaled(4)
-                            color: Theme.surfaceColor
-                            border.color: Theme.primaryColor
-                            border.width: 1
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: Theme.primaryColor
-                            font: Theme.captionFont
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            leftPadding: Theme.scaled(12)
-                            rightPadding: Theme.scaled(12)
-                        }
                     }
 
-                    StyledButton {
+                    AccessibleButton {
                         text: TranslationManager.translate("profileselector.button.import_visualizer", "From Visualizer")
+                        accessibleName: qsTr("Import profiles from Visualizer website")
+                        primary: true
                         Layout.preferredHeight: Theme.scaled(44)
                         onClicked: root.goToVisualizerBrowser()
-
-                        background: Rectangle {
-                            radius: Theme.scaled(4)
-                            color: Theme.primaryColor
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: "white"
-                            font: Theme.captionFont
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            leftPadding: Theme.scaled(6)
-                            rightPadding: Theme.scaled(6)
-                        }
                     }
 
-                    StyledButton {
+                    AccessibleButton {
                         text: TranslationManager.translate("profileselector.button.import_tablet", "From Tablet")
+                        accessibleName: qsTr("Import profiles from Decent tablet")
+                        primary: true
                         Layout.preferredHeight: Theme.scaled(44)
                         onClicked: root.goToProfileImport()
-
-                        background: Rectangle {
-                            radius: Theme.scaled(4)
-                            color: Theme.primaryColor
-                        }
-                        contentItem: Text {
-                            text: parent.text
-                            color: "white"
-                            font: Theme.captionFont
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                            leftPadding: Theme.scaled(6)
-                            rightPadding: Theme.scaled(6)
-                        }
                     }
                 }
 
@@ -730,43 +691,21 @@ Page {
                 Layout.fillWidth: true
                 spacing: Theme.scaled(10)
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     text: TranslationManager.translate("profileselector.button.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel deletion and keep profile")
                     onClicked: deleteDialog.close()
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.surfaceColor
-                        border.color: Theme.borderColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     text: TranslationManager.translate("profileselector.button.delete", "Delete")
+                    accessibleName: qsTr("Permanently delete this profile")
+                    destructive: true
                     onClicked: {
                         MainController.deleteProfile(deleteDialog.profileName)
                         deleteDialog.close()
-                    }
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.errorColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }

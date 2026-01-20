@@ -149,9 +149,10 @@ Page {
                 Layout.fillWidth: true
             }
 
-            StyledButton {
+            AccessibleButton {
                 text: qsTr("Switch to D-Flow Editor")
                 subtle: true
+                accessibleName: qsTr("Switch to simplified D-Flow recipe editor")
                 onClicked: switchToDFlowDialog.open()
             }
         }
@@ -206,38 +207,25 @@ Page {
 
                             Item { Layout.fillWidth: true }
 
-                            StyledButton {
+                            AccessibleButton {
                                 primary: true
                                 text: qsTr("+ Add")
+                                accessibleName: qsTr("Add new frame to profile")
                                 onClicked: addStep()
                             }
 
-                            StyledButton {
-                                id: deleteFrameBtn
+                            AccessibleButton {
                                 text: qsTr("Delete")
+                                accessibleName: qsTr("Delete selected frame")
+                                destructive: true
                                 enabled: selectedStepIndex >= 0 && profile && profile.steps.length > 1
                                 onClicked: deleteStep(selectedStepIndex)
-                                background: Rectangle {
-                                    implicitWidth: deleteFrameBtn.implicitWidth
-                                    implicitHeight: Theme.scaled(36)
-                                    radius: Theme.scaled(6)
-                                    color: deleteFrameBtn.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
-                                    opacity: deleteFrameBtn.enabled ? 1.0 : 0.4
-                                }
-                                contentItem: Text {
-                                    text: deleteFrameBtn.text
-                                    font.pixelSize: Theme.scaled(14)
-                                    font.family: Theme.bodyFont.family
-                                    color: "white"
-                                    horizontalAlignment: Text.AlignHCenter
-                                    verticalAlignment: Text.AlignVCenter
-                                    opacity: deleteFrameBtn.enabled ? 1.0 : 0.5
-                                }
                             }
 
-                            StyledButton {
+                            AccessibleButton {
                                 primary: true
                                 text: qsTr("Copy")
+                                accessibleName: qsTr("Duplicate selected frame")
                                 enabled: selectedStepIndex >= 0 && profile && profile.steps.length < 20
                                 onClicked: duplicateStep(selectedStepIndex)
                             }
@@ -295,6 +283,7 @@ Page {
                         Layout.fillWidth: true
                         visible: profile !== null
                         text: {
+                            stepVersion  // Force re-evaluation on profile changes
                             if (!profile) return qsTr("Profile Settings")
                             var stopAtValue = profile.stop_at_type === "volume"
                                 ? (profile.target_volume || 36).toFixed(0) + "ml"
@@ -336,7 +325,8 @@ Page {
         parent: Overlay.overlay
         x: (parent.width - width) / 2
         y: (parent.height - height) / 2
-        width: Theme.scaled(320)
+        width: Math.min(parent.width - Theme.scaled(40), Theme.scaled(400))
+        padding: Theme.scaled(15)
         modal: true
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
@@ -347,9 +337,8 @@ Page {
             border.color: Theme.textSecondaryColor
         }
 
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: Theme.scaled(15)
+        contentItem: ColumnLayout {
+            id: contentColumn
             spacing: Theme.scaled(15)
 
             Text {
@@ -387,6 +376,7 @@ Page {
                         onToggled: {
                             if (checked && profile) {
                                 profile.stop_at_type = "weight"
+                                stepVersion++
                                 uploadProfile()
                             }
                         }
@@ -405,12 +395,29 @@ Page {
                         }
                         onToggled: {
                             if (checked && profile) {
+                                // Calculate equivalent volume: ml = weight + 5 + dose * 0.5
+                                var currentWeight = profile.target_weight || 36
+                                var dose = Settings.dyeBeanWeight > 0 ? Settings.dyeBeanWeight : 18
+                                var equivalentMl = Math.round(currentWeight + 5 + dose * 0.5)
+                                profile.target_volume = equivalentMl
                                 profile.stop_at_type = "volume"
+                                stepVersion++
                                 uploadProfile()
                             }
                         }
                     }
                 }
+            }
+
+            // Volume mode info text
+            Text {
+                Layout.fillWidth: true
+                visible: stopAtVolumeRadio.checked
+                property double puckRetention: Settings.dyeBeanWeight > 0 ? Math.round(Settings.dyeBeanWeight * 0.5) : 9
+                text: qsTr("Estimated volume equivalent (5g waste, %1g puck retention)").arg(puckRetention)
+                font.pixelSize: Theme.scaled(11)
+                color: Theme.textSecondaryColor
+                wrapMode: Text.WordWrap
             }
 
             // Stop at value (weight or volume)
@@ -540,8 +547,9 @@ Page {
             color: profile && profile.stop_at_type === "volume" ? Theme.flowColor : Theme.weightColor
             font: Theme.bodyFont
         }
-        StyledButton {
+        AccessibleButton {
             text: qsTr("Done")
+            accessibleName: qsTr("Finish editing profile")
             onClicked: {
                 if (profileModified) {
                     exitDialog.open()

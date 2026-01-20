@@ -92,10 +92,14 @@ Item {
             spacing: Theme.scaled(8)
 
             // Ask / Follow up button
-            StyledButton {
+            AccessibleButton {
                 id: askButton
                 Layout.fillWidth: true
+                primary: true
                 text: conversation && conversation.busy ? "..." : root._buttonText
+                accessibleName: conversation && conversation.hasHistory
+                    ? qsTr("Send follow-up question to AI")
+                    : qsTr("Ask AI for recommendation")
                 enabled: root._canAsk
 
                 onClicked: {
@@ -121,9 +125,10 @@ Item {
             }
 
             // Clear button
-            StyledButton {
+            AccessibleButton {
                 id: clearButton
                 text: "Clear"
+                accessibleName: qsTr("Clear AI conversation history")
                 visible: conversation && conversation.hasHistory
                 enabled: conversation && !conversation.busy
 

@@ -154,87 +154,36 @@ Item {
                     Layout.fillWidth: true
                     spacing: Theme.spacingSmall
 
-                    StyledButton {
+                    AccessibleButton {
                         Layout.fillWidth: true
                         Layout.preferredHeight: Theme.scaled(48)
                         text: "Add..."
-
-                        Accessible.role: Accessible.Button
-                        Accessible.name: TranslationManager.translate("language.accessible.add", "Add language")
-                        Accessible.description: TranslationManager.translate("language.accessible.add.description", "Add a new language for translation")
-
+                        accessibleName: TranslationManager.translate("language.accessible.add", "Add language")
+                        accessibleDescription: TranslationManager.translate("language.accessible.add.description", "Add a new language for translation")
                         onClicked: pageStack.push("AddLanguagePage.qml")
-
-                        background: Rectangle {
-                            implicitHeight: Theme.scaled(48)
-                            color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Qt.lighter(Theme.surfaceColor, 1.3)
-                            radius: Theme.buttonRadius
-                        }
-
-                        contentItem: Text {
-                            text: parent.text
-                            font: Theme.bodyFont
-                            color: Theme.textColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
                     }
 
                     // Delete button - temporarily visible
-                    StyledButton {
+                    AccessibleButton {
                         Layout.fillWidth: true
                         Layout.preferredHeight: Theme.scaled(48)
                         visible: true
                         text: "Delete"
+                        accessibleName: TranslationManager.translate("language.accessible.delete", "Delete language")
+                        accessibleDescription: TranslationManager.translate("language.accessible.delete.description", "Delete the selected language and its translations")
+                        warning: true
                         enabled: TranslationManager.currentLanguage !== "en"
-
-                        Accessible.role: Accessible.Button
-                        Accessible.name: TranslationManager.translate("language.accessible.delete", "Delete language")
-                        Accessible.description: TranslationManager.translate("language.accessible.delete.description", "Delete the selected language and its translations")
-
                         onClicked: deleteConfirmPopup.open()
-
-                        background: Rectangle {
-                            implicitHeight: Theme.scaled(48)
-                            color: parent.down ? Qt.darker(Theme.warningColor, 1.2) : Theme.warningColor
-                            radius: Theme.buttonRadius
-                            opacity: parent.enabled ? 1.0 : 0.3
-                        }
-
-                        contentItem: Text {
-                            text: parent.text
-                            font: Theme.bodyFont
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
                     }
 
-                    StyledButton {
+                    AccessibleButton {
                         Layout.fillWidth: true
                         Layout.preferredHeight: Theme.scaled(48)
                         text: TranslationManager.downloading ? "..." : "Update"
+                        accessibleName: TranslationManager.downloading ? TranslationManager.translate("language.accessible.downloading", "Downloading") : TranslationManager.translate("language.accessible.update", "Update community translations")
+                        accessibleDescription: TranslationManager.translate("language.accessible.update.description", "Download latest translations from the community")
+                        primary: true
                         enabled: !TranslationManager.downloading && TranslationManager.currentLanguage !== "en" && !TranslationManager.isRemoteLanguage(TranslationManager.currentLanguage)
-
-                        Accessible.role: Accessible.Button
-                        Accessible.name: TranslationManager.downloading ? TranslationManager.translate("language.accessible.downloading", "Downloading") : TranslationManager.translate("language.accessible.update", "Update community translations")
-                        Accessible.description: TranslationManager.translate("language.accessible.update.description", "Download latest translations from the community")
-
-                        background: Rectangle {
-                            implicitHeight: Theme.scaled(48)
-                            color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                            radius: Theme.buttonRadius
-                            opacity: parent.enabled ? 1.0 : 0.5
-                        }
-
-                        contentItem: Text {
-                            text: parent.text
-                            font: Theme.bodyFont
-                            color: "white"
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
                         onClicked: TranslationManager.downloadLanguage(TranslationManager.currentLanguage)
                     }
                 }
@@ -361,61 +310,28 @@ Item {
                 }
 
                 // Browse strings button
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     activeFocusOnTab: false
                     text: TranslationManager.currentLanguage === "en" ? TranslationManager.translate("language.browseCustomize", "Browse & Customize Strings...") : TranslationManager.translate("language.browseTranslate", "Browse & Translate Strings...")
-
-                    Accessible.role: Accessible.Button
-                    Accessible.name: TranslationManager.currentLanguage === "en" ? TranslationManager.translate("language.accessible.browse.en", "Browse and customize strings") : TranslationManager.translate("language.accessible.browse", "Browse and translate strings")
-                    Accessible.description: TranslationManager.currentLanguage === "en" ? TranslationManager.translate("language.accessible.browse.en.description", "Open the string browser to customize English text") : TranslationManager.translate("language.accessible.browse.description", "Open the translation browser to translate individual strings")
-
-                    background: Rectangle {
-                        implicitHeight: Theme.scaled(48)
-                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                        radius: Theme.buttonRadius
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
+                    accessibleName: TranslationManager.currentLanguage === "en" ? TranslationManager.translate("language.accessible.browse.en", "Browse and customize strings") : TranslationManager.translate("language.accessible.browse", "Browse and translate strings")
+                    accessibleDescription: TranslationManager.currentLanguage === "en" ? TranslationManager.translate("language.accessible.browse.en.description", "Open the string browser to customize English text") : TranslationManager.translate("language.accessible.browse.description", "Open the translation browser to translate individual strings")
+                    primary: true
                     onClicked: pageStack.push("StringBrowserPage.qml")
                 }
 
                 Item { Layout.fillHeight: true }
 
                 // Submit to community button (not for English, developer mode only)
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     activeFocusOnTab: false
                     text: TranslationManager.uploading ? "Uploading..." : "Submit to Community"
+                    accessibleName: TranslationManager.uploading ? TranslationManager.translate("language.accessible.uploading", "Uploading translation") : TranslationManager.translate("language.accessible.submit", "Submit to community")
+                    accessibleDescription: TranslationManager.translate("language.accessible.submit.description", "Share your translations with the community")
+                    primary: true
                     visible: TranslationManager.currentLanguage !== "en" && Settings.developerTranslationUpload
                     enabled: !TranslationManager.uploading
-
-                    Accessible.role: Accessible.Button
-                    Accessible.name: TranslationManager.uploading ? TranslationManager.translate("language.accessible.uploading", "Uploading translation") : TranslationManager.translate("language.accessible.submit", "Submit to community")
-                    Accessible.description: TranslationManager.translate("language.accessible.submit.description", "Share your translations with the community")
-
-                    background: Rectangle {
-                        implicitHeight: Theme.scaled(48)
-                        color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                        radius: Theme.buttonRadius
-                        opacity: parent.enabled ? 1.0 : 0.5
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
                     onClicked: TranslationManager.submitTranslation()
                 }
             }
@@ -464,47 +380,18 @@ Item {
                 width: parent.width
                 spacing: Theme.spacingSmall
 
-                StyledButton {
+                AccessibleButton {
                     width: (parent.width - Theme.spacingSmall) / 2
                     text: "Cancel"
-
-                    background: Rectangle {
-                        implicitHeight: Theme.scaled(40)
-                        color: parent.down ? Qt.darker(Theme.surfaceColor, 1.2) : Theme.surfaceColor
-                        radius: Theme.buttonRadius
-                        border.width: 1
-                        border.color: Theme.borderColor
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: Theme.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
+                    accessibleName: qsTr("Cancel and keep language")
                     onClicked: deleteConfirmPopup.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     width: (parent.width - Theme.spacingSmall) / 2
                     text: "Delete"
-
-                    background: Rectangle {
-                        implicitHeight: Theme.scaled(40)
-                        color: parent.down ? Qt.darker(Theme.warningColor, 1.2) : Theme.warningColor
-                        radius: Theme.buttonRadius
-                    }
-
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.bodyFont
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-
+                    accessibleName: qsTr("Permanently delete this language and its translations")
+                    warning: true
                     onClicked: {
                         TranslationManager.deleteLanguage(TranslationManager.currentLanguage)
                         deleteConfirmPopup.close()
@@ -586,24 +473,11 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
             }
 
-            StyledButton {
+            AccessibleButton {
                 width: parent.width
                 text: "OK"
-
-                background: Rectangle {
-                    implicitHeight: Theme.scaled(40)
-                    color: parent.down ? Qt.darker(Theme.primaryColor, 1.2) : Theme.primaryColor
-                    radius: Theme.buttonRadius
-                }
-
-                contentItem: Text {
-                    text: parent.text
-                    font: Theme.bodyFont
-                    color: "white"
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
-
+                accessibleName: qsTr("Close submission result dialog")
+                primary: true
                 onClicked: submitResultPopup.close()
             }
         }

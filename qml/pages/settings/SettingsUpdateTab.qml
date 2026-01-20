@@ -256,28 +256,32 @@ Item {
                     spacing: Theme.scaled(10)
                     visible: MainController.updateChecker.canCheckForUpdates && !MainController.updateChecker.checking && !MainController.updateChecker.downloading
 
-                    StyledButton {
+                    AccessibleButton {
                         text: TranslationManager.translate("settings.update.checknow", "Check Now")
+                        accessibleName: qsTr("Check for app updates")
                         enabled: !MainController.updateChecker.checking
                         onClicked: MainController.updateChecker.checkForUpdates()
                     }
 
-                    StyledButton {
+                    AccessibleButton {
                         primary: true
                         text: TranslationManager.translate("settings.update.downloadinstall", "Download & Install")
+                        accessibleName: qsTr("Download and install the available update")
                         visible: MainController.updateChecker.updateAvailable && MainController.updateChecker.canDownloadUpdate
                         onClicked: MainController.updateChecker.downloadAndInstall()
                     }
 
-                    StyledButton {
+                    AccessibleButton {
                         primary: true
                         text: TranslationManager.translate("settings.update.viewongithub", "View on GitHub")
+                        accessibleName: qsTr("Open the release page on GitHub")
                         visible: MainController.updateChecker.updateAvailable && !MainController.updateChecker.canDownloadUpdate
                         onClicked: MainController.updateChecker.openReleasePage()
                     }
 
-                    StyledButton {
+                    AccessibleButton {
                         text: TranslationManager.translate("settings.update.whatsnew", "What's New?")
+                        accessibleName: qsTr("View release notes for this update")
                         visible: MainController.updateChecker.releaseNotes !== ""
                         onClicked: releaseNotesPopup.open()
                     }
@@ -341,25 +345,10 @@ Item {
 
                     Item { Layout.fillWidth: true }
 
-                    StyledButton {
-                        text: "X"
+                    StyledIconButton {
+                        text: "\u00D7"
+                        accessibleName: qsTr("Close release notes")
                         onClicked: releaseNotesPopup.close()
-
-                        contentItem: Text {
-                            text: parent.text
-                            font.pixelSize: Theme.scaled(14)
-                            font.bold: true
-                            color: Theme.textSecondaryColor
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        background: Rectangle {
-                            implicitWidth: Theme.scaled(28)
-                            implicitHeight: Theme.scaled(28)
-                            color: parent.hovered ? Theme.surfaceColor : "transparent"
-                            radius: Theme.scaled(4)
-                        }
                     }
                 }
             }

@@ -559,40 +559,28 @@ Page {
             RowLayout {
                 spacing: Theme.scaled(10)
 
-                StyledButton {
-                    id: deleteFlushPresetBtn
+                AccessibleButton {
                     text: TranslationManager.translate("flush.button.delete", "Delete")
+                    accessibleName: qsTr("Delete this flush preset")
+                    destructive: true
                     onClicked: {
                         Settings.removeFlushPreset(editingPresetIndex)
                         editPresetPopup.close()
-                    }
-                    // Red background for destructive action
-                    background: Rectangle {
-                        implicitWidth: deleteFlushPresetBtn.implicitWidth
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: deleteFlushPresetBtn.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
-                    }
-                    contentItem: Text {
-                        text: deleteFlushPresetBtn.text
-                        font.pixelSize: Theme.scaled(14)
-                        font.family: Theme.bodyFont.family
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("flush.button.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel editing flush preset")
                     onClicked: editPresetPopup.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: TranslationManager.translate("flush.button.save", "Save")
+                    accessibleName: qsTr("Save changes to flush preset")
                     onClicked: {
                         var preset = Settings.getFlushPreset(editingPresetIndex)
                         Settings.updateFlushPreset(editingPresetIndex, editPresetNameInput.text, preset.flow, preset.seconds)
@@ -680,14 +668,16 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("flush.button.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel adding new flush preset")
                     onClicked: addPresetDialog.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: TranslationManager.translate("flush.button.add", "Add")
+                    accessibleName: qsTr("Add new flush preset with entered name")
                     onClicked: {
                         if (newPresetNameInput.text.length > 0) {
                             Settings.addFlushPreset(newPresetNameInput.text, 6.0, 5.0)

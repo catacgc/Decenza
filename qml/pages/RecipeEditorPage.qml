@@ -202,9 +202,10 @@ Page {
                 Layout.fillWidth: true
             }
 
-            StyledButton {
+            AccessibleButton {
                 text: qsTr("Switch to Advanced Editor")
                 subtle: true
+                accessibleName: qsTr("Switch to advanced frame-based profile editor")
                 onClicked: switchToAdvancedDialog.open()
             }
         }
@@ -945,8 +946,9 @@ Page {
             font: Theme.bodyFont
         }
 
-        StyledButton {
+        AccessibleButton {
             text: qsTr("Done")
+            accessibleName: qsTr("Finish editing recipe")
             onClicked: {
                 if (recipeModified) {
                     exitDialog.open()

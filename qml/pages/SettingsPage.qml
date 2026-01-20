@@ -903,29 +903,18 @@ Page {
                 Layout.fillWidth: true
                 spacing: Theme.spacingSmall
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
-                    property string buttonText: TranslationManager.translate("common.cancel", "Cancel")
-                    text: buttonText
+                    text: TranslationManager.translate("common.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel saving theme")
                     onClicked: saveThemeDialog.close()
-                    background: Rectangle {
-                        color: Theme.surfaceColor
-                        radius: Theme.buttonRadius
-                        border.color: Theme.borderColor
-                        border.width: 1
-                    }
-                    contentItem: Text {
-                        text: parent.buttonText
-                        color: Theme.textColor
-                        font: Theme.labelFont
-                        horizontalAlignment: Text.AlignHCenter
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
-                    property string buttonText: TranslationManager.translate("common.save", "Save")
-                    text: buttonText
+                    primary: true
+                    text: TranslationManager.translate("common.save", "Save")
+                    accessibleName: qsTr("Save current theme with entered name")
                     enabled: saveThemeDialog.themeName.trim().length > 0
                     onClicked: {
                         var name = saveThemeDialog.themeName.trim()
@@ -934,17 +923,6 @@ Page {
                             if (themesLoader.item) themesLoader.item.refreshPresets()
                             saveThemeDialog.close()
                         }
-                    }
-                    background: Rectangle {
-                        color: parent.enabled ? Theme.primaryColor : Theme.surfaceColor
-                        radius: Theme.buttonRadius
-                        opacity: parent.pressed ? 0.8 : 1.0
-                    }
-                    contentItem: Text {
-                        text: parent.buttonText
-                        color: parent.enabled ? "white" : Theme.textSecondaryColor
-                        font: Theme.labelFont
-                        horizontalAlignment: Text.AlignHCenter
                     }
                 }
             }

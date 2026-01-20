@@ -209,8 +209,10 @@ Page {
             Item { Layout.fillWidth: true }
 
             // Refresh button
-            StyledButton {
+            AccessibleButton {
                 id: refreshButton
+                text: "Refresh"
+                accessibleName: qsTr("Refresh shared shots list from visualizer")
                 Layout.preferredWidth: Theme.scaled(100)
                 Layout.preferredHeight: Theme.scaled(40)
                 enabled: !MainController.visualizerImporter.fetching &&
@@ -227,7 +229,7 @@ Page {
                 }
 
                 contentItem: Text {
-                    text: "Refresh"
+                    text: refreshButton.text
                     color: refreshButton.enabled ? Theme.primaryColor : Theme.textSecondaryColor
                     font: Theme.captionFont
                     horizontalAlignment: Text.AlignHCenter
@@ -240,8 +242,11 @@ Page {
                 spacing: Theme.spacingSmall
                 visible: !MainController.visualizerImporter.fetching
 
-                StyledButton {
+                AccessibleButton {
                     id: addByCodeButton
+                    text: "Add by Code"
+                    accessibleName: qsTr("Enter a 4-character share code to import a profile")
+                    primary: true
                     width: Theme.scaled(120)
                     height: Theme.scaled(40)
                     visible: !showCodeInput
@@ -250,19 +255,6 @@ Page {
                         showCodeInput = true
                         codeInput.text = ""
                         codeInput.forceActiveFocus()
-                    }
-
-                    background: Rectangle {
-                        radius: Theme.scaled(6)
-                        color: Theme.primaryColor
-                    }
-
-                    contentItem: Text {
-                        text: "Add by Code"
-                        color: "white"
-                        font: Theme.captionFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
 
@@ -304,7 +296,10 @@ Page {
                         Keys.onEscapePressed: showCodeInput = false
                     }
 
-                    StyledButton {
+                    AccessibleButton {
+                        text: "Add"
+                        accessibleName: qsTr("Import profile using entered share code")
+                        primary: true
                         width: Theme.scaled(60)
                         height: Theme.scaled(40)
                         enabled: codeInput.text.length === 4
@@ -313,39 +308,15 @@ Page {
                             MainController.visualizerImporter.importFromShareCode(codeInput.text)
                             showCodeInput = false
                         }
-
-                        background: Rectangle {
-                            radius: Theme.scaled(4)
-                            color: parent.enabled ? Theme.primaryColor : Theme.surfaceColor
-                        }
-
-                        contentItem: Text {
-                            text: "Add"
-                            color: parent.enabled ? "white" : Theme.textSecondaryColor
-                            font: Theme.captionFont
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
                     }
 
-                    StyledButton {
+                    AccessibleButton {
+                        text: "Cancel"
+                        accessibleName: qsTr("Cancel entering share code")
                         width: Theme.scaled(60)
                         height: Theme.scaled(40)
 
                         onClicked: showCodeInput = false
-
-                        background: Rectangle {
-                            radius: Theme.scaled(4)
-                            color: Theme.surfaceColor
-                        }
-
-                        contentItem: Text {
-                            text: "Cancel"
-                            color: Theme.textSecondaryColor
-                            font: Theme.captionFont
-                            horizontalAlignment: Text.AlignHCenter
-                            verticalAlignment: Text.AlignVCenter
-                        }
                     }
                 }
             }
@@ -895,7 +866,10 @@ Page {
                 }
             }
 
-            StyledButton {
+            AccessibleButton {
+                text: "Import"
+                accessibleName: qsTr("Import profile with the new name")
+                primary: true
                 Layout.preferredWidth: Theme.scaled(80)
                 Layout.preferredHeight: Theme.scaled(44)
                 enabled: renameInput.text.trim().length > 0
@@ -906,22 +880,11 @@ Page {
                     MainController.visualizerImporter.importFromShotIdWithName(renameProfileId, renameInput.text.trim())
                     showRenameDialog = false
                 }
-
-                background: Rectangle {
-                    radius: Theme.scaled(6)
-                    color: parent.enabled ? Theme.primaryColor : Theme.surfaceColor
-                }
-
-                contentItem: Text {
-                    text: "Import"
-                    color: parent.enabled ? "white" : Theme.textSecondaryColor
-                    font: Theme.bodyFont
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
-                }
             }
 
-            StyledButton {
+            AccessibleButton {
+                text: "Cancel"
+                accessibleName: qsTr("Cancel renaming and close dialog")
                 Layout.preferredWidth: Theme.scaled(80)
                 Layout.preferredHeight: Theme.scaled(44)
 
@@ -929,21 +892,6 @@ Page {
                     Qt.inputMethod.hide()
                     renameInput.focus = false
                     showRenameDialog = false
-                }
-
-                background: Rectangle {
-                    radius: Theme.scaled(6)
-                    color: Theme.backgroundColor
-                    border.color: Theme.textSecondaryColor
-                    border.width: 1
-                }
-
-                contentItem: Text {
-                    text: "Cancel"
-                    color: Theme.textColor
-                    font: Theme.bodyFont
-                    horizontalAlignment: Text.AlignHCenter
-                    verticalAlignment: Text.AlignVCenter
                 }
             }
         }

@@ -986,8 +986,9 @@ ApplicationWindow {
                 spacing: Theme.spacingMedium
                 anchors.horizontalCenter: parent.horizontalCenter
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("update.later", "Later")
+                    accessibleName: qsTr("Dismiss update and remind me later")
                     onClicked: {
                         if (MainController.updateChecker) {
                             MainController.updateChecker.dismissUpdate()
@@ -996,9 +997,10 @@ ApplicationWindow {
                     }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("update.updatenow", "Update Now")
                     primary: true
+                    accessibleName: qsTr("Download and install the update now")
                     onClicked: {
                         if (MainController.updateChecker) {
                             MainController.updateChecker.downloadAndInstall()

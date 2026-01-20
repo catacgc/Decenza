@@ -541,40 +541,28 @@ Page {
             RowLayout {
                 spacing: Theme.scaled(10)
 
-                StyledButton {
-                    id: deleteVesselBtn
+                AccessibleButton {
                     text: TranslationManager.translate("hotwater.button.delete", "Delete")
+                    accessibleName: qsTr("Delete this water vessel preset")
+                    destructive: true
                     onClicked: {
                         Settings.removeWaterVesselPreset(editingVesselIndex)
                         editVesselPopup.close()
-                    }
-                    // Red background for destructive action
-                    background: Rectangle {
-                        implicitWidth: deleteVesselBtn.implicitWidth
-                        implicitHeight: Theme.scaled(36)
-                        radius: Theme.scaled(6)
-                        color: deleteVesselBtn.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
-                    }
-                    contentItem: Text {
-                        text: deleteVesselBtn.text
-                        font.pixelSize: Theme.scaled(14)
-                        font.family: Theme.bodyFont.family
-                        color: "white"
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("hotwater.button.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel editing water vessel")
                     onClicked: editVesselPopup.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: TranslationManager.translate("hotwater.button.save", "Save")
+                    accessibleName: qsTr("Save changes to water vessel preset")
                     onClicked: {
                         var preset = Settings.getWaterVesselPreset(editingVesselIndex)
                         Settings.updateWaterVesselPreset(editingVesselIndex, editVesselNameInput.text, preset.volume)
@@ -662,14 +650,16 @@ Page {
 
                 Item { Layout.fillWidth: true }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("hotwater.button.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel adding new water vessel")
                     onClicked: addVesselDialog.close()
                 }
 
-                StyledButton {
+                AccessibleButton {
                     primary: true
                     text: TranslationManager.translate("hotwater.button.add", "Add")
+                    accessibleName: qsTr("Add new water vessel with entered name")
                     onClicked: {
                         if (newVesselNameInput.text.length > 0) {
                             Settings.addWaterVesselPreset(newVesselNameInput.text, 200)

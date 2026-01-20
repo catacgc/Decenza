@@ -419,28 +419,17 @@ Page {
                 Layout.fillWidth: true
                 spacing: Theme.spacingMedium
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("shotdetail.viewdebuglog", "View Debug Log")
+                    accessibleName: qsTr("View debug log for this shot")
                     Layout.fillWidth: true
                     onClicked: debugLogDialog.open()
-
-                    background: Rectangle {
-                        color: "transparent"
-                        radius: Theme.buttonRadius
-                        border.color: Theme.borderColor
-                        border.width: 1
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        font: Theme.labelFont
-                        color: Theme.textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
+                    id: deleteButton
                     text: TranslationManager.translate("shotdetail.deleteshot", "Delete Shot")
+                    accessibleName: qsTr("Permanently delete this shot from history")
                     Layout.fillWidth: true
                     onClicked: deleteConfirmDialog.open()
 
@@ -451,7 +440,7 @@ Page {
                         border.width: 1
                     }
                     contentItem: Text {
-                        text: parent.text
+                        text: deleteButton.text
                         font: Theme.labelFont
                         color: Theme.errorColor
                         horizontalAlignment: Text.AlignHCenter

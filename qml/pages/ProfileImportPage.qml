@@ -54,51 +54,26 @@ Page {
                     }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("profileimport.button.rescan", "Rescan")
+                    accessibleName: qsTr("Rescan for profiles from Decent tablet")
                     enabled: !MainController.profileImporter.isScanning
                     onClicked: MainController.profileImporter.scanProfiles()
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.surfaceColor
-                        border.color: Theme.primaryColor
-                        border.width: 1
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.primaryColor
-                        font: Theme.captionFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: Theme.scaled(12)
-                        rightPadding: Theme.scaled(12)
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("profileimport.button.import_all", "Import All New")
+                    accessibleName: qsTr("Import all new profiles at once")
+                    primary: true
                     visible: MainController.profileImporter.availableProfiles.length > 0
                     enabled: !MainController.profileImporter.isImporting && !MainController.profileImporter.isScanning
                     onClicked: MainController.profileImporter.importAllNew()
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.captionFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: Theme.scaled(12)
-                        rightPadding: Theme.scaled(12)
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     text: TranslationManager.translate("profileimport.button.update_all", "Update All")
+                    accessibleName: qsTr("Update all profiles that have changed")
+                    warning: true
                     visible: {
                         // Only show if there are profiles with "different" status
                         var profiles = MainController.profileImporter.availableProfiles
@@ -109,20 +84,6 @@ Page {
                     }
                     enabled: !MainController.profileImporter.isImporting && !MainController.profileImporter.isScanning
                     onClicked: MainController.profileImporter.updateAllDifferent()
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: "#FFA500"  // Orange to match the "different" status color
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.captionFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        leftPadding: Theme.scaled(12)
-                        rightPadding: Theme.scaled(12)
-                    }
                 }
             }
         }
@@ -254,28 +215,19 @@ Page {
                         }
 
                         // Import button
-                        StyledButton {
+                        AccessibleButton {
                             visible: !profileDelegate.isIdentical
                             text: profileDelegate.isDifferent ?
                                   TranslationManager.translate("profileimport.button.update", "Update") :
                                   TranslationManager.translate("profileimport.button.import", "Import")
+                            accessibleName: profileDelegate.isDifferent ?
+                                  qsTr("Update profile %1 with newer version").arg(profileData.title) :
+                                  qsTr("Import profile %1").arg(profileData.title)
+                            warning: profileDelegate.isDifferent
+                            primary: !profileDelegate.isDifferent
                             enabled: !MainController.profileImporter.isImporting
                             onClicked: {
                                 MainController.profileImporter.importProfile(profileData.sourcePath)
-                            }
-
-                            background: Rectangle {
-                                radius: Theme.scaled(4)
-                                color: profileDelegate.isDifferent ? "#FFA500" : Theme.primaryColor
-                            }
-                            contentItem: Text {
-                                text: parent.text
-                                color: "white"
-                                font: Theme.captionFont
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                leftPadding: Theme.scaled(10)
-                                rightPadding: Theme.scaled(10)
                             }
                         }
 
@@ -362,66 +314,34 @@ Page {
                 spacing: Theme.scaled(10)
                 visible: !duplicateDialog.showNameInput
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     text: TranslationManager.translate("profileimport.button.overwrite", "Overwrite")
+                    accessibleName: qsTr("Overwrite existing profile with this version")
+                    destructive: true
                     onClicked: {
                         MainController.profileImporter.saveOverwrite()
                         duplicateDialog.close()
                     }
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.errorColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     text: TranslationManager.translate("profileimport.button.save_as_new", "Save as New")
+                    accessibleName: qsTr("Save as a new profile with different name")
+                    primary: true
                     onClicked: {
                         duplicateDialog.showNameInput = true
                     }
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     text: TranslationManager.translate("profileimport.button.cancel", "Cancel")
+                    accessibleName: qsTr("Cancel import and close dialog")
                     onClicked: {
                         MainController.profileImporter.cancelImport()
                         duplicateDialog.close()
-                    }
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.surfaceColor
-                        border.color: Theme.borderColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }
@@ -432,46 +352,24 @@ Page {
                 spacing: Theme.scaled(10)
                 visible: duplicateDialog.showNameInput
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     text: TranslationManager.translate("profileimport.button.save", "Save")
+                    accessibleName: qsTr("Save profile with the new name")
+                    primary: true
                     enabled: newNameInput.text.trim().length > 0
                     onClicked: {
                         MainController.profileImporter.saveWithNewName(newNameInput.text.trim())
                         duplicateDialog.close()
                     }
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.primaryColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: "white"
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
                 }
 
-                StyledButton {
+                AccessibleButton {
                     Layout.fillWidth: true
                     text: TranslationManager.translate("profileimport.button.back", "Back")
+                    accessibleName: qsTr("Go back to choose a different option")
                     onClicked: {
                         duplicateDialog.showNameInput = false
-                    }
-
-                    background: Rectangle {
-                        radius: Theme.scaled(4)
-                        color: Theme.surfaceColor
-                        border.color: Theme.borderColor
-                    }
-                    contentItem: Text {
-                        text: parent.text
-                        color: Theme.textColor
-                        font: Theme.bodyFont
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
                     }
                 }
             }

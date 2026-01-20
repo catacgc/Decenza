@@ -172,23 +172,27 @@ Page {
                         spacing: Theme.spacingMedium
 
                         // Import Profile button (requires 4-char code)
-                        StyledButton {
+                        AccessibleButton {
                             id: importButton
                             primary: true
                             enabled: shareCodeInput.text.length === 4 && !MainController.visualizerImporter.importing
                             text: MainController.visualizerImporter.importing
                                 ? TranslationManager.translate("visualizer.button.importing", "Importing...")
                                 : TranslationManager.translate("visualizer.button.import", "Import Profile")
+                            accessibleName: MainController.visualizerImporter.importing
+                                ? qsTr("Importing profile, please wait")
+                                : qsTr("Import profile using the 4-character share code")
                             onClicked: {
                                 MainController.visualizerImporter.importFromShareCode(shareCodeInput.text)
                             }
                         }
 
                         // Import Shared button (opens multi-import page)
-                        StyledButton {
+                        AccessibleButton {
                             id: importSharedButton
                             primary: true
                             text: TranslationManager.translate("visualizer.button.importShared", "Import profiles I shared")
+                            accessibleName: qsTr("Import all profiles you have shared on Visualizer")
                             onClicked: {
                                 pageStack.push(Qt.resolvedUrl("VisualizerMultiImportPage.qml"))
                             }
@@ -298,43 +302,32 @@ Page {
                         spacing: Theme.spacingMedium
                         anchors.horizontalCenter: parent.horizontalCenter
 
-                        StyledButton {
+                        AccessibleButton {
                             id: overwriteButton
                             text: TranslationManager.translate("visualizer.button.overwrite", "Overwrite")
+                            accessibleName: qsTr("Overwrite existing profile with imported version")
+                            destructive: true
                             onClicked: {
                                 MainController.visualizerImporter.saveOverwrite()
                                 hideDuplicateDialog()
                             }
-                            // Red background for destructive action
-                            background: Rectangle {
-                                implicitWidth: overwriteButton.implicitWidth
-                                implicitHeight: Theme.scaled(36)
-                                radius: Theme.scaled(6)
-                                color: overwriteButton.down ? Qt.darker(Theme.errorColor, 1.1) : Theme.errorColor
-                            }
-                            contentItem: Text {
-                                text: overwriteButton.text
-                                font.pixelSize: Theme.scaled(14)
-                                font.family: Theme.bodyFont.family
-                                color: "white"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                            }
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             id: saveAsNewButton
                             primary: true
                             text: TranslationManager.translate("visualizer.button.saveAsNew", "Save as New")
+                            accessibleName: qsTr("Save as a new profile with different name")
                             onClicked: {
                                 newNameInput.text = duplicateProfileTitle + " (copy)"
                                 showingNameInput = true
                             }
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             id: cancelButton
                             text: TranslationManager.translate("visualizer.button.cancel", "Cancel")
+                            accessibleName: qsTr("Cancel import")
                             onClicked: hideDuplicateDialog()
                         }
                     }
@@ -419,20 +412,22 @@ Page {
                         spacing: Theme.spacingMedium
                         anchors.horizontalCenter: parent.horizontalCenter
 
-                        StyledButton {
+                        AccessibleButton {
                             id: saveButton
                             primary: true
                             enabled: newNameInput.text.trim().length > 0
                             text: TranslationManager.translate("visualizer.button.save", "Save")
+                            accessibleName: qsTr("Save profile with the new name")
                             onClicked: {
                                 MainController.visualizerImporter.saveWithNewName(newNameInput.text.trim())
                                 hideDuplicateDialog()
                             }
                         }
 
-                        StyledButton {
+                        AccessibleButton {
                             id: backButton
                             text: TranslationManager.translate("visualizer.button.back", "Back")
+                            accessibleName: qsTr("Go back to choose a different option")
                             onClicked: showingNameInput = false
                         }
                     }
