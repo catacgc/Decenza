@@ -649,7 +649,7 @@ Page {
                                     } else {
                                         // Select it (first click)
                                         if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
-                                            AccessibilityManager.announce(root.cleanForSpeech(modelData.name) + " " + TranslationManager.translate("profileselector.accessible.selected", "selected"))
+                                            AccessibilityManager.announce(root.cleanForSpeech(modelData.name) + " " + qsTr("selected"))
                                         }
                                         Settings.selectedFavoriteProfile = index
                                     }

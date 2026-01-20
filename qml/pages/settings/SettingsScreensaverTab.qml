@@ -497,6 +497,7 @@ Item {
                             to: 2.0
                             stepSize: 0.1
                             decimals: 1
+                            accessibleName: qsTr("Pipes animation speed")
                             onValueModified: function(newValue) { ScreensaverManager.pipesSpeed = newValue }
                         }
                     }
@@ -519,6 +520,7 @@ Item {
                             to: 300
                             stepSize: 1
                             decimals: 0
+                            accessibleName: qsTr("Camera rotation speed")
                             onValueModified: function(newValue) { ScreensaverManager.pipesCameraSpeed = newValue }
                         }
                     }

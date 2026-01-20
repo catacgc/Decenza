@@ -486,6 +486,7 @@ Page {
                                     suffix: "g"
                                     valueColor: Theme.weightColor
                                     accentColor: Theme.weightColor
+                                    accessibleName: qsTr("Dose weight")
                                     onValueModified: function(newValue) {
                                         updateRecipe("dose", newValue)
                                     }
@@ -501,6 +502,7 @@ Page {
                                     suffix: "g"
                                     valueColor: Theme.weightColor
                                     accentColor: Theme.weightColor
+                                    accessibleName: qsTr("Target weight")
                                     onValueModified: function(newValue) {
                                         updateRecipe("targetWeight", newValue)
                                     }
@@ -532,6 +534,7 @@ Page {
                                     suffix: "\u00B0C"
                                     valueColor: Theme.temperatureColor
                                     accentColor: Theme.temperatureGoalColor
+                                    accessibleName: qsTr("Fill temperature")
                                     onValueModified: function(newValue) {
                                         updateRecipe("fillTemperature", newValue)
                                     }
@@ -547,6 +550,7 @@ Page {
                                     suffix: " bar"
                                     valueColor: Theme.pressureColor
                                     accentColor: Theme.pressureGoalColor
+                                    accessibleName: qsTr("Fill pressure")
                                     onValueModified: function(newValue) {
                                         updateRecipe("fillPressure", newValue)
                                     }
@@ -562,6 +566,7 @@ Page {
                                     suffix: " mL/s"
                                     valueColor: Theme.flowColor
                                     accentColor: Theme.flowGoalColor
+                                    accessibleName: qsTr("Fill flow")
                                     onValueModified: function(newValue) {
                                         updateRecipe("fillFlow", newValue)
                                     }
@@ -577,6 +582,7 @@ Page {
                                     suffix: " bar"
                                     valueColor: Theme.pressureColor
                                     accentColor: Theme.pressureGoalColor
+                                    accessibleName: qsTr("Fill exit pressure")
                                     onValueModified: function(newValue) {
                                         updateRecipe("fillExitPressure", newValue)
                                     }
@@ -591,6 +597,7 @@ Page {
                                     from: 5; to: 60; stepSize: 1
                                     suffix: "s"
                                     decimals: 0
+                                    accessibleName: qsTr("Fill timeout")
                                     onValueModified: function(newValue) {
                                         updateRecipe("fillTimeout", newValue)
                                     }
@@ -615,6 +622,7 @@ Page {
                                     from: 1; to: 30; stepSize: 1
                                     suffix: "s"
                                     decimals: 0
+                                    accessibleName: qsTr("Bloom time")
                                     onValueModified: function(newValue) {
                                         updateRecipe("bloomTime", newValue)
                                     }
@@ -648,6 +656,7 @@ Page {
                                     suffix: " bar"
                                     valueColor: Theme.pressureColor
                                     accentColor: Theme.pressureGoalColor
+                                    accessibleName: qsTr("Infuse pressure")
                                     onValueModified: function(newValue) {
                                         updateRecipe("infusePressure", newValue)
                                     }
@@ -663,6 +672,7 @@ Page {
                                     from: 0; to: 60; stepSize: 1
                                     suffix: "s"
                                     decimals: 0
+                                    accessibleName: qsTr("Infuse time")
                                     onValueModified: function(newValue) {
                                         updateRecipe("infuseTime", newValue)
                                     }
@@ -695,6 +705,7 @@ Page {
                                     suffix: "g"
                                     valueColor: Theme.weightColor
                                     accentColor: Theme.weightColor
+                                    accessibleName: qsTr("Infuse weight")
                                     onValueModified: function(newValue) {
                                         updateRecipe("infuseWeight", newValue)
                                     }
@@ -709,6 +720,7 @@ Page {
                                     from: 10; to: 200; stepSize: 10
                                     suffix: " mL"
                                     decimals: 0
+                                    accessibleName: qsTr("Infuse volume")
                                     onValueModified: function(newValue) {
                                         updateRecipe("infuseVolume", newValue)
                                     }
@@ -732,6 +744,7 @@ Page {
                                     value: recipe.rampTime || 5
                                     from: 0.5; to: 15; stepSize: 0.5
                                     suffix: "s"
+                                    accessibleName: qsTr("Ramp time")
                                     onValueModified: function(newValue) {
                                         updateRecipe("rampTime", newValue)
                                     }
@@ -762,6 +775,7 @@ Page {
                                     suffix: "\u00B0C"
                                     valueColor: Theme.temperatureColor
                                     accentColor: Theme.temperatureGoalColor
+                                    accessibleName: qsTr("Pour temperature")
                                     onValueModified: function(newValue) {
                                         updateRecipe("pourTemperature", newValue)
                                     }
@@ -809,6 +823,7 @@ Page {
                                     suffix: " bar"
                                     valueColor: Theme.pressureColor
                                     accentColor: Theme.pressureGoalColor
+                                    accessibleName: qsTr("Pour pressure")
                                     onValueModified: function(newValue) {
                                         updateRecipe("pourPressure", newValue)
                                     }
@@ -825,6 +840,7 @@ Page {
                                     suffix: " mL/s"
                                     valueColor: Theme.flowColor
                                     accentColor: Theme.flowGoalColor
+                                    accessibleName: qsTr("Pour flow")
                                     onValueModified: function(newValue) {
                                         updateRecipe("pourFlow", newValue)
                                     }
@@ -840,6 +856,7 @@ Page {
                                     from: 0; to: 6; stepSize: 0.1
                                     suffix: " mL/s"
                                     valueColor: (recipe.flowLimit || 0) > 0 ? Theme.flowColor : Theme.textSecondaryColor
+                                    accessibleName: qsTr("Pour flow limit")
                                     onValueModified: function(newValue) {
                                         updateRecipe("flowLimit", newValue)
                                     }
@@ -855,6 +872,7 @@ Page {
                                     from: 0; to: 12; stepSize: 0.1
                                     suffix: " bar"
                                     valueColor: (recipe.pressureLimit || 0) > 0 ? Theme.pressureColor : Theme.textSecondaryColor
+                                    accessibleName: qsTr("Pour pressure limit")
                                     onValueModified: function(newValue) {
                                         updateRecipe("pressureLimit", newValue)
                                     }
@@ -881,6 +899,7 @@ Page {
                                     suffix: " bar"
                                     valueColor: Theme.pressureColor
                                     accentColor: Theme.pressureGoalColor
+                                    accessibleName: qsTr("Decline to pressure")
                                     onValueModified: function(newValue) {
                                         updateRecipe("declineTo", newValue)
                                     }
@@ -895,6 +914,7 @@ Page {
                                     from: 5; to: 60; stepSize: 1
                                     suffix: "s"
                                     decimals: 0
+                                    accessibleName: qsTr("Decline time")
                                     onValueModified: function(newValue) {
                                         updateRecipe("declineTime", newValue)
                                     }

@@ -282,6 +282,7 @@ KeyboardAwareContainer {
                         to: 30
                         stepSize: 1
                         suffix: " sec"
+                        accessibleName: qsTr("Minimum upload duration")
 
                         onValueModified: function(newValue) {
                             Settings.visualizerMinDuration = newValue

@@ -648,6 +648,11 @@ Item {
         newVal = Math.round(newVal / root.stepSize) * root.stepSize
         if (newVal !== root.value) {
             root.valueModified(newVal)
+            // Announce new value for accessibility (use newVal, not displayText which has old value)
+            if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
+                var unit = root.suffix.trim()
+                AccessibilityManager.announce(newVal.toFixed(root.decimals) + (unit ? " " + unit : ""))
+            }
         }
     }
 }

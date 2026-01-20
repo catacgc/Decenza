@@ -637,7 +637,40 @@ ApplicationWindow {
         target: pageStack
         function onCurrentItemChanged() {
             updateCurrentPageScale()
+            announceCurrentPage()
         }
+    }
+
+    // Announce page name for accessibility when page changes
+    function announceCurrentPage() {
+        if (typeof AccessibilityManager === "undefined" || !AccessibilityManager.enabled) return
+        var pageName = pageStack.currentItem ? (pageStack.currentItem.objectName || "") : ""
+        if (!pageName) return
+
+        // Map objectNames to human-readable page names
+        // Use "screen" or "settings" suffix to distinguish from button names
+        var pageNames = {
+            "idlePage": qsTr("Home screen"),
+            "espressoPage": qsTr("Espresso screen"),
+            "steamPage": qsTr("Steam settings"),
+            "hotWaterPage": qsTr("Hot water settings"),
+            "flushPage": qsTr("Flush settings"),
+            "settingsPage": qsTr("Settings"),
+            "profileSelectorPage": qsTr("Profile selector"),
+            "profileEditorPage": qsTr("Profile editor"),
+            "recipeEditorPage": qsTr("Recipe editor"),
+            "shotHistoryPage": qsTr("Shot history"),
+            "descalingPage": qsTr("Descaling screen"),
+            "visualizerBrowserPage": qsTr("Visualizer browser"),
+            "profileImportPage": qsTr("Import profiles"),
+            "postShotReviewPage": qsTr("Shot review"),
+            "beanInfoPage": qsTr("Bean info"),
+            "dialingAssistantPage": qsTr("AI assistant"),
+            "shotDetailPage": qsTr("Shot detail"),
+            "shotComparisonPage": qsTr("Shot comparison")
+        }
+        var displayName = pageNames[pageName] || pageName
+        AccessibilityManager.announce(displayName)
     }
 
     function updateCurrentPageScale() {
@@ -1078,7 +1111,7 @@ ApplicationWindow {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: {
                     if (completionType === "hotwater") {
-                        return Math.max(0, ScaleDevice.weight).toFixed(0) + "g"
+                        return Math.max(0, ScaleDevice ? ScaleDevice.weight : 0).toFixed(0) + "g"
                     } else {
                         return MachineState.shotTime.toFixed(1) + "s"
                     }
@@ -1530,6 +1563,7 @@ ApplicationWindow {
 
     // Helper functions for navigation
     // Note: startNavigation() guard prevents double-taps on user-initiated navigation
+    // Note: Page announcements are handled centrally by announceCurrentPage() on page change
     function goToIdle() {
         if (!startNavigation()) return
         if (pageStack.currentItem && pageStack.currentItem.objectName !== "idlePage") {
@@ -1546,7 +1580,6 @@ ApplicationWindow {
 
     function goToSteam() {
         if (!startNavigation()) return
-        announceNavigation("Steam settings")
         if (pageStack.currentItem && pageStack.currentItem.objectName !== "steamPage") {
             pageStack.replace(steamPage)
         }
@@ -1554,7 +1587,6 @@ ApplicationWindow {
 
     function goToHotWater() {
         if (!startNavigation()) return
-        announceNavigation("Hot water settings")
         if (pageStack.currentItem && pageStack.currentItem.objectName !== "hotWaterPage") {
             pageStack.replace(hotWaterPage)
         }
@@ -1562,7 +1594,6 @@ ApplicationWindow {
 
     function goToSettings(tabIndex) {
         if (!startNavigation()) return
-        announceNavigation("Settings")
         if (tabIndex !== undefined && tabIndex >= 0) {
             pageStack.push(settingsPage, {requestedTabIndex: tabIndex})
         } else {
@@ -1581,10 +1612,8 @@ ApplicationWindow {
         if (!startNavigation()) return
         // Route to D-Flow editor for recipe-mode profiles, Advanced editor for frame-based
         if (MainController.isCurrentProfileRecipe) {
-            announceNavigation("D-Flow editor")
             pageStack.push(recipeEditorPage)
         } else {
-            announceNavigation("Advanced editor")
             pageStack.push(profileEditorPage)
         }
     }
@@ -1592,72 +1621,62 @@ ApplicationWindow {
     function goToRecipeEditor() {
         if (!startNavigation()) return
         // Explicitly go to D-Flow editor
-        announceNavigation("D-Flow editor")
         pageStack.push(recipeEditorPage)
     }
 
     function switchToRecipeEditor() {
         if (!startNavigation()) return
         // Replace current editor with D-Flow editor (for switching between editors)
-        announceNavigation("D-Flow editor")
         pageStack.replace(recipeEditorPage)
     }
 
     function switchToAdvancedEditor() {
         if (!startNavigation()) return
         // Replace current editor with Advanced editor (for switching between editors)
-        announceNavigation("Advanced editor")
         pageStack.replace(profileEditorPage)
     }
 
     function goToAdvancedEditor() {
         if (!startNavigation()) return
         // Explicitly go to Advanced editor
-        announceNavigation("Advanced editor")
         pageStack.push(profileEditorPage)
     }
 
     function goToProfileSelector() {
         if (!startNavigation()) return
-        announceNavigation("Select profile")
         pageStack.push(profileSelectorPage)
     }
 
     function goToDescaling() {
         if (!startNavigation()) return
-        announceNavigation("Descaling wizard")
         pageStack.push(descalingPage)
     }
 
     function goToFlush() {
         if (!startNavigation()) return
-        announceNavigation("Flush settings")
         pageStack.push(flushPage)
     }
 
     function goToVisualizerBrowser() {
         if (!startNavigation()) return
-        announceNavigation("Visualizer browser")
         pageStack.push(visualizerBrowserPage)
     }
 
     function goToProfileImport() {
         if (!startNavigation()) return
-        announceNavigation("Import from tablet")
         pageStack.push(profileImportPage)
     }
 
     function goToShotMetadata(shotId) {
         if (!startNavigation()) return
-        announceNavigation("Shot review")
         // Pass editShotId to edit the just-saved shot (always use edit mode now)
         pageStack.push(postShotReviewPage, { editShotId: shotId || 0 })
     }
 
-    // Helper to announce page navigation for accessibility
-    function announceNavigation(pageName) {
+    // Helper to announce arbitrary text for accessibility (used for non-page announcements)
+    function announceNavigation(text) {
         if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
-            AccessibilityManager.announce(pageName)
+            AccessibilityManager.announce(text)
         }
     }
 
@@ -1980,6 +1999,7 @@ ApplicationWindow {
                 suffix: "x"
                 valueColor: Theme.primaryColor
                 useBaseScale: true  // Use scaledBase() for consistent size
+                accessibleName: qsTr("Page scale")
 
                 onValueModified: function(newValue) {
                     Theme.pageScaleMultiplier = newValue

@@ -976,6 +976,7 @@ Page {
                         suffix: "°C"
                         valueColor: Theme.temperatureColor
                         accentColor: Theme.temperatureColor
+                        accessibleName: qsTr("Temperature override")
                         onValueModified: function(newValue) {
                             temperatureOverridePopup.tempValue = newValue
                         }

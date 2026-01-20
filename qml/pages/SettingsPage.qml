@@ -562,6 +562,7 @@ Page {
                                 stepSize: 1
                                 suffix: " g"
                                 valueColor: Theme.primaryColor
+                                accessibleName: qsTr("Measured weight")
 
                                 onValueModified: function(newValue) {
                                     weightInput.value = newValue
@@ -732,6 +733,7 @@ Page {
                             suffix: "g"
                             width: Theme.scaled(150)
                             Layout.alignment: Qt.AlignHCenter
+                            accessibleName: qsTr("Verification weight")
                             onValueModified: function(newValue) {
                                 flowCalibrationDialog.verificationActualWeight = newValue
                             }

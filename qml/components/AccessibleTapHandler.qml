@@ -112,18 +112,22 @@ MouseArea {
         var accessibilityMode = typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
 
         if (accessibilityMode) {
-            // Accessibility mode: TalkBack already handles announce-then-activate,
-            // so we should activate immediately on tap to avoid requiring 4 taps total.
-            // Still support double-tap for special actions.
+            // Accessibility mode: First tap announces, second tap (same item) activates
+            // This allows blind users to explore UI without accidentally triggering actions
             if (isDoubleTap && supportDoubleClick) {
                 // Quick double-tap = special action (edit, etc.)
                 singleTapTimer.stop()
                 console.log("[AccessibleTapHandler] A11y: Double tap, emitting accessibleDoubleClicked")
                 accessibleDoubleClicked()
-            } else {
-                // Single tap = activate immediately (TalkBack already announced)
-                console.log("[AccessibleTapHandler] A11y: Single tap, emitting accessibleClicked immediately")
+            } else if (AccessibilityManager.lastAnnouncedItem === accessibleItem) {
+                // Second tap on same item = activate
+                console.log("[AccessibleTapHandler] A11y: Second tap on same item, activating")
                 accessibleClicked()
+            } else {
+                // First tap = announce only, don't activate
+                console.log("[AccessibleTapHandler] A11y: First tap, announcing:", root.accessibleName)
+                AccessibilityManager.lastAnnouncedItem = accessibleItem
+                AccessibilityManager.announce(root.accessibleName)
             }
         } else {
             // Normal mode

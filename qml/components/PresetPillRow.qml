@@ -244,9 +244,9 @@ FocusScope {
 
                             onAccessibleClicked: {
                                 if (!modelData || !modelData.preset) return
-                                // Announce selection
+                                // Announce selection for accessibility feedback
                                 if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
-                                    AccessibilityManager.announce(modelData.preset.name + " " + TranslationManager.translate("presets.selected", "selected"))
+                                    AccessibilityManager.announce(modelData.preset.name + " " + qsTr("selected"))
                                 }
                                 root.presetSelected(modelData.index)
                             }

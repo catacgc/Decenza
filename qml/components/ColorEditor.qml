@@ -53,6 +53,10 @@ Item {
                 height: Theme.scaled(24)
                 radius: Theme.scaled(12)
 
+                Accessible.role: Accessible.Slider
+                Accessible.name: qsTr("Saturation") + " " + Math.round(root.saturation) + "%"
+                Accessible.focusable: true
+
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
                     GradientStop { position: 0.0; color: Qt.hsla(root.hue / 360, 0, root.lightness / 100, 1.0) }
@@ -83,6 +87,11 @@ Item {
 
                     onPressed: function(mouse) { updateSat(mouse.x) }
                     onPositionChanged: function(mouse) { if (pressed) updateSat(mouse.x) }
+                    onReleased: {
+                        if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
+                            AccessibilityManager.announce(qsTr("Saturation") + " " + Math.round(root.saturation) + "%")
+                        }
+                    }
                 }
             }
 
@@ -92,6 +101,10 @@ Item {
                 Layout.fillWidth: true
                 height: Theme.scaled(24)
                 radius: Theme.scaled(12)
+
+                Accessible.role: Accessible.Slider
+                Accessible.name: qsTr("Lightness") + " " + Math.round(root.lightness) + "%"
+                Accessible.focusable: true
 
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
@@ -124,6 +137,11 @@ Item {
 
                     onPressed: function(mouse) { updateLight(mouse.x) }
                     onPositionChanged: function(mouse) { if (pressed) updateLight(mouse.x) }
+                    onReleased: {
+                        if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
+                            AccessibilityManager.announce(qsTr("Lightness") + " " + Math.round(root.lightness) + "%")
+                        }
+                    }
                 }
             }
 
@@ -133,6 +151,10 @@ Item {
                 Layout.fillWidth: true
                 height: Theme.scaled(24)
                 radius: Theme.scaled(12)
+
+                Accessible.role: Accessible.Slider
+                Accessible.name: qsTr("Screen brightness") + " " + Math.round(Settings.screenBrightness * 100) + "%"
+                Accessible.focusable: true
 
                 gradient: Gradient {
                     orientation: Gradient.Horizontal
@@ -165,6 +187,11 @@ Item {
 
                     onPressed: function(mouse) { updateBrightness(mouse.x) }
                     onPositionChanged: function(mouse) { if (pressed) updateBrightness(mouse.x) }
+                    onReleased: {
+                        if (typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
+                            AccessibilityManager.announce(qsTr("Screen brightness") + " " + Math.round(Settings.screenBrightness * 100) + "%")
+                        }
+                    }
                 }
             }
 

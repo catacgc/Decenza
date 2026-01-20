@@ -127,6 +127,7 @@ Dialog {
                     decimals: 1
                     valueColor: Theme.primaryColor
                     accentColor: Theme.primaryColor
+                    accessibleName: qsTr("Brew ratio")
                     onValueModified: function(newValue) {
                         root.ratio = newValue
                     }

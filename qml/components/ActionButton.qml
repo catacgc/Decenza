@@ -157,6 +157,7 @@ Button {
         if (activeFocus && typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled) {
             // Only announce if not being pressed (tap in progress = AccessibleTapHandler will handle it)
             if (!control._isPressed) {
+                AccessibilityManager.lastAnnouncedItem = control
                 AccessibilityManager.announce(control.text)
             }
         }

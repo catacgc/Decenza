@@ -163,6 +163,7 @@ KeyboardAwareContainer {
                             value: Settings.steamAutoFlushSeconds
                             valueColor: value > 0 ? Theme.primaryColor : Theme.textSecondaryColor
                             displayText: value === 0 ? "Off" : value + "s"
+                            accessibleName: qsTr("Auto flush duration")
                             onValueModified: function(newValue) {
                                 Settings.steamAutoFlushSeconds = newValue
                             }
@@ -593,6 +594,7 @@ KeyboardAwareContainer {
                             enabled: autoWakeContent.selectedDayData.enabled ?? false
                             valueColor: enabled ? Theme.primaryColor : Theme.textSecondaryColor
                             displayText: value < 10 ? "0" + value.toFixed(0) : value.toFixed(0)
+                            accessibleName: qsTr("Wake hour")
                             onValueModified: function(newValue) {
                                 Settings.setAutoWakeDayTime(autoWakeContent.selectedDay, newValue, autoWakeContent.selectedDayData.minute ?? 0)
                             }
@@ -616,6 +618,7 @@ KeyboardAwareContainer {
                             enabled: autoWakeContent.selectedDayData.enabled ?? false
                             valueColor: enabled ? Theme.primaryColor : Theme.textSecondaryColor
                             displayText: value < 10 ? "0" + value.toFixed(0) : value.toFixed(0)
+                            accessibleName: qsTr("Wake minute")
                             onValueModified: function(newValue) {
                                 Settings.setAutoWakeDayTime(autoWakeContent.selectedDay, autoWakeContent.selectedDayData.hour ?? 7, newValue)
                             }
@@ -678,6 +681,7 @@ KeyboardAwareContainer {
                                 }
                                 return mins + " min"
                             }
+                            accessibleName: qsTr("Stay awake duration")
                             onValueModified: function(newValue) {
                                 Settings.autoWakeStayAwakeMinutes = newValue
                             }
