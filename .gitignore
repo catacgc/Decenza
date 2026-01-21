@@ -38,3 +38,8 @@ Logo/High res/
 # Submodules/external repos
 de1-qt-translations/
 screenshot.png
+
+# Debug/temp files
+logcat_*.txt
+-.zip
+.claude/
