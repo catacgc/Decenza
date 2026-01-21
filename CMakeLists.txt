@@ -24,14 +24,16 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# Qt 6 modules
+# Optional features (Quick3D not available on all platforms, e.g. Raspberry Pi)
+option(ENABLE_QUICK3D "Enable Qt Quick3D for 3D screensavers" ON)
+
+# Qt 6 modules - core required components
 find_package(Qt6 REQUIRED COMPONENTS
     Core
     Gui
     Widgets
     Qml
     Quick
-    Quick3D
     QuickControls2
     Bluetooth
     Charts
@@ -42,6 +44,18 @@ find_package(Qt6 REQUIRED COMPONENTS
     Sql
     Positioning
 )
+
+# Optional: Quick3D (only used for screensavers)
+if(ENABLE_QUICK3D)
+    find_package(Qt6 QUIET COMPONENTS Quick3D)
+    if(Qt6Quick3D_FOUND)
+        message(STATUS "Qt6Quick3D found - 3D screensavers enabled")
+        add_compile_definitions(HAVE_QUICK3D)
+    else()
+        message(STATUS "Qt6Quick3D not found - 3D screensavers disabled")
+        set(ENABLE_QUICK3D OFF)
+    endif()
+endif()
 
 # Silence Qt policy warnings
 qt_policy(SET QTP0001 NEW)
@@ -278,7 +292,6 @@ target_link_libraries(Decenza_DE1 PRIVATE
     Qt6::Widgets
     Qt6::Qml
     Qt6::Quick
-    Qt6::Quick3D
     Qt6::QuickControls2
     Qt6::Bluetooth
     Qt6::Charts
@@ -290,6 +303,11 @@ target_link_libraries(Decenza_DE1 PRIVATE
     Qt6::Positioning
     paho-mqtt3a-static
 )
+
+# Optionally link Quick3D
+if(ENABLE_QUICK3D AND Qt6Quick3D_FOUND)
+    target_link_libraries(Decenza_DE1 PRIVATE Qt6::Quick3D)
+endif()
 
 # iOS/macOS: Use Darwin multimedia plugin (AVFoundation-based)
 if(IOS OR APPLE)
@@ -387,10 +405,8 @@ set(QML_FILES
     qml/components/StyledComboBox.qml
     qml/components/StyledIconButton.qml
     qml/components/StyledTabButton.qml
-    qml/components/PipesScreensaver.qml
     qml/components/FlipClockScreensaver.qml
     qml/components/StrangeAttractorScreensaver.qml
-    qml/components/ShotMapScreensaver.qml
     qml/components/UnsavedChangesDialog.qml
     qml/components/SwipeableArea.qml
     qml/components/CrashReportDialog.qml
@@ -400,6 +416,14 @@ set(QML_FILES
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug")
     list(APPEND QML_FILES
         qml/simulator/GHCSimulatorWindow.qml
+    )
+endif()
+
+# Quick3D screensavers - only when Quick3D is available
+if(ENABLE_QUICK3D AND Qt6Quick3D_FOUND)
+    list(APPEND QML_FILES
+        qml/components/PipesScreensaver.qml
+        qml/components/ShotMapScreensaver.qml
     )
 endif()
 

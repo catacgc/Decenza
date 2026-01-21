@@ -242,13 +242,15 @@ Page {
         }
     }
 
-    // 3D Pipes screensaver
-    PipesScreensaver {
-        id: pipesScreensaver
+    // 3D Pipes screensaver (requires Quick3D)
+    Loader {
+        id: pipesLoader
         anchors.fill: parent
+        active: Settings.hasQuick3D && isPipesMode
         visible: isPipesMode
-        running: isPipesMode && screensaverPage.visible
         z: 0
+        source: "qrc:/qml/components/PipesScreensaver.qml"
+        onLoaded: item.running = Qt.binding(function() { return isPipesMode && screensaverPage.visible })
     }
 
     // Flip Clock screensaver
@@ -269,13 +271,15 @@ Page {
         z: 0
     }
 
-    // Shot Map screensaver
-    ShotMapScreensaver {
-        id: shotMapScreensaver
+    // Shot Map screensaver (requires Quick3D)
+    Loader {
+        id: shotMapLoader
         anchors.fill: parent
+        active: Settings.hasQuick3D && isShotMapMode
         visible: isShotMapMode
-        running: isShotMapMode && screensaverPage.visible
         z: 0
+        source: "qrc:/qml/components/ShotMapScreensaver.qml"
+        onLoaded: item.running = Qt.binding(function() { return isShotMapMode && screensaverPage.visible })
     }
 
     // Fallback: show a subtle animation while no cached media (videos mode only)

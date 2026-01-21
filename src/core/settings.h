@@ -10,6 +10,9 @@
 class Settings : public QObject {
     Q_OBJECT
 
+    // Platform capabilities
+    Q_PROPERTY(bool hasQuick3D READ hasQuick3D CONSTANT)
+
     // Machine settings
     Q_PROPERTY(QString machineAddress READ machineAddress WRITE setMachineAddress NOTIFY machineAddressChanged)
     Q_PROPERTY(QString scaleAddress READ scaleAddress WRITE setScaleAddress NOTIFY scaleAddressChanged)
@@ -157,6 +160,15 @@ class Settings : public QObject {
 
 public:
     explicit Settings(QObject* parent = nullptr);
+
+    // Platform capabilities (compile-time)
+    bool hasQuick3D() const {
+#ifdef HAVE_QUICK3D
+        return true;
+#else
+        return false;
+#endif
+    }
 
     // Machine settings
     QString machineAddress() const;
