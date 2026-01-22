@@ -382,6 +382,42 @@ DE1Device: Write FAILED (timeout) after 3 retries - uuid: 0000a00f data: 0102...
 - **Night**: Maintains 90-95% charge
 - Commands sent every 60 seconds with `force=true` to overcome DE1 timeout
 
+## Steam Heater Control
+
+### Settings
+- **`keepSteamHeaterOn`**: When true, keeps steam heater warm during Idle for faster steaming
+- **`steamDisabled`**: Completely disables steam (sends 0°C)
+- **`steamTemperature`**: Target steam temperature (typically 140-160°C)
+
+### Key Functions (MainController)
+- **`applySteamSettings()`**: Smart function that checks phase and settings:
+  - If `steamDisabled` → sends 0°C
+  - If phase is Ready → always sends steam temp (machine heating, steam should be available)
+  - If `keepSteamHeaterOn=false` → sends 0°C (turn off in Idle)
+  - Otherwise → sends configured steam temp
+- **`startSteamHeating()`**: Always sends steam temp (ignores `keepSteamHeaterOn`) - use when user wants to steam
+- **`turnOffSteamHeater()`**: Sends 0°C to turn off heater
+
+### Behavior by Phase
+| Phase | keepSteamHeaterOn=true | keepSteamHeaterOn=false |
+|-------|------------------------|-------------------------|
+| Startup/Idle | Sends steam temp, periodic refresh | Sends 0°C |
+| Ready | Sends steam temp | Sends steam temp (for GHC) |
+| Steaming | Sends steam temp | Sends steam temp |
+| After Steaming | Keeps heater warm | Turns off heater |
+
+### SteamPage Flow
+1. **Page opens**: Calls `startSteamHeating()` to force heater on
+2. **Heating indicator**: Shows progress bar when current temp < target - 5°C
+3. **During steaming**: Calls `startSteamHeating()` for any setting changes
+4. **After steaming**: If `keepSteamHeaterOn=false`, calls `turnOffSteamHeater()`
+5. **Back button**: Turns off heater if `keepSteamHeaterOn=false`
+
+### Comparison with de1app
+- de1app sends `TargetSteamTemp=0` when `steam_disabled=1` or `steam_temperature < 135°C`
+- We send 0°C when `steamDisabled=true` or `keepSteamHeaterOn=false` (in Idle)
+- Both approaches explicitly turn off the heater rather than relying on machine timeout
+
 ## Platforms
 
 - Desktop: Windows, macOS, Linux
