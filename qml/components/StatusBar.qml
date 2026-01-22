@@ -137,6 +137,7 @@ Rectangle {
 
         // Scale connected indicator (tap to tare, double-tap for ratio)
         Item {
+            id: scaleIndicator
             visible: ScaleDevice && ScaleDevice.connected
             implicitWidth: scaleRow.implicitWidth
             implicitHeight: scaleRow.implicitHeight
@@ -144,12 +145,28 @@ Rectangle {
             // Detect if using FlowScale (estimated weight from flow sensor)
             property bool isFlowScale: ScaleDevice && ScaleDevice.name === "Flow Scale"
 
+            // Check if accessibility mode is enabled
+            property bool accessibilityEnabled: typeof AccessibilityManager !== "undefined" && AccessibilityManager.enabled
+
             Accessible.role: Accessible.Button
-            Accessible.name: scaleWeightAccessible.text + MachineState.scaleWeight.toFixed(1) + " " + gramsAccessible.text + (isFlowScale ? " (estimated)" : "") + ". " + tapToTareAccessible.text
+            // In accessibility mode, mention long press for ratio; otherwise mention double-tap
+            Accessible.name: scaleWeightAccessible.text + MachineState.scaleWeight.toFixed(1) + " " + gramsAccessible.text + (isFlowScale ? " (estimated)" : "") + ". " +
+                (accessibilityEnabled ? tapToTareHoldForRatioAccessible.text : tapToTareDoubleTapRatioAccessible.text)
+
+            // Accessibility: Handle TalkBack double-tap directly (triggers tare)
+            Accessible.onPressAction: {
+                console.log("StatusBar: Accessible.onPressAction triggered (TalkBack double-tap)")
+                if (MainController.brewByRatioActive) {
+                    MainController.clearBrewByRatio()
+                }
+                MachineState.tareScale()
+            }
 
             // Hidden Tr elements for accessible names
             Tr { id: scaleWeightAccessible; key: "statusbar.scale_weight"; fallback: "Scale weight: "; visible: false }
             Tr { id: gramsAccessible; key: "statusbar.grams"; fallback: "grams"; visible: false }
+            Tr { id: tapToTareHoldForRatioAccessible; key: "statusbar.tap_tare_hold_ratio"; fallback: "Tap to tare, hold for ratio"; visible: false }
+            Tr { id: tapToTareDoubleTapRatioAccessible; key: "statusbar.tap_tare_doubletap_ratio"; fallback: "Tap to tare, double-tap for ratio"; visible: false }
 
             Row {
                 id: scaleRow
@@ -191,8 +208,36 @@ Rectangle {
 
                 property int tapCount: 0
                 property var lastTapTime: 0
+                property bool longPressTriggered: false
+
+                onPressed: {
+                    longPressTriggered = false
+                    // Start long press timer only in accessibility mode
+                    if (scaleIndicator.accessibilityEnabled && !MachineState.isFlowing) {
+                        longPressTimer.start()
+                    }
+                }
+
+                onReleased: {
+                    longPressTimer.stop()
+                    // If long press was triggered, don't process as tap
+                    if (longPressTriggered) {
+                        longPressTriggered = false
+                        return
+                    }
+                }
+
+                onCanceled: {
+                    longPressTimer.stop()
+                    longPressTriggered = false
+                }
 
                 onClicked: {
+                    // If long press was triggered, ignore the click
+                    if (longPressTriggered) {
+                        return
+                    }
+
                     // Don't allow ratio dialog during shot
                     if (MachineState.isFlowing) {
                         console.log("StatusBar: Tare during shot")
@@ -226,6 +271,17 @@ Rectangle {
                         // Single tap: delay tare to distinguish from double-tap
                         singleTapTimer.restart()
                     }
+                }
+            }
+
+            // Long press timer for accessibility mode - opens ratio dialog
+            Timer {
+                id: longPressTimer
+                interval: 600  // 600ms for long press
+                onTriggered: {
+                    console.log("StatusBar: Long press detected (accessibility mode), opening ratio dialog")
+                    scaleMouseArea.longPressTriggered = true
+                    brewRatioDialog.open()
                 }
             }
 
