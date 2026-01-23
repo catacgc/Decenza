@@ -60,6 +60,8 @@ Full build commands for all platforms are documented in `claude.md` under "Comma
 - **macOS**: Use Qt's `qt-cmake` wrapper with Ninja generator; requires `-DCMAKE_POLICY_VERSION_MINIMUM=3.5` for paho_mqtt_c compatibility
 - **iOS**: GitHub Actions CI/CD (see `docs/IOS_CI_FOR_CLAUDE.md`); bundle ID `io.github.kulitorum.decenza`
 - **Android**: Built via Qt Creator's `androiddeployqt`; signed with keystore; outputs APK and AAB
+- **Automation**: A `build.sh` script is available in the root directory for CLI builds:
+  - `./build.sh --target <OSX|ANDROID> [--debug]`
 - **Output**: `build/<config>/Decenza_DE1.exe` (Windows), `build/<config>/Decenza_DE1.app` (macOS)
 
 ## Domain Context
