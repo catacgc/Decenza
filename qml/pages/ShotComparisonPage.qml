@@ -109,6 +109,12 @@ Page {
 
                     onSwipedLeft: comparisonModel.shiftWindowRight()
                     onSwipedRight: comparisonModel.shiftWindowLeft()
+                    onClicked: function(mouse) {
+                        comparisonGraph.handleClick(mouse.x, mouse.y)
+                    }
+                    onPressAndHold: function(mouse) {
+                        comparisonGraph.clearCursor()
+                    }
                 }
 
                 // Position indicator (only show if more than 3 shots)
