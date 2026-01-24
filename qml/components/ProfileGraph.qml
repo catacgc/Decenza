@@ -18,6 +18,10 @@ ChartView {
     property var frames: []
     property int selectedFrameIndex: -1
 
+    // Cursor state
+    property double cursorTime: -1
+    property bool cursorVisible: cursorTime >= 0
+
     // Signals
     signal frameSelected(int index)
     signal frameDoubleClicked(int index)
@@ -338,6 +342,7 @@ ChartView {
 
     // Re-generate curves when frames change
     onFramesChanged: {
+        cursorTime = -1
         updateCurves()
     }
 
@@ -376,6 +381,139 @@ ChartView {
             spacing: Theme.scaled(4)
             Rectangle { width: Theme.scaled(16); height: Theme.scaled(3); radius: Theme.scaled(1); color: Theme.temperatureGoalColor; anchors.verticalCenter: parent.verticalCenter }
             Text { text: "Temp"; color: Theme.textSecondaryColor; font: Theme.captionFont }
+        }
+    }
+
+    // Interpolate value from LineSeries at given time
+    function interpolateFromSeries(series, time) {
+        if (!series || series.count === 0) return NaN
+        var point0 = series.at(0)
+        if (time <= point0.x) return point0.y
+        var pointLast = series.at(series.count - 1)
+        if (time >= pointLast.x) return pointLast.y
+        for (var i = 1; i < series.count; i++) {
+            var point = series.at(i)
+            if (point.x >= time) {
+                var prevPoint = series.at(i - 1)
+                var t = (time - prevPoint.x) / (point.x - prevPoint.x)
+                return prevPoint.y + t * (point.y - prevPoint.y)
+            }
+        }
+        return NaN
+    }
+
+    // Find first non-empty series in pool and interpolate
+    function interpolateFromPool(pool, time) {
+        for (var i = 0; i < pool.length; i++) {
+            if (pool[i].count > 0) {
+                var point0 = pool[i].at(0)
+                var pointLast = pool[i].at(pool[i].count - 1)
+                if (time >= point0.x && time <= pointLast.x) {
+                    return interpolateFromSeries(pool[i], time)
+                }
+            }
+        }
+        return NaN
+    }
+
+    // Click/tap handler
+    MouseArea {
+        anchors.fill: parent
+        z: 100
+        propagateComposedEvents: true
+        onClicked: function(mouse) {
+            // Check if click is inside plot area
+            if (mouse.x < chart.plotArea.x || mouse.x > chart.plotArea.x + chart.plotArea.width ||
+                mouse.y < chart.plotArea.y || mouse.y > chart.plotArea.y + chart.plotArea.height) {
+                chart.cursorTime = -1
+                mouse.accepted = false
+                return
+            }
+
+            var chartPos = chart.mapToValue(Qt.point(mouse.x, mouse.y), pressureSeries0)
+            if (chartPos.x >= timeAxis.min && chartPos.x <= timeAxis.max) {
+                chart.cursorTime = chartPos.x
+            } else {
+                chart.cursorTime = -1
+            }
+            mouse.accepted = false  // Let frame selection work too
+        }
+        onPressAndHold: {
+            chart.cursorTime = -1
+        }
+    }
+
+    // Vertical cursor line
+    Rectangle {
+        id: cursorLine
+        visible: cursorVisible
+        width: 1
+        color: Theme.textColor
+        opacity: 0.7
+        y: chart.plotArea.y
+        height: chart.plotArea.height
+        z: 90
+        x: {
+            if (!cursorVisible) return 0
+            var pos = chart.mapToPosition(Qt.point(cursorTime, 0), pressureSeries0)
+            return pos.x
+        }
+    }
+
+    // Tooltip with data values
+    Rectangle {
+        id: cursorTooltip
+        visible: cursorVisible
+        color: Qt.rgba(0, 0, 0, 0.85)
+        radius: 4
+        width: tooltipColumn.width + 12
+        height: tooltipColumn.height + 8
+        border.color: Qt.rgba(1, 1, 1, 0.2)
+        border.width: 1
+        z: 95
+
+        // Position near cursor, flipping side if too close to edge
+        x: {
+            if (!cursorVisible) return 0
+            var pos = chart.mapToPosition(Qt.point(cursorTime, 0), pressureSeries0)
+            var tooltipX = pos.x + 8
+            if (tooltipX + width > chart.plotArea.x + chart.plotArea.width)
+                tooltipX = pos.x - width - 8
+            return tooltipX
+        }
+        y: chart.plotArea.y + 8
+
+        Column {
+            id: tooltipColumn
+            x: 6
+            y: 4
+            spacing: 2
+
+            Text {
+                text: cursorVisible ? cursorTime.toFixed(1) + "s" : ""
+                color: Theme.textColor
+                font.pixelSize: 11
+                font.bold: true
+            }
+            Text {
+                property double val: cursorVisible ? interpolateFromPool(pressureSeriesPool, cursorTime) : NaN
+                text: !isNaN(val) ? val.toFixed(1) + " bar" : ""
+                color: Theme.pressureGoalColor
+                font.pixelSize: 11
+                visible: !isNaN(val)
+            }
+            Text {
+                property double val: cursorVisible ? interpolateFromPool(flowSeriesPool, cursorTime) : NaN
+                text: !isNaN(val) ? val.toFixed(2) + " mL/s" : ""
+                color: Theme.flowGoalColor
+                font.pixelSize: 11
+                visible: !isNaN(val)
+            }
+            Text {
+                text: cursorVisible ? interpolateFromSeries(temperatureGoalSeries, cursorTime).toFixed(1) + " °C" : ""
+                color: Theme.temperatureGoalColor
+                font.pixelSize: 11
+            }
         }
     }
 }

@@ -14,6 +14,10 @@ ChartView {
     margins.left: 0
     margins.right: 0
 
+    // Cursor state
+    property double cursorTime: -1
+    property bool cursorVisible: cursorTime >= 0
+
     // Register series with C++ model on completion
     Component.onCompleted: {
         ShotDataModel.registerSeries(
@@ -308,5 +312,122 @@ ChartView {
         color: Theme.textSecondaryColor
         font: Theme.captionFont
         opacity: 0.7
+    }
+
+    // Interpolate value from LineSeries at given time
+    function interpolateFromSeries(series, time) {
+        if (!series || series.count === 0) return NaN
+        var point0 = series.at(0)
+        if (time <= point0.x) return point0.y
+        var pointLast = series.at(series.count - 1)
+        if (time >= pointLast.x) return pointLast.y
+        for (var i = 1; i < series.count; i++) {
+            var point = series.at(i)
+            if (point.x >= time) {
+                var prevPoint = series.at(i - 1)
+                var t = (time - prevPoint.x) / (point.x - prevPoint.x)
+                return prevPoint.y + t * (point.y - prevPoint.y)
+            }
+        }
+        return NaN
+    }
+
+    // Click/tap handler (higher z-order than legend)
+    MouseArea {
+        anchors.fill: parent
+        z: 100
+        propagateComposedEvents: true
+        onClicked: function(mouse) {
+            // Don't handle clicks on legend area
+            if (mouse.x >= legendBackground.x && mouse.x <= legendBackground.x + legendBackground.width &&
+                mouse.y >= legendBackground.y && mouse.y <= legendBackground.y + legendBackground.height) {
+                mouse.accepted = false
+                return
+            }
+            var chartPos = chart.mapToValue(Qt.point(mouse.x, mouse.y), pressureSeries)
+            if (chartPos.x >= timeAxis.min && chartPos.x <= timeAxis.max) {
+                chart.cursorTime = chartPos.x
+            } else {
+                chart.cursorTime = -1
+            }
+        }
+        onPressAndHold: {
+            chart.cursorTime = -1
+        }
+    }
+
+    // Vertical cursor line
+    Rectangle {
+        id: cursorLine
+        visible: cursorVisible
+        width: 1
+        color: Theme.textColor
+        opacity: 0.7
+        y: chart.plotArea.y
+        height: chart.plotArea.height
+        z: 90
+        x: {
+            if (!cursorVisible) return 0
+            var pos = chart.mapToPosition(Qt.point(cursorTime, 0), pressureSeries)
+            return pos.x
+        }
+    }
+
+    // Tooltip with data values
+    Rectangle {
+        id: cursorTooltip
+        visible: cursorVisible
+        color: Qt.rgba(0, 0, 0, 0.85)
+        radius: 4
+        width: tooltipColumn.width + 12
+        height: tooltipColumn.height + 8
+        border.color: Qt.rgba(1, 1, 1, 0.2)
+        border.width: 1
+        z: 95
+
+        // Position near cursor, flipping side if too close to edge
+        x: {
+            if (!cursorVisible) return 0
+            var pos = chart.mapToPosition(Qt.point(cursorTime, 0), pressureSeries)
+            var tooltipX = pos.x + 8
+            if (tooltipX + width > chart.plotArea.x + chart.plotArea.width)
+                tooltipX = pos.x - width - 8
+            return tooltipX
+        }
+        y: chart.plotArea.y + 8
+
+        Column {
+            id: tooltipColumn
+            x: 6
+            y: 4
+            spacing: 2
+
+            Text {
+                text: cursorVisible ? cursorTime.toFixed(1) + "s" : ""
+                color: Theme.textColor
+                font.pixelSize: 11
+                font.bold: true
+            }
+            Text {
+                text: cursorVisible ? interpolateFromSeries(pressureSeries, cursorTime).toFixed(1) + " bar" : ""
+                color: Theme.pressureColor
+                font.pixelSize: 11
+            }
+            Text {
+                text: cursorVisible ? interpolateFromSeries(flowSeries, cursorTime).toFixed(2) + " mL/s" : ""
+                color: Theme.flowColor
+                font.pixelSize: 11
+            }
+            Text {
+                text: cursorVisible ? interpolateFromSeries(temperatureSeries, cursorTime).toFixed(1) + " °C" : ""
+                color: Theme.temperatureColor
+                font.pixelSize: 11
+            }
+            Text {
+                text: cursorVisible ? interpolateFromSeries(weightSeries, cursorTime).toFixed(1) + " g" : ""
+                color: Theme.weightColor
+                font.pixelSize: 11
+            }
+        }
     }
 }
