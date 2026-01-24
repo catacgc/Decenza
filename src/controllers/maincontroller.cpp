@@ -874,6 +874,19 @@ void MainController::loadShotWithMetadata(qint64 shotId) {
         // Apply brew overrides from history (after loadProfile cleared them)
         if (!shotRecord.brewOverridesJson.isEmpty()) {
             m_settings->applyBrewOverridesFromJson(shotRecord.brewOverridesJson);
+
+            // Activate brew-by-ratio so yield override is used during execution
+            if (m_settings->hasBrewYieldOverride()) {
+                double dose = m_settings->hasBrewDoseOverride()
+                    ? m_settings->brewDoseOverride()
+                    : (m_settings->dyeBeanWeight() > 0 ? m_settings->dyeBeanWeight() : 18.0);
+                double yield = m_settings->brewYieldOverride();
+                double temperature = m_settings->hasTemperatureOverride()
+                    ? m_settings->temperatureOverride()
+                    : m_currentProfile.espressoTemperature();
+                QString grind = m_settings->brewGrindOverride();
+                activateBrewWithOverrides(dose, yield, temperature, grind);
+            }
         }
 
         qDebug() << "Loaded shot metadata - brand:" << shotRecord.summary.beanBrand

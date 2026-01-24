@@ -11,6 +11,8 @@ cmake-build-*/
 *.user
 *.user.*
 
+android/.gradle
+
 # IDE
 .idea/
 .vscode/
