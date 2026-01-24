@@ -20,6 +20,7 @@ ChartView {
     // Visibility toggles for curve types
     property bool showPressure: true
     property bool showFlow: true
+    property bool showTemperature: true
     property bool showWeight: true
 
     // Cursor state
@@ -38,9 +39,9 @@ ChartView {
         if (!comparisonModel) return
 
         // Clear all series
-        pressure1.clear(); flow1.clear(); weight1.clear()
-        pressure2.clear(); flow2.clear(); weight2.clear()
-        pressure3.clear(); flow3.clear(); weight3.clear()
+        pressure1.clear(); flow1.clear(); temp1.clear(); weight1.clear()
+        pressure2.clear(); flow2.clear(); temp2.clear(); weight2.clear()
+        pressure3.clear(); flow3.clear(); temp3.clear(); weight3.clear()
 
         var windowStart = comparisonModel.windowStart
 
@@ -48,10 +49,12 @@ ChartView {
         for (var i = 0; i < comparisonModel.shotCount; i++) {
             var pressureData = comparisonModel.getPressureData(i)
             var flowData = comparisonModel.getFlowData(i)
+            var temperatureData = comparisonModel.getTemperatureData(i)
             var weightData = comparisonModel.getWeightData(i)
 
             var pSeries = i === 0 ? pressure1 : (i === 1 ? pressure2 : pressure3)
             var fSeries = i === 0 ? flow1 : (i === 1 ? flow2 : flow3)
+            var tSeries = i === 0 ? temp1 : (i === 1 ? temp2 : temp3)
             var wSeries = i === 0 ? weight1 : (i === 1 ? weight2 : weight3)
 
             // Set colors based on global position (windowStart + i) % 3
@@ -59,6 +62,7 @@ ChartView {
             var colors = shotColorSets[colorIndex]
             pSeries.color = colors.primary
             fSeries.color = colors.flow
+            tSeries.color = Theme.temperatureColor  // Use consistent temperature color
             wSeries.color = colors.weight
 
             for (var j = 0; j < pressureData.length; j++) {
@@ -66,6 +70,9 @@ ChartView {
             }
             for (j = 0; j < flowData.length; j++) {
                 fSeries.append(flowData[j].x, flowData[j].y)
+            }
+            for (j = 0; j < temperatureData.length; j++) {
+                tSeries.append(temperatureData[j].x, temperatureData[j].y)
             }
             for (j = 0; j < weightData.length; j++) {
                 wSeries.append(weightData[j].x, weightData[j].y / 5)  // Scale for display
@@ -111,7 +118,21 @@ ChartView {
         titleBrush: Theme.textSecondaryColor
     }
 
-    // Weight axis (hidden)
+    // Temperature axis (right Y) - hidden to make room for weight
+    ValueAxis {
+        id: tempAxis
+        min: 80
+        max: 100
+        tickCount: 5
+        labelFormat: "%.0f"
+        labelsColor: Theme.temperatureColor
+        gridLineColor: "transparent"
+        titleText: "°C"
+        titleBrush: Theme.temperatureColor
+        visible: false
+    }
+
+    // Weight axis (hidden, uses same right Y as temperature)
     ValueAxis {
         id: weightAxis
         min: 0
@@ -149,6 +170,15 @@ ChartView {
         axisY: weightAxis
         visible: chart.showWeight
     }
+    LineSeries {
+        id: temp1
+        name: "Temp 1"
+        color: "#81C784"
+        width: Theme.graphLineWidth - 1
+        axisX: timeAxis
+        axisYRight: tempAxis
+        visible: chart.showTemperature
+    }
 
     // Shot 2 series (Blue)
     LineSeries {
@@ -180,6 +210,15 @@ ChartView {
         axisY: weightAxis
         visible: chart.showWeight
     }
+    LineSeries {
+        id: temp2
+        name: "Temp 2"
+        color: "#64B5F6"
+        width: Theme.graphLineWidth - 1
+        axisX: timeAxis
+        axisYRight: tempAxis
+        visible: chart.showTemperature
+    }
 
     // Shot 3 series (Orange)
     LineSeries {
@@ -210,6 +249,15 @@ ChartView {
         axisX: timeAxis
         axisY: weightAxis
         visible: chart.showWeight
+    }
+    LineSeries {
+        id: temp3
+        name: "Temp 3"
+        color: "#FFB74D"
+        width: Theme.graphLineWidth - 1
+        axisX: timeAxis
+        axisYRight: tempAxis
+        visible: chart.showTemperature
     }
 
     // Handle click from external source (e.g., SwipeableArea)
@@ -348,6 +396,16 @@ ChartView {
                     font.pixelSize: 10
                 }
                 Text {
+                    visible: showTemperature
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(temp1, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " °C"
+                    }
+                    color: temp1.color
+                    font.pixelSize: 10
+                }
+                Text {
                     visible: showWeight
                     text: {
                         if (!cursorVisible) return ""
@@ -391,6 +449,16 @@ ChartView {
                     font.pixelSize: 10
                 }
                 Text {
+                    visible: showTemperature
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(temp2, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " °C"
+                    }
+                    color: temp2.color
+                    font.pixelSize: 10
+                }
+                Text {
                     visible: showWeight
                     text: {
                         if (!cursorVisible) return ""
@@ -431,6 +499,16 @@ ChartView {
                         return isNaN(val) ? "" : "  " + val.toFixed(2) + " mL/s"
                     }
                     color: flow3.color
+                    font.pixelSize: 10
+                }
+                Text {
+                    visible: showTemperature
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(temp3, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " °C"
+                    }
+                    color: temp3.color
                     font.pixelSize: 10
                 }
                 Text {

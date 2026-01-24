@@ -17,6 +17,7 @@ Page {
     // Curve visibility toggles
     property bool showPressure: true
     property bool showFlow: true
+    property bool showTemperature: true
     property bool showWeight: true
 
     Component.onCompleted: {
@@ -96,6 +97,7 @@ Page {
                     comparisonModel: shotComparisonPage.comparisonModel
                     showPressure: shotComparisonPage.showPressure
                     showFlow: shotComparisonPage.showFlow
+                    showTemperature: shotComparisonPage.showTemperature
                     showWeight: shotComparisonPage.showWeight
                 }
 
@@ -261,6 +263,37 @@ Page {
                     MouseArea {
                         anchors.fill: parent
                         onClicked: showFlow = !showFlow
+                    }
+                }
+
+                // Temperature toggle
+                Rectangle {
+                    width: tempToggleContent.width + Theme.scaled(16)
+                    height: Theme.scaled(32)
+                    radius: Theme.scaled(16)
+                    color: showTemperature ? Theme.surfaceColor : "transparent"
+                    border.color: showTemperature ? Theme.primaryColor : Theme.borderColor
+                    border.width: 1
+                    opacity: showTemperature ? 1.0 : 0.5
+
+                    RowLayout {
+                        id: tempToggleContent
+                        anchors.centerIn: parent
+                        spacing: Theme.spacingSmall
+
+                        Rectangle {
+                            width: Theme.scaled(20); height: 2; color: showTemperature ? Theme.temperatureColor : Theme.textSecondaryColor
+                        }
+                        Text {
+                            text: TranslationManager.translate("comparison.temperature", "Temp")
+                            font: Theme.captionFont
+                            color: showTemperature ? Theme.textColor : Theme.textSecondaryColor
+                        }
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        onClicked: showTemperature = !showTemperature
                     }
                 }
 
