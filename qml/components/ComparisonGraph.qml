@@ -22,6 +22,10 @@ ChartView {
     property bool showFlow: true
     property bool showWeight: true
 
+    // Cursor state
+    property double cursorTime: -1
+    property bool cursorVisible: cursorTime >= 0
+
     // Colors for each shot (primary, flow/light, weight/lighter)
     readonly property var shotColorSets: [
         { primary: "#4CAF50", flow: "#81C784", weight: "#A5D6A7" },  // Green
@@ -206,5 +210,240 @@ ChartView {
         axisX: timeAxis
         axisY: weightAxis
         visible: chart.showWeight
+    }
+
+    // Handle click from external source (e.g., SwipeableArea)
+    function handleClick(mouseX, mouseY) {
+        var chartPos = chart.mapToValue(Qt.point(mouseX, mouseY), pressure1)
+        if (chartPos.x >= timeAxis.min && chartPos.x <= timeAxis.max) {
+            chart.cursorTime = chartPos.x
+        } else {
+            chart.cursorTime = -1
+        }
+    }
+
+    // Clear cursor (e.g., on press-and-hold)
+    function clearCursor() {
+        chart.cursorTime = -1
+    }
+
+    // Interpolate value from LineSeries at given time
+    function interpolateFromSeries(series, time) {
+        if (!series || series.count === 0) return NaN
+        var point0 = series.at(0)
+        if (time <= point0.x) return point0.y
+        var pointLast = series.at(series.count - 1)
+        if (time >= pointLast.x) return pointLast.y
+        for (var i = 1; i < series.count; i++) {
+            var point = series.at(i)
+            if (point.x >= time) {
+                var prevPoint = series.at(i - 1)
+                var t = (time - prevPoint.x) / (point.x - prevPoint.x)
+                return prevPoint.y + t * (point.y - prevPoint.y)
+            }
+        }
+        return NaN
+    }
+
+    // Click/tap handler
+    MouseArea {
+        anchors.fill: parent
+        z: 100
+        propagateComposedEvents: true
+        onClicked: function(mouse) {
+            var chartPos = chart.mapToValue(Qt.point(mouse.x, mouse.y), pressure1)
+            if (chartPos.x >= timeAxis.min && chartPos.x <= timeAxis.max) {
+                chart.cursorTime = chartPos.x
+            } else {
+                chart.cursorTime = -1
+            }
+        }
+        onPressAndHold: {
+            chart.cursorTime = -1
+        }
+    }
+
+    // Vertical cursor line
+    Rectangle {
+        id: cursorLine
+        visible: cursorVisible
+        width: 1
+        color: Theme.textColor
+        opacity: 0.7
+        y: chart.plotArea.y
+        height: chart.plotArea.height
+        z: 90
+        x: {
+            if (!cursorVisible) return 0
+            var pos = chart.mapToPosition(Qt.point(cursorTime, 0), pressure1)
+            return pos.x
+        }
+    }
+
+    // Tooltip with data values for all shots
+    Rectangle {
+        id: cursorTooltip
+        visible: cursorVisible
+        color: Qt.rgba(0, 0, 0, 0.85)
+        radius: 4
+        width: tooltipColumn.width + 12
+        height: tooltipColumn.height + 8
+        border.color: Qt.rgba(1, 1, 1, 0.2)
+        border.width: 1
+        z: 95
+
+        // Position near cursor, flipping side if too close to edge
+        x: {
+            if (!cursorVisible) return 0
+            var pos = chart.mapToPosition(Qt.point(cursorTime, 0), pressure1)
+            var tooltipX = pos.x + 8
+            if (tooltipX + width > chart.plotArea.x + chart.plotArea.width)
+                tooltipX = pos.x - width - 8
+            return tooltipX
+        }
+        y: chart.plotArea.y + 8
+
+        Column {
+            id: tooltipColumn
+            x: 6
+            y: 4
+            spacing: 2
+
+            Text {
+                text: cursorVisible ? cursorTime.toFixed(1) + "s" : ""
+                color: Theme.textColor
+                font.pixelSize: 11
+                font.bold: true
+            }
+
+            // Shot 1 values
+            Column {
+                visible: comparisonModel && comparisonModel.shotCount > 0
+                spacing: 1
+
+                Text {
+                    text: comparisonModel ? "Shot " + (comparisonModel.windowStart + 1) : ""
+                    color: comparisonModel ? shotColorSets[comparisonModel.windowStart % 3].primary : "white"
+                    font.pixelSize: 10
+                    font.bold: true
+                }
+                Text {
+                    visible: showPressure
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(pressure1, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " bar"
+                    }
+                    color: pressure1.color
+                    font.pixelSize: 10
+                }
+                Text {
+                    visible: showFlow
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(flow1, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(2) + " mL/s"
+                    }
+                    color: flow1.color
+                    font.pixelSize: 10
+                }
+                Text {
+                    visible: showWeight
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(weight1, cursorTime) * 5
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " g"
+                    }
+                    color: weight1.color
+                    font.pixelSize: 10
+                }
+            }
+
+            // Shot 2 values
+            Column {
+                visible: comparisonModel && comparisonModel.shotCount > 1
+                spacing: 1
+
+                Text {
+                    text: comparisonModel ? "Shot " + (comparisonModel.windowStart + 2) : ""
+                    color: comparisonModel ? shotColorSets[(comparisonModel.windowStart + 1) % 3].primary : "white"
+                    font.pixelSize: 10
+                    font.bold: true
+                }
+                Text {
+                    visible: showPressure
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(pressure2, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " bar"
+                    }
+                    color: pressure2.color
+                    font.pixelSize: 10
+                }
+                Text {
+                    visible: showFlow
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(flow2, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(2) + " mL/s"
+                    }
+                    color: flow2.color
+                    font.pixelSize: 10
+                }
+                Text {
+                    visible: showWeight
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(weight2, cursorTime) * 5
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " g"
+                    }
+                    color: weight2.color
+                    font.pixelSize: 10
+                }
+            }
+
+            // Shot 3 values
+            Column {
+                visible: comparisonModel && comparisonModel.shotCount > 2
+                spacing: 1
+
+                Text {
+                    text: comparisonModel ? "Shot " + (comparisonModel.windowStart + 3) : ""
+                    color: comparisonModel ? shotColorSets[(comparisonModel.windowStart + 2) % 3].primary : "white"
+                    font.pixelSize: 10
+                    font.bold: true
+                }
+                Text {
+                    visible: showPressure
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(pressure3, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " bar"
+                    }
+                    color: pressure3.color
+                    font.pixelSize: 10
+                }
+                Text {
+                    visible: showFlow
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(flow3, cursorTime)
+                        return isNaN(val) ? "" : "  " + val.toFixed(2) + " mL/s"
+                    }
+                    color: flow3.color
+                    font.pixelSize: 10
+                }
+                Text {
+                    visible: showWeight
+                    text: {
+                        if (!cursorVisible) return ""
+                        var val = interpolateFromSeries(weight3, cursorTime) * 5
+                        return isNaN(val) ? "" : "  " + val.toFixed(1) + " g"
+                    }
+                    color: weight3.color
+                    font.pixelSize: 10
+                }
+            }
+        }
     }
 }

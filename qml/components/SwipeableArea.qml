@@ -8,6 +8,8 @@ Item {
     // Signals emitted on successful swipe
     signal swipedLeft()   // Swipe left = go to next (newer)
     signal swipedRight()  // Swipe right = go to previous (older)
+    signal clicked(var mouse)  // Single click/tap (not a swipe)
+    signal pressAndHold(var mouse)  // Press and hold gesture
 
     // Whether swiping is allowed in each direction (for edge bounce)
     property bool canSwipeLeft: true
@@ -51,6 +53,10 @@ Item {
             isHorizontalSwipe = false
             directionDecided = false
             swipeOffset = 0
+        }
+
+        onPressAndHold: function(mouse) {
+            pressAndHold(mouse)
         }
 
         onPositionChanged: function(mouse) {
@@ -102,6 +108,9 @@ Item {
                     // Successful right swipe
                     swipedRight()
                 }
+            } else if (!directionDecided || (Math.abs(deltaX) < 10 && Math.abs(mouse.y - startY) < 10)) {
+                // Small movement or no swipe detected - treat as click
+                clicked(mouse)
             }
 
             isHorizontalSwipe = false
