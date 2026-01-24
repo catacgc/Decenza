@@ -382,6 +382,7 @@ set(QML_FILES
     qml/components/ValueInput.qml
     qml/components/ShotGraph.qml
     qml/components/StatusBar.qml
+    qml/components/ShotPlanText.qml
     qml/components/ProfileGraph.qml
     qml/components/ProfilePreviewPopup.qml
     qml/components/ProfileInfoButton.qml

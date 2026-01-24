@@ -7,6 +7,7 @@ Users want to tweak brew parameters (temperature, dose, yield, grind) for the ne
 - New **BrewDialog** replaces the old BrewRatioDialog, adding temperature override, grind setting, and a "Base Recipe" info header
 - **Session-only brew overrides** in Settings: dose, yield, grind (temperature override already existed, but should now move under this dialog)
 - **Shot plan summary line** on IdlePage showing the configured shot parameters with override indicators
+- **Shot plan visibility settings**: "Show shot plan" (enable/disable) and "Show on all screens" (bottom bar on all pages vs IdlePage only) in Settings → Options
 - **Override lifecycle**: cleared after shot ends, cleared when switching profiles, cleared when switching beans and populated from shot history
 - **Shot history storage**: brew overrides JSON recorded with each shot for traceability
 - `MainController::activateBrewWithOverrides()` applies all overrides in one call

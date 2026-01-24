@@ -6,7 +6,7 @@
 
 ## 2. Controller Logic
 - [x] 2.1 Add `activateBrewWithOverrides(dose, yield, temperature, grind)` to MainController
-- [x] 2.2 Add `setProfileTemperature(temperature)` for saving temp to profile
+- [x] 2.2 Save temp/weight to profile via `getCurrentProfile()` + `uploadProfile()` (same pattern as ProfileEditor)
 - [x] 2.3 On profile switch: clear only target weight and temperature overrides (not grind/dose)
 - [x] 2.4 Clear brew-by-ratio mode in `loadProfile()` when switching profiles
 - [x] 2.5 Populate dose from shot history in `loadShotWithMetadata()`
@@ -45,3 +45,11 @@
 ## 7. IdlePage Temperature Display
 - [x] 7.1 Show effective target temperature (override or profile) in status section
 - [x] 7.2 Show "(override)" label and blue coloring when temp override is active
+
+## 8. Shot Plan Visibility Settings
+- [x] 8.1 Add `showShotPlan` (bool, default: true) and `showShotPlanOnAllScreens` (bool, default: false) Q_PROPERTYs to Settings
+- [x] 8.2 Add toggles in Settings → Options tab for "Show shot plan" and "Show on all screens"
+- [x] 8.3 Guard IdlePage shot plan text with `Settings.showShotPlan` visibility binding
+- [x] 8.4 Add shot plan text to StatusBar (between page title and indicators) visible when both settings are enabled
+- [x] 8.5 The StatusBar shot plan reuses the same text logic and opens BrewDialog on tap
+- [x] 8.6 Hide IdlePage's inline shot plan when "Show on all screens" is active (avoid duplication)
