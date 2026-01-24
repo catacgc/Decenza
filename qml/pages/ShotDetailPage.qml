@@ -102,6 +102,7 @@ Page {
                 transform: Translate { x: graphSwipeArea.swipeOffset * 0.3 }
 
                 HistoryShotGraph {
+                    id: shotGraph
                     anchors.fill: parent
                     anchors.margins: Theme.spacingSmall
                     pressureData: shotData.pressure || []
@@ -121,6 +122,12 @@ Page {
 
                     onSwipedLeft: navigateToShot(currentIndex + 1)
                     onSwipedRight: navigateToShot(currentIndex - 1)
+                    onClicked: function(mouse) {
+                        shotGraph.handleClick(mouse.x, mouse.y)
+                    }
+                    onPressAndHold: function(mouse) {
+                        shotGraph.clearCursor()
+                    }
                 }
 
                 // Position indicator (only show if navigating through multiple shots)
