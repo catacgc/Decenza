@@ -1023,13 +1023,28 @@ void Settings::applyBeanPreset(int index) {
 }
 
 void Settings::saveBeanPresetFromCurrent(const QString& name) {
-    addBeanPreset(name,
-                  dyeBeanBrand(),
-                  dyeBeanType(),
-                  dyeRoastDate(),
-                  dyeRoastLevel(),
-                  dyeGrinderModel(),
-                  dyeGrinderSetting());
+    // Check if a preset with this name already exists
+    int existingIndex = findBeanPresetByName(name);
+    if (existingIndex >= 0) {
+        // Update existing preset
+        updateBeanPreset(existingIndex,
+                        name,
+                        dyeBeanBrand(),
+                        dyeBeanType(),
+                        dyeRoastDate(),
+                        dyeRoastLevel(),
+                        dyeGrinderModel(),
+                        dyeGrinderSetting());
+    } else {
+        // Add new preset
+        addBeanPreset(name,
+                     dyeBeanBrand(),
+                     dyeBeanType(),
+                     dyeRoastDate(),
+                     dyeRoastLevel(),
+                     dyeGrinderModel(),
+                     dyeGrinderSetting());
+    }
 }
 
 int Settings::findBeanPresetByContent(const QString& brand, const QString& type) const {
@@ -1037,6 +1052,19 @@ int Settings::findBeanPresetByContent(const QString& brand, const QString& type)
     for (int i = 0; i < arr.size(); ++i) {
         QJsonObject obj = arr[i].toObject();
         if (obj["brand"].toString() == brand && obj["type"].toString() == type) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int Settings::findBeanPresetByName(const QString& name) const {
+    QByteArray data = m_settings.value("bean/presets").toByteArray();
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    QJsonArray arr = doc.array();
+    for (int i = 0; i < arr.size(); ++i) {
+        QJsonObject obj = arr[i].toObject();
+        if (obj["name"].toString() == name) {
             return i;
         }
     }
