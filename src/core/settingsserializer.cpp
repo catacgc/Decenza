@@ -228,10 +228,7 @@ QJsonObject SettingsSerializer::exportToJson(Settings* settings, bool includeSen
     updates["autoCheck"] = settings->autoCheckUpdates();
     root["updates"] = updates;
 
-    // Developer settings
-    QJsonObject developer;
-    developer["translationUpload"] = settings->developerTranslationUpload();
-    root["developer"] = developer;
+    // Developer settings - intentionally not exported (session-only Easter eggs)
 
     // Auto-wake schedule
     QJsonObject autoWake;

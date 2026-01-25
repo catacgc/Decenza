@@ -1955,12 +1955,13 @@ void Settings::setWaterLevelDisplayUnit(const QString& unit) {
 }
 
 bool Settings::developerTranslationUpload() const {
-    return m_settings.value("developer/translationUpload", false).toBool();
+    // Runtime-only flag - not persisted, resets to false on app restart
+    return m_developerTranslationUpload;
 }
 
 void Settings::setDeveloperTranslationUpload(bool enabled) {
-    if (developerTranslationUpload() != enabled) {
-        m_settings.setValue("developer/translationUpload", enabled);
+    if (m_developerTranslationUpload != enabled) {
+        m_developerTranslationUpload = enabled;
         emit developerTranslationUploadChanged();
     }
 }

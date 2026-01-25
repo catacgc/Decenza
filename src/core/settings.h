@@ -631,6 +631,7 @@ private:
     bool m_steamDisabled = false;  // Session-only, not persisted (for descaling)
     double m_temperatureOverride = 0;  // Session-only, for next shot
     bool m_hasTemperatureOverride = false;  // Session-only
+    bool m_developerTranslationUpload = false;  // Session-only, Easter egg unlock
 
     // Brew parameter overrides (session-only)
     double m_brewYieldOverride = 0;
