@@ -252,7 +252,7 @@ MainController::MainController(Settings* settings, DE1Device* device,
             m_settings->setSelectedFavoriteProfile(favoriteIndex);
         }
         if (m_machineState) {
-            m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+            m_machineState->setTargetWeight(targetWeight());
         }
         // Upload to machine if connected
         if (m_currentProfile.mode() == Profile::Mode::FrameBased) {
@@ -262,6 +262,16 @@ MainController::MainController(Settings* settings, DE1Device* device,
         loadProfile(m_settings->currentProfile());
     } else {
         loadDefaultProfile();
+    }
+
+    // Keep MachineState in sync when yield override changes in Settings
+    if (m_settings) {
+        connect(m_settings, &Settings::brewOverridesChanged, this, [this]() {
+            if (m_machineState && !m_brewByRatioActive) {
+                m_machineState->setTargetWeight(targetWeight());
+            }
+            emit targetWeightChanged();
+        });
     }
 }
 
@@ -276,6 +286,10 @@ double MainController::targetWeight() const {
     // Return calculated target when brew-by-ratio is active
     if (m_brewByRatioActive) {
         return m_brewByRatioDose * m_brewByRatio;
+    }
+    // Persistent yield override (from BrewDialog or loaded from history)
+    if (m_settings && m_settings->hasBrewYieldOverride()) {
+        return m_settings->brewYieldOverride();
     }
     return m_currentProfile.targetWeight();
 }
@@ -336,9 +350,9 @@ void MainController::clearBrewByRatio() {
 
     m_brewByRatioActive = false;
 
-    // Restore profile's target weight to MachineState
+    // Restore target weight to MachineState (may still use yield override from Settings)
     if (m_machineState) {
-        m_machineState->setTargetWeight(m_currentProfile.targetWeight());
+        m_machineState->setTargetWeight(targetWeight());
     }
 
     qDebug() << "Brew-by-ratio cleared, restored target=" << m_currentProfile.targetWeight() << "g";
@@ -887,6 +901,8 @@ void MainController::loadShotWithMetadata(qint64 shotId) {
 
     // Load the profile - prefer installed profile, fall back to stored JSON
     QString filename = findProfileByTitle(shotRecord.summary.profileName);
+    qDebug() << "loadShotWithMetadata: profileTitle=" << shotRecord.summary.profileName
+             << "filename=" << filename;
     if (!filename.isEmpty()) {
         loadProfile(filename);
     } else if (!shotRecord.profileJson.isEmpty()) {
@@ -914,6 +930,8 @@ void MainController::loadShotWithMetadata(qint64 shotId) {
         // Find matching bean preset or set to -1 for guest bean
         int beanPresetIndex = m_settings->findBeanPresetByContent(
             shotRecord.summary.beanBrand, shotRecord.summary.beanType);
+        qDebug() << "loadShotWithMetadata: Looking for bean preset - brand:" << shotRecord.summary.beanBrand
+                 << "type:" << shotRecord.summary.beanType << "-> found index:" << beanPresetIndex;
         m_settings->setSelectedBeanPreset(beanPresetIndex);
 
         // Apply brew overrides from history (after loadProfile cleared them)

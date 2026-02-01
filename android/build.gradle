@@ -67,11 +67,43 @@ android {
         ndk.abiFilters = qtTargetAbiList.split(",")
     }
 
+    signingConfigs {
+        release {
+            def envKsPath = System.getenv("QT_ANDROID_KEYSTORE_PATH")
+            def localKsPath = file("decenza-release.keystore")
+            
+            if (envKsPath && new File(envKsPath).exists()) {
+                storeFile file(envKsPath)
+                storePassword System.getenv("QT_ANDROID_KEYSTORE_STORE_PASS") ?: "rZ8!YC5nvrLhc7m1uvNV"
+                keyAlias "de1-key"
+                keyPassword System.getenv("QT_ANDROID_KEYSTORE_STORE_PASS") ?: "rZ8!YC5nvrLhc7m1uvNV"
+            } else if (localKsPath.exists()) {
+                storeFile localKsPath
+                storePassword "decenza123"
+                keyAlias "de1-key"
+                keyPassword "decenza123"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+
 }
 
 // Copy APK/AAB with versioned filename after build completes
 gradle.buildFinished { result ->
     if (result.failure) return
+
+    // Only run this windows-specific logic on Windows
+    def osName = System.getProperty("os.name").toLowerCase()
+    if (!osName.contains("windows")) {
+        println "Skipping Windows-specific APK versioning/signing script on " + osName
+        return
+    }
 
     // Read versionName from AndroidManifest.xml
     def manifestFile = file("${projectDir}/AndroidManifest.xml")
